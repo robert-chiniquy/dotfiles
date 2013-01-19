@@ -10,20 +10,31 @@ if exists("syntax_on")
   syntax reset
 endif
 let g:colors_name = "cioj"
-hi Normal		  ctermfg=111  ctermbg=17  guifg=#7b91e0	 guibg=#030c33
-hi Comment	  ctermfg=104 guifg=#7e73d1
-hi Constant	  term=bold
-hi Special	  ctermfg=230  guifg=#fff9d9
-hi Identifier term=bold  ctermfg=147  guifg=#adbaf0
-hi Statement  term=bold  ctermfg=111  guifg=#7b91e0
+
+hi TabLine	gui=bold guifg=#7b91e0 guibg=#030c33
+hi TabLineFill guifg=#030c33 
+hi TabLineSel gui=bold guibg=#7b91e0 guifg=#030c33
+hi StatusLine gui=bold guibg=#7b91e0 guifg=#030c33
+hi WildMenu guifg=#030c33
+
+
+hi Normal		  ctermfg=111  ctermbg=0 guifg=#ffffff guibg=#000000 
+"guibg=#030a23
+hi Visual     guifg=#030c33 guibg=#fff9d9
+hi Comment	  ctermfg=104 guifg=#7e73d1 guibg=#030c33
+hi Constant	  ctermfg=15 guifg=#adbaf0 gui=italic term=bold
+hi Special	  guifg=#ffe9e9 guibg=#030c33
+hi Identifier gui=bold term=bold  ctermfg=147  guifg=#eeeeef 
+hi Statement  gui=bold term=bold  ctermfg=111  guifg=#7b91e0
 hi PreProc	  term=underline  ctermfg=159  guifg=#bafffd
-hi Type	      term=underline	ctermfg=159	 guifg=#bafffd
-hi Function	  term=bold  ctermfg=189	guifg=#eeeeff
-hi Repeat	    term=bold	 ctermfg=189  guifg=#eeeeff
-hi Operator	  term=bold
+hi Type	      term=italic gui=italic ctermfg=159	 guifg=#fff9d9
+hi Function	  gui=bold term=bold  ctermfg=189	guifg=#7891e0
+hi Repeat	    term=bold	 ctermfg=189  guifg=#7e73e1 guibg=#030c33
+hi Operator	  gui=bold term=bold guifg=#fff9d9
 hi Ignore		  ctermfg=104  guifg=#7e73d1
 hi Error      term=bold  ctermfg=230  guifg=#fff9d9
-hi Todo	      ctermfg=230 guifg=#fff9d9
+hi Todo	      term=bold gui=bold ctermfg=104 guifg=#000000 guibg=#fff9d9
+hi javaScriptOperator guifg=#bafffd guibg=#030c33
 
 " Common groups that link to default highlighting.
 " You can specify other highlighting easily.
@@ -33,9 +44,9 @@ hi link Number	Constant
 hi link Boolean	Constant
 hi link Float		Number
 hi link Conditional	Repeat
-hi link Label		Statement
-hi link Keyword	Statement
-hi link Exception	Statement
+hi link Label		Identifier
+hi link Keyword	Repeat
+hi link Exception	Special
 hi link Include	PreProc
 hi link Define	PreProc
 hi link Macro		PreProc
@@ -48,3 +59,11 @@ hi link SpecialChar	Special
 hi link Delimiter	Special
 hi link SpecialComment Special
 hi link Debug		Special
+hi link javaScriptIdentifier Repeat
+hi link javaScriptFuncDef Function
+hi link javaScriptOpSymbols Function
+hi link javaScriptFuncKeyword Keyword
+hi link javaScriptBraces Keyword
+hi link javaScriptParens Function
+hi link javaScriptConditional Function
+hi link javaScriptLogicSymbols javaScriptOpSymbols
