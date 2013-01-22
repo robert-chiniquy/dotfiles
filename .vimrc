@@ -71,8 +71,8 @@ if has("gui_macvim")
   map <D-f> :set invfu<CR>
 
   set guifont=Anonymous\ Pro:h14
-  set ai
-  set vb
+  set ai " autoindent
+  set vb " visual bell
   set list
   set listchars=tab:▷⋅,trail:⋅,nbsp:⋅
   set lcs=tab:▸\ ,trail:·,nbsp:_
@@ -95,6 +95,8 @@ if has("gui_macvim")
   let g:ctrlp_working_path_mode = 'rc'
   set hlsearch
 
+	let g:ackhighlight = 1
+
   set clipboard=unnamed
   set incsearch
 
@@ -112,6 +114,14 @@ if has("gui_macvim")
   map <C-\> :tab split<CR>:exec("tag ".expand("<cword>"))<CR>
   
   map <silent><D-t> :tabnew<CR>
+
+	au FileType qf call AdjustWindowHeight(3, 30)
+	function! AdjustWindowHeight(minheight, maxheight)
+		exe max([min([line("$"), a:maxheight]), a:minheight]) . "wincmd _"
+	endfunction
+
+	autocmd BufReadPost quickfix nnoremap <buffer> <Down> <Down><CR>:set hlsearch<cr><C-w><C-w>
+	autocmd BufReadPost quickfix nnoremap <buffer> <Up> <Up><CR>:set hlsearch<cr><C-w><C-w>
 
 else
 
