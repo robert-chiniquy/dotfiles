@@ -62,6 +62,7 @@ nmap <LocalLeader>gs :Gstatus<cr><C-w>20+
 nmap <LocalLeader>gc :Gcommit<cr>
 
 autocmd BufReadPre SConstruct set filetype=python
+au BufRead,BufNewFile *.thrift set filetype=thrift
 
 if has("gui_macvim")
 
@@ -71,6 +72,7 @@ if has("gui_macvim")
   map <D-f> :set invfu<CR>
 
   set guifont=Anonymous\ Pro:h14
+  "set guifont=Monaco:h14
   set ai " autoindent
   set vb " visual bell
   set list

@@ -31,7 +31,7 @@ HISTSIZE=10000
 
 shopt -s checkwinsize
 
-PATH=$PATH:~/bin/
+PATH=$PATH:~/bin:/usr/local/share/npm/bin
 
 . `brew --prefix`/etc/profile.d/z.sh
 
