@@ -1,7 +1,10 @@
 
+export CLICOLOR=1
+export LSCOLORS=Gxfxcxdxbxegedabagacad
+
 export PYTHONIOENCODING=utf_8 
 
-. ~/bin/git-completion.bash && PS1='\h:\W$(__git_ps1 "(%s)") \u\$ '
+. ~/bin/git-completion.bash && PS1='\[\e[0;37m\]\W$(__git_ps1 "(%s)") \[\e[1;34m☆ \e[m\]'
 
 function git_current_branch() {                                                                                   
   git symbolic-ref HEAD 2> /dev/null | sed -e 's/refs\/heads\///'
@@ -31,7 +34,6 @@ HISTSIZE=10000
 
 shopt -s checkwinsize
 
-PATH=$PATH:~/bin:/usr/local/share/npm/bin
+PATH=/usr/local/bin:$PATH:~/bin:/usr/local/share/npm/bin
 
-. `brew --prefix`/etc/profile.d/z.sh
 

@@ -3,30 +3,32 @@ set nocompatible
 set background=dark
 highlight NonText guifg=black
 
-set runtimepath^=~/.vim/bundle/ctrlp.vim
-set runtimepath^=~/.vim/bundle/taglist.vim
-set runtimepath^=~/.vim/bundle/vim-fugitive
-set runtimepath^=~/.vim/bundle/ag.vim
-set runtimepath^=/.vim/bundle/supertab
+"execute pathogen#infect()
+"set runtimepath^=~/.vim/bundle/ctrlp.vim
+"set runtimepath^=~/.vim/bundle/taglist.vim
+"set runtimepath^=~/.vim/bundle/vim-fugitive
+"set runtimepath^=~/.vim/bundle/ag.vim
+"set runtimepath^=/.vim/bundle/supertab
+"set runtimepath^=/.vim/bundle/YouCompleteMe
 
 syntax on
 syntax enable
-filetype plugin indent on
+filetype plugin on
 
-set statusline=%#identifier#
-set statusline+=%m
-set statusline+=%*
-set statusline+=%{fugitive#statusline()}
-set statusline+=%=
-set statusline+=%l/%L
-set statusline+=%#TabLine#
-set statusline+=[%f]
-set statusline+=%*
-set statusline+=%#TabLine#
-set statusline+=%y
+"set statusline=%#identifier#
+"set statusline+=%m
+"set statusline+=%*
+"set statusline+=%{fugitive#statusline()}
+"set statusline+=%=
+"set statusline+=%l/%L
+"set statusline+=%#TabLine#
+"set statusline+=[%f]
+"set statusline+=%*
+"set statusline+=%#TabLine#
+"set statusline+=%y
 "set statusline+=%{Tlist_Get_Tagname_By_Line()}
 "set statusline+=%{Tlist_Get_Tag_Prototype_By_Line()}
-set statusline+=%*
+"set statusline+=%*
 
 set history=1000
 
@@ -66,6 +68,23 @@ au BufRead,BufNewFile *.thrift set filetype=thrift
 
 if has("gui_macvim")
 
+  execute pathogen#infect()
+
+set statusline=%#identifier#
+set statusline+=%m
+set statusline+=%*
+set statusline+=%{fugitive#statusline()}
+set statusline+=%=
+set statusline+=%l/%L
+set statusline+=%#TabLine#
+set statusline+=[%f]
+set statusline+=%*
+set statusline+=%#TabLine#
+set statusline+=%y
+"set statusline+=%{Tlist_Get_Tagname_By_Line()}
+""set statusline+=%{Tlist_Get_Tag_Prototype_By_Line()}
+set statusline+=%*
+
   color cioj
   set fullscreen
   set fuoptions=maxvert,maxhorz
@@ -91,6 +110,7 @@ if has("gui_macvim")
   set guioptions=c
   set guioptions-=r
   set mousef
+	set tabpagemax=28
 
   set selection=exclusive
   let macvim_hig_shift_movement = 1
