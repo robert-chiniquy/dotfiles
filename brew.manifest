@@ -13,6 +13,7 @@ mercurial
 netcat
 node
 pstree
+pwgen
 python
 rbenv
 ruby-build
