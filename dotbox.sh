@@ -2,7 +2,7 @@
 
 set -e
 
-DOTBOX_DOCKER_IMAGE=ubuntu
+DOTBOX_DOCKER_IMAGE=dotfiles
 DOTBOX_DOCKER_TAG=latest
 DOTBOX_USER=root
 
@@ -16,11 +16,12 @@ if [ ! -f ${osrelease} ] || systemctl is-failed -q ${machinename} ; then
   
   sudo mkdir -p ~/repo/
   sudo chown ${USER}: ~/repo/
-  [ -e ~/repo/dotfiles ] || ( cd ~/repo && git clone https://github.com/robert-chiniquy/dotfiles )
 
+  [ -e ~/repo/dotfiles ] || ( cd ~/repo && git clone https://github.com/robert-chiniquy/dotfiles )
   cd ~/repo/dotfiles && git pull
 
-  docker build -t ${machinename} .
+  docker build -t "${DOTBOX_DOCKER_IMAGE}:${DOTBOX_DOCKER_TAG}" .
+  docker run --name=${machinename} "${DOTBOX_DOCKER_IMAGE}:${DOTBOX_DOCKER_TAG}" /bin/true
   docker export ${machinename} | sudo tar -x -C "${machinepath}" -f -
   docker rm ${machinename}
 
