@@ -16,4 +16,4 @@ def dotbox():
     local("eval `ssh-agent`; ssh -A "+ env.host_string +" git clone git@github.com:robert-chiniquy/dotfiles.git /var/lib/dotbox/core-dotfiles-latest/root/dotfiles")  
   else:
     local("eval `ssh-agent`; ssh -A "+ env.host_string +" cd /var/lib/dotbox/core-dotfiles-latest/root/dotfiles && git pull")  
-  run("dotbox bash -i -c 'cd /root ; ./dotfiles/install.sh'")
+  run("dotbox bash -i -c 'cd /root/dotfiles ; ./install.sh'")

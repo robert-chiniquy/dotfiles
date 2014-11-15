@@ -1,5 +1,7 @@
 #! /bin/bash
 
+set -e
+
 [ ! -e .git ] || ( echo ":/" ; exit 1 ) 
 
 [ -h ~/.vim ] && unlink .vim
