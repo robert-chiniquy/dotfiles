@@ -13,7 +13,7 @@ def dotbox():
   sudo("sudo chown -R core:core /var/lib/dotbox/dotfiles-latest/root")
   if not exists("/var/lib/dotbox/dotfiles-latest/root/dotfiles"):
     run("ssh-keyscan github.com >> /home/core/.ssh/known_hosts")
-    local("eval `ssh-agent`; ssh -A "+ env.host_string +" git clone git@github.com:robert-chiniquy/dotfiles.git /var/lib/dotbox/dotfiles-latest/root/dotfiles")  
+    local("eval `ssh-agent`; ssh -A "+ env.host_string +" git clone https://github.com/robert-chiniquy/dotfiles.git /var/lib/dotbox/dotfiles-latest/root/dotfiles")  
   else:
     local("eval `ssh-agent`; ssh -A "+ env.host_string +" cd /var/lib/dotbox/dotfiles-latest/root/dotfiles && git pull")  
   run("dotbox bash -i -c 'cd /root/dotfiles ; ./install.sh'")
