@@ -2,6 +2,8 @@
 
 set -e
 
+[ `which locale-gen` ] && locale-gen en_US.UTF-8
+
 [ -e .git ] || ( echo ":/" ; exit 1 ) 
 
 [ -h ~/.vim ] && unlink -d ~/.vim
