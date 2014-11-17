@@ -1,4 +1,4 @@
-#! /bin/bash
+# source into your env
 
 [ -e .venv ] || virtualenv -p python2.7 .venv
 . .venv/bin/activate
