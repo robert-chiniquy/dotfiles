@@ -11,7 +11,9 @@ chmod +x /opt/bin/dotbox
 dotbox bash -i -c 'echo -e \"\033[0;31m <3 \033[0m \"'
 sudo chown -R core:core /var/lib/dotbox/dotfiles-latest/root
 [ -e /var/lib/dotbox/dotfiles-latest/root/dotfiles ] || ( 
-  ssh-keyscan github.com >> /home/core/.ssh/known_hosts
+  mkdir -p ~/.ssh
+  chmod 700 ~/.ssh
+  ssh-keyscan github.com >> ~/.ssh/known_hosts
   echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
   git clone git@github.com:robert-chiniquy/dotfiles.git /var/lib/dotbox/dotfiles-latest/root/dotfiles
   ) || ( cd /var/lib/dotbox/dotfiles-latest/root/dotfiles && git pull )
