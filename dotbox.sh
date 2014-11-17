@@ -6,7 +6,7 @@ DOTBOX_DOCKER_IMAGE=dotfiles
 DOTBOX_DOCKER_TAG=latest
 DOTBOX_USER=root
 
-machinename=$(echo "${USER}-${DOTBOX_DOCKER_IMAGE}-${DOTBOX_DOCKER_TAG}" | sed -r 's/[^a-zA-Z0-9_.-]/_/g')
+machinename=$(echo "${DOTBOX_DOCKER_IMAGE}-${DOTBOX_DOCKER_TAG}" | sed -r 's/[^a-zA-Z0-9_.-]/_/g')
 machinepath="/var/lib/dotbox/${machinename}"
 osrelease="${machinepath}/etc/os-release"
 
