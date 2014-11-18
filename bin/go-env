@@ -1,6 +1,10 @@
 #! /bin/bash
  
-[ -e bin ] && [ -e src ] && [ -e pkg ] || return
+set -e
+
+[ -e bin ] && [ -e src ] && [ -e pkg ] || return 
+
+[ "$GOPROJECTPATH" == `pwd` ] && return
 
 set -x
 
