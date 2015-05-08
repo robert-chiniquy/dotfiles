@@ -6,6 +6,7 @@ curl
 docker
 gnupg
 graphviz
+ipcalc
 libtool
 lua
 luvit
