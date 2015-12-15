@@ -1,8 +1,8 @@
 #! /bin/bash
 
-set -e
+set -e -x
 
-UNLINK_DIR_FLAG='-d'
+UNLINK_DIR_FLAG=''
 
 # ubuntu unlink doesn't take -d
 [ -e /etc/os-release ] && unset UNLINK_DIR_FLAG
