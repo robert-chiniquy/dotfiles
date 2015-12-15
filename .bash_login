@@ -36,8 +36,12 @@ HISTSIZE=10000
 
 shopt -s checkwinsize
 
-PATH=/usr/local/bin:$PATH:~/bin:/usr/local/share/npm/bin
+PATH=/usr/local/bin:$PATH:~/bin:~/bin/tf:/usr/local/share/npm/bin
+PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+
 GOPATH=/Users/rch/Go
+
+MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
 
 export DOCKER_HOST=tcp://192.168.59.103:2376
 export DOCKER_CERT_PATH=/Users/rch/.boot2docker/certs/boot2docker-vm
