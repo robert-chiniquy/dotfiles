@@ -49,4 +49,5 @@ export DOCKER_TLS_VERIFY=1
 
 export VAGRANT_DEFAULT_PROVIDER=vmware_fusion
 
+alias sdiff='sdiff -d -W -B'
 
