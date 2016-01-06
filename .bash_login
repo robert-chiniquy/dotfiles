@@ -4,11 +4,13 @@ export LSCOLORS=Gxfxcxdxbxegedabagacad
 
 export LC_ALL="en_US.UTF-8"
 export LC_CTYPE="en_US.UTF-8"
-export PYTHONIOENCODING=utf_8 
+export PYTHONIOENCODING="utf_8"
+export LANG="en_US.UTF-8"
+export LC_MESSAGES="en_US.UTF-8"
 
-. ~/bin/git-completion.bash && PS1=$'\[\e[0;37m\]\W$(__git_ps1 "(%s)") \[\e[1;34m\xE2\x98\x86\e[m\] '
+. ~/bin/git-completion.bash && PS1=$'\[\e[0;37m\]\W$(__git_ps1 "(%s)") > '
 
-function git_current_branch() {                                                                                   
+function git_current_branch() {
   git symbolic-ref HEAD 2> /dev/null | sed -e 's/refs\/heads\///'
 }
 
@@ -16,13 +18,13 @@ function git_current_origin() {
   git config --get remote.origin.url | sed -e 's/^.*\://' | sed -e 's/\.git.*//'
 }
 
-function git_ref_origin() {                                                     
-  git rev-parse origin                                                          
-}                                                                               
-                                                                                
-function git_ref_head() {                                                       
-  git rev-parse HEAD                                                            
-}  
+function git_ref_origin() {
+  git rev-parse origin
+}
+
+function git_ref_head() {
+  git rev-parse HEAD
+}
 
 alias gpr='open "https://github.com/$(git_current_origin)/pull/new/$(git_current_branch)"'
 alias gpthis='git push origin HEAD:$(git_current_branch)'
@@ -50,4 +52,7 @@ export DOCKER_TLS_VERIFY=1
 export VAGRANT_DEFAULT_PROVIDER=vmware_fusion
 
 alias sdiff='sdiff -d -W -B'
+
+# x.x
+export ANSIBLE_NOCOWS=1
 
