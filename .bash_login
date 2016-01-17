@@ -34,7 +34,15 @@ alias gcompare='open "http://github.com/$(git_current_origin)/compare/$(git_ref_
 shopt -s histappend
 
 HISTFILESIZE=500000
-HISTSIZE=10000
+HISTSIZE=1000000
+HISTCONTROL=ignoredups
+shopt -s cmdhist
+
+trap append_history EXIT
+
+append_history() {
+  history -a
+}
 
 shopt -s checkwinsize
 
