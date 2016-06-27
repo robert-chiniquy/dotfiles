@@ -65,3 +65,4 @@ alias sdiff='sdiff -d -W -B'
 # x.x
 export ANSIBLE_NOCOWS=1
 
+source ~/bin/azure.completion.sh
