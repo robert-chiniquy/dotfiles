@@ -30,3 +30,4 @@ deactivate() {
 }
 
 set +x
+set +e
