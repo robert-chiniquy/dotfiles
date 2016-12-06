@@ -38,7 +38,7 @@ HISTSIZE=1000000
 HISTCONTROL=ignoredups
 shopt -s cmdhist
 
-trap append_history EXIT
+trap append_history EXIT KILL PIPE STOP INT QUIT TERM 
 
 append_history() {
   history -a
@@ -65,4 +65,3 @@ alias sdiff='sdiff -d -W -B'
 # x.x
 export ANSIBLE_NOCOWS=1
 
-source ~/bin/azure.completion.sh
