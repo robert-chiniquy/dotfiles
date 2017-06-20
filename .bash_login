@@ -50,7 +50,7 @@ PATH=/usr/local/bin:$PATH:~/bin:~/bin/tf:/usr/local/share/npm/bin
 PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
 MANPATH="/usr/local/opt/findutils/share/man:$MANPATH"
 
-GOPATH=/Users/rch/Go
+GOPATH=/Users/rch/go
 
 MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
 

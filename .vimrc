@@ -6,10 +6,8 @@ highlight NonText guifg=black
 "execute pathogen#infect()
 "set runtimepath^=~/.vim/bundle/ctrlp.vim
 "set runtimepath^=~/.vim/bundle/taglist.vim
-"set runtimepath^=~/.vim/bundle/vim-fugitive
 "set runtimepath^=~/.vim/bundle/ag.vim
 "set runtimepath^=/.vim/bundle/supertab
-"set runtimepath^=/.vim/bundle/YouCompleteMe
 
 syntax on
 syntax enable
