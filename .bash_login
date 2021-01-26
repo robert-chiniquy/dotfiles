@@ -65,3 +65,9 @@ alias sdiff='sdiff -d -W -B'
 # x.x
 export ANSIBLE_NOCOWS=1
 
+source ~/.profile
+
+source bash_autocomplete
+
+  [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
+
