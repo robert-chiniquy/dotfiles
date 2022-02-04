@@ -8,28 +8,30 @@ export PYTHONIOENCODING="utf_8"
 export LANG="en_US.UTF-8"
 export LC_MESSAGES="en_US.UTF-8"
 
-. ~/bin/git-completion.bash && PS1=$'\[\e[0;37m\]\W$(__git_ps1 "(%s)") > '
+export AWS_CLI_AUTO_PROMPT=on
 
-function git_current_branch() {
-  git symbolic-ref HEAD 2> /dev/null | sed -e 's/refs\/heads\///'
-}
+# . ~/bin/git-completion.bash && PS1=$'\[\e[0;37m\]\W$(__git_ps1 "(%s)") > '
 
-function git_current_origin() {
-  git config --get remote.origin.url | sed -e 's/^.*\://' | sed -e 's/\.git.*//'
-}
+# function git_current_branch() {
+#   git symbolic-ref HEAD 2> /dev/null | sed -e 's/refs\/heads\///'
+# }
 
-function git_ref_origin() {
-  git rev-parse origin
-}
+# function git_current_origin() {
+#   git config --get remote.origin.url | sed -e 's/^.*\://' | sed -e 's/\.git.*//'
+# }
 
-function git_ref_head() {
-  git rev-parse HEAD
-}
+# function git_ref_origin() {
+#   git rev-parse origin
+# }
 
-alias gpr='open "https://github.com/$(git_current_origin)/pull/new/$(git_current_branch)"'
-alias gpthis='git push origin HEAD:$(git_current_branch)'
-alias gs='git status -sb'
-alias gcompare='open "http://github.com/$(git_current_origin)/compare/$(git_ref_origin)...$(git_ref_head)"'
+# function git_ref_head() {
+#   git rev-parse HEAD
+# }
+
+# alias gpr='open "https://github.com/$(git_current_origin)/pull/new/$(git_current_branch)"'
+# alias gpthis='git push origin HEAD:$(git_current_branch)'
+# alias gs='git status -sb'
+# alias gcompare='open "http://github.com/$(git_current_origin)/compare/$(git_ref_origin)...$(git_ref_head)"'
 
 shopt -s histappend
 
@@ -38,7 +40,7 @@ HISTSIZE=1000000
 HISTCONTROL=ignoredups
 shopt -s cmdhist
 
-trap append_history EXIT KILL PIPE STOP INT QUIT TERM 
+trap append_history EXIT KILL PIPE STOP INT QUIT TERM
 
 append_history() {
   history -a
@@ -47,18 +49,18 @@ append_history() {
 shopt -s checkwinsize
 
 PATH=/usr/local/bin:$PATH:~/bin:~/bin/tf:/usr/local/share/npm/bin
-PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+PATH="/Users/rch/go/bin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
 MANPATH="/usr/local/opt/findutils/share/man:$MANPATH"
 
 GOPATH=/Users/rch/go
 
 MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
 
-export DOCKER_HOST=tcp://192.168.59.103:2376
-export DOCKER_CERT_PATH=/Users/rch/.boot2docker/certs/boot2docker-vm
-export DOCKER_TLS_VERIFY=1
+# export DOCKER_HOST=tcp://192.168.59.103:2376
+# export DOCKER_CERT_PATH=/Users/rch/.boot2docker/certs/boot2docker-vm
+# export DOCKER_TLS_VERIFY=1
 
-export VAGRANT_DEFAULT_PROVIDER=vmware_fusion
+# export VAGRANT_DEFAULT_PROVIDER=vmware_fusion
 
 alias sdiff='sdiff -d -W -B'
 
@@ -67,7 +69,12 @@ export ANSIBLE_NOCOWS=1
 
 source ~/.profile
 
-source ~/repo/dotfiles/bash_autocomplete
+# source ~/repo/dotfiles/bash_autocomplete
 
-  [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
+#   [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
 
+eval "$(starship init bash)"
+export FZF_DEFAULT_OPTS="--height 8 --reverse"
+eval "$(navi widget bash)"
+#source $(rustc --print sysroot)/etc/bash_completion.d/cargo
+. "$HOME/.cargo/env"
