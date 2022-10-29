@@ -1,4 +1,5 @@
-
+# Fig pre block. Keep at the top of this file.
+[[ -f "$HOME/.fig/shell/bash_login.pre.bash" ]] && builtin source "$HOME/.fig/shell/bash_login.pre.bash"
 export CLICOLOR=1
 export LSCOLORS=Gxfxcxdxbxegedabagacad
 
@@ -73,8 +74,13 @@ source ~/.profile
 
 #   [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
 
+export OPENSSL_DIR=/usr/local/ssl/
+
 eval "$(starship init bash)"
 export FZF_DEFAULT_OPTS="--height 8 --reverse"
 eval "$(navi widget bash)"
 #source $(rustc --print sysroot)/etc/bash_completion.d/cargo
 . "$HOME/.cargo/env"
+
+# Fig post block. Keep at the bottom of this file.
+[[ -f "$HOME/.fig/shell/bash_login.post.bash" ]] && builtin source "$HOME/.fig/shell/bash_login.post.bash"
