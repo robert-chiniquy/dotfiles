@@ -1,0 +1,11 @@
+[golang]
+disabled = false
+
+[git_status]
+disabled = true
+
+[nodejs]
+symbol = '☊ '
+
+[battery]
+disabled = true
