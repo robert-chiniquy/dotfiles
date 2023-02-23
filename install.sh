@@ -11,12 +11,16 @@ UNLINK_DIR_FLAG=''
 
 [ -e .git ] || ( echo ":/" ; exit 1 )
 
+mkdir ~/.config
+
+# [ -h ~/.config/starship.toml ] && unlink $UNLINK_DIR_FLAG ~/.config/starship.toml
 [ -h ~/.vim ] && unlink $UNLINK_DIR_FLAG ~/.vim
 [ -h ~/bin ] && unlink $UNLINK_DIR_FLAG ~/bin
 [ -h ~/.vimrc ] && unlink ~/.vimrc
 [ -h ~/.bash_login ] && unlink ~/.bash_login
 [ -h ~/.inputrc ] && unlink ~/.inputrc
 
+[ ! -e ~/.config/starship.toml ] && ln -s `pwd`/starship.toml ~/.config/starship.toml
 [ ! -e ~/.vim ] && ln -s `pwd`/.vim ~/.vim
 [ ! -e ~/bin ] && ln -s `pwd`/bin ~/bin
 [ ! -e ~/.vimrc ] && ln -s `pwd`/.vimrc ~/.vimrc
