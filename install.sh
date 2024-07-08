@@ -11,7 +11,7 @@ UNLINK_DIR_FLAG=''
 
 [ -e .git ] || ( echo ":/" ; exit 1 )
 
-mkdir ~/.config
+mkdir -p ~/.config
 
 # [ -h ~/.config/starship.toml ] && unlink $UNLINK_DIR_FLAG ~/.config/starship.toml
 [ -h ~/.vim ] && unlink $UNLINK_DIR_FLAG ~/.vim
@@ -26,5 +26,11 @@ mkdir ~/.config
 [ ! -e ~/.vimrc ] && ln -s `pwd`/.vimrc ~/.vimrc
 [ ! -e ~/.bash_login ] && ln -s `pwd`/.bash_login ~/.bash_login
 [ ! -e ~/.inputrc ] && ln -s `pwd`/.inputrc ~/.inputrc
+
+[ -h ~/.zprofile ] && unlink ~/.zprofile
+[ -h ~/.zshrc ] && unlink ~/.zshrc
+
+[ ! -e ~/.zprofile ] && ln -s `pwd`/.zprofile ~/.zprofile
+[ ! -e ~/.zshrc ] && ln -s `pwd`/.zshrc ~/.zshrc
 
 git submodule update --init

@@ -3,3 +3,4 @@
 .vagrant
 .vim
 *.log
+.DS_Store
