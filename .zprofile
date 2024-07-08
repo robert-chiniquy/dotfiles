@@ -1,5 +1,5 @@
 
-which -s brew 2>/dev/null && (
+which -s brew 1>/dev/null 2>/dev/null && (
   eval "$(/opt/homebrew/bin/brew shellenv)"
 )
 
