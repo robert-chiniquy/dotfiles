@@ -4,7 +4,7 @@ eval "$(atuin init zsh)"
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#190319,bg=#ffb1fe,bold"
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 
-which -s brew && (
+which -s brew 2>/dev/null && (
   export HOMEBREW_NO_ENV_HINTS="true"
   source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 ) || (
