@@ -1,3 +1,15 @@
+add_newline = false
+
+format = "$character$all"
+right_format = "${git_branch}${custom.git_diff_line_count}${rust}${custom.tokei_rust}"
+
+[line_break]
+disabled = true
+
+[character]
+success_symbol = '[🦋](magenta)'
+error_symbol = '[🦑](bold red)'
+
 [golang]
 disabled = false
 
@@ -7,9 +19,37 @@ disabled = true
 [nodejs]
 symbol = '☊ '
 
+[rust]
+format = '[$symbol]($style)'
+
+[package]
+disabled = true
+
+[git_branch]
+format = '[$symbol$branch(:$remote_branch)]($style) '
+
 [battery]
 disabled = true
 
 [cmd_duration]
-min_time = 10_00  # Show command duration over 10,000 milliseconds (=10 sec)
-format = "🕐 [$duration]($style)"
+min_time = 10_000  # Show command duration over 10,000 milliseconds (=10 sec)
+format = "⏱️ [$duration]($style)"
+style = "blink yellow"
+
+[custom.git_diff_line_count]
+require_repo = true
+command = ''' git diff --shortstat | awk '{if ($4 > 0) {print "+"$4;} if ($6 > 0) {print "-"$6;}}' '''
+symbol = "🐝"
+when = ''' git status | grep -q modified '''
+style = "cyan"
+format = "$symbol [$output ]($style)"
+
+[custom.tokei_rust]
+require_repo = true
+command = ''' tokei -t=Rust | awk '/^ Rust/{print $4;}' '''
+symbol = "🐚"
+when = ''' which tokei '''
+detect_files = ["Cargo.toml"]
+style = "cyan"
+format = "[$output ]($style)$symbol"
+
