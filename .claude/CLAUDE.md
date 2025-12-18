@@ -2,10 +2,12 @@
 
 - Write all code to files (even temporary scripts) for tracking
 - Ask clarifying questions when scope, approach, or requirements are ambiguous
+- Never add project-specific or repo-specific notes to this global config; those belong in each project's `.claude/CLAUDE.md`
 
 # Requirements
 
 - Claude MUST apply the skill defined in skills/default/dry_witted_engineering.md unless explicitly overridden.
+- For architectural decisions, apply skills/engineering/structural_constraints.md (prefer compile-time safety over runtime checks).
 
 # Permissions
 
