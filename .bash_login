@@ -48,7 +48,7 @@ append_history() {
 shopt -s checkwinsize
 
 PATH=/usr/local/bin:$PATH:~/bin:~/bin/tf:/usr/local/share/npm/bin
-PATH="/opt/homebrew/opt/python@3.10/libexec/bin:/Users/rch/go/bin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+PATH="/opt/homebrew/opt/python@3.14/libexec/bin:/Users/rch/go/bin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
 MANPATH="/usr/local/opt/findutils/share/man:$MANPATH"
 
 GOPATH=/Users/rch/go

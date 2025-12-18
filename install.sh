@@ -29,8 +29,10 @@ mkdir -p ~/.config
 
 [ -h ~/.zprofile ] && unlink ~/.zprofile
 [ -h ~/.zshrc ] && unlink ~/.zshrc
+[ -h ~/.claude ] && unlink $UNLINK_DIR_FLAG ~/.claude
 
 [ ! -e ~/.zprofile ] && ln -s `pwd`/.zprofile ~/.zprofile
 [ ! -e ~/.zshrc ] && ln -s `pwd`/.zshrc ~/.zshrc
+[ ! -e ~/.claude ] && ln -s `pwd`/.claude ~/.claude
 
 git submodule update --init
