@@ -1,0 +1,15 @@
+# Runtime state - do not commit
+history.jsonl
+stats-cache.json
+
+# Runtime directories
+debug/
+file-history/
+plans/
+plugins/
+projects/
+session-env/
+shell-snapshots/
+statsig/
+telemetry/
+todos/
