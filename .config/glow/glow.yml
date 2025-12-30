@@ -1,0 +1,87 @@
+# style name: rch (matching VSCode theme)
+# magenta/cyan/black vaporwave theme
+
+# Text styles
+document:
+  foreground: "#ffffff"
+  background: "#000000"
+
+# Headings - bright magenta to vaporwave cyan gradient
+h1:
+  foreground: "#ff00f8"
+  bold: true
+  
+h2:
+  foreground: "#ffb1fe"
+  bold: true
+  
+h3:
+  foreground: "#5cecff"
+  bold: true
+  
+h4:
+  foreground: "#02c3fc"
+  
+h5:
+  foreground: "#aa00e8"
+  
+h6:
+  foreground: "#b056c9"
+
+# Code blocks
+code:
+  foreground: "#fbb725"
+  background: "#1a1a1a"
+  
+code_block:
+  foreground: "#ffffff"
+  background: "#0a0a0a"
+  
+# Links - vaporwave cyan
+link:
+  foreground: "#5cecff"
+  underline: true
+  
+link_text:
+  foreground: "#02c3fc"
+  bold: true
+
+# Lists
+list:
+  foreground: "#ffffff"
+  
+item:
+  foreground: "#e0bf69"
+
+# Emphasis
+emph:
+  foreground: "#ffb1fe"
+  italic: true
+  
+strong:
+  foreground: "#ff00f8"
+  bold: true
+  
+strikethrough:
+  foreground: "#676767"
+  strikethrough: true
+
+# Quotes - brighter blue
+block_quote:
+  foreground: "#5cecff"
+  background: "#0a0a0a"
+  
+# Tables
+table:
+  foreground: "#ffffff"
+  
+table_header:
+  foreground: "#ff00f8"
+  bold: true
+  
+# Other elements
+hr:
+  foreground: "#690759"
+  
+image_text:
+  foreground: "#1afe46"

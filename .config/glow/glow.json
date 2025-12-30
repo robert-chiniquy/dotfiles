@@ -1,0 +1,78 @@
+{
+  "document": {
+    "color": "#ffffff",
+    "background_color": "#000000"
+  },
+  "h1": {
+    "color": "#ff00f8",
+    "bold": true
+  },
+  "h2": {
+    "color": "#ffb1fe",
+    "bold": true
+  },
+  "h3": {
+    "color": "#5cecff",
+    "bold": true
+  },
+  "h4": {
+    "color": "#02c3fc"
+  },
+  "h5": {
+    "color": "#aa00e8"
+  },
+  "h6": {
+    "color": "#b056c9"
+  },
+  "code": {
+    "color": "#fbb725",
+    "background_color": "#1a1a1a"
+  },
+  "code_block": {
+    "color": "#ffffff",
+    "background_color": "#0a0a0a"
+  },
+  "link": {
+    "color": "#5cecff",
+    "underline": true
+  },
+  "link_text": {
+    "color": "#02c3fc",
+    "bold": true
+  },
+  "list": {
+    "color": "#ffffff"
+  },
+  "item": {
+    "color": "#e0bf69"
+  },
+  "emph": {
+    "color": "#ffb1fe",
+    "italic": true
+  },
+  "strong": {
+    "color": "#ff00f8",
+    "bold": true
+  },
+  "strikethrough": {
+    "color": "#676767",
+    "strikethrough": true
+  },
+  "block_quote": {
+    "color": "#5cecff",
+    "background_color": "#0a0a0a"
+  },
+  "table": {
+    "color": "#ffffff"
+  },
+  "table_header": {
+    "color": "#ff00f8",
+    "bold": true
+  },
+  "hr": {
+    "color": "#690759"
+  },
+  "image_text": {
+    "color": "#1afe46"
+  }
+}
