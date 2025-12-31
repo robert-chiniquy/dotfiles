@@ -1,5 +1,31 @@
 . ~/.zprofile
 
+# === Shell Options ===
+# Better directory navigation
+setopt auto_cd              # cd by typing just directory name
+setopt auto_pushd           # Push old directory onto stack
+setopt pushd_ignore_dups    # Don't push duplicates
+setopt pushd_silent         # Don't print stack after pushd
+alias d='dirs -v'           # Show directory stack
+
+# Enhanced globbing
+setopt extended_glob        # Enable powerful globbing (^, ~, #)
+setopt glob_dots            # Include hidden files in globs
+setopt null_glob            # Don't error on no matches
+
+# Better history
+HISTSIZE=50000
+SAVEHIST=50000
+setopt extended_history     # Save timestamp and duration
+setopt hist_ignore_dups     # Don't save duplicates
+setopt hist_ignore_space    # Ignore commands starting with space
+setopt hist_reduce_blanks   # Clean up whitespace
+setopt share_history        # Share between terminals instantly
+
+# Job control
+setopt no_notify            # Don't report background job status immediately
+setopt no_bg_nice           # Don't nice background jobs
+
 # === Modern CLI Tools ===
 # eza (better ls)
 if command -v eza &>/dev/null; then
@@ -7,9 +33,10 @@ if command -v eza &>/dev/null; then
   alias ll='eza --icons --color=always --group-directories-first -l'
   alias la='eza --icons --color=always --group-directories-first -la'
   alias lt='eza --icons --color=always --tree --level=2'
+  alias lsg='eza --icons --color=always --group-directories-first --git -l'
   
-  # Vaporwave colors for eza (using ANSI color codes)
-  export EZA_COLORS="da=38;5;51:di=38;5;51:ex=38;5;201:*.md=38;5;213:*.json=38;5;221:*.yaml=38;5;51:*.go=38;5;51:*.js=38;5;221:*.ts=38;5;51"
+  # Vaporwave colors for eza - retina-searing electric colors
+  export EZA_COLORS="da=38;5;51:di=38;5;51:ex=38;5;201:*.md=38;5;171:*.json=38;5;221:*.yaml=38;5;51:*.go=38;5;51:*.js=38;5;221:*.ts=38;5;51"
 fi
 
 # zoxide (smart cd)
@@ -33,6 +60,24 @@ fi
 if command -v direnv &>/dev/null; then
   eval "$(direnv hook zsh)"
 fi
+
+# git-delta (better diffs)
+if command -v delta &>/dev/null; then
+  export GIT_PAGER='delta'
+fi
+
+# === Colorized Environment ===
+# Colorize grep output
+export GREP_COLORS='ms=01;38;5;201:mc=01;38;5;51:sl=:cx=:fn=38;5;221:ln=38;5;51:bn=38;5;51:se=38;5;201'
+
+# Vaporwave man pages and less output
+export LESS_TERMCAP_mb=$'\e[1;38;5;201m'      # begin bold (hot pink)
+export LESS_TERMCAP_md=$'\e[1;38;5;51m'       # begin blink (cyan)
+export LESS_TERMCAP_me=$'\e[0m'               # reset bold/blink
+export LESS_TERMCAP_so=$'\e[1;38;5;15;48;5;201m'  # begin reverse video (white on hot pink)
+export LESS_TERMCAP_se=$'\e[0m'               # reset reverse video
+export LESS_TERMCAP_us=$'\e[1;38;5;221m'      # begin underline (gold)
+export LESS_TERMCAP_ue=$'\e[0m'               # reset underline
 
 # JSON/YAML viewers
 alias jqc='jq -C | less -R'
@@ -142,6 +187,15 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 zstyle ':completion:*' insert-tab false
 zstyle ':completion:::::' completer _complete _approximate
 
+# Better completion caching and performance
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path ~/.zsh/cache
+
+# Colorful completion descriptions
+zstyle ':completion:*:descriptions' format '%B%F{201}%d%f%b'
+zstyle ':completion:*:warnings' format '%F{red}No matches found%f'
+zstyle ':completion:*' group-name ''
+
 # === Autosuggestions (AFTER compinit) ===
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#190319,bg=#ffb1fe,bold"
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
@@ -160,6 +214,22 @@ command -v atuin &>/dev/null && eval "$(atuin init zsh)"
 bindkey '^[[C' autosuggest-accept
 
 # TAB completion uses default expand-or-complete (no custom binding needed)
+
+# Ctrl+P: Fuzzy history search (complements atuin)
+_fuzzy_history_widget() {
+  local selected
+  selected=$(fc -rl 1 | fzf --height=40% --prompt="History: " --tac --no-sort \
+    --color='fg:#ffffff,bg:#000000,hl:#ff00f8,fg+:#000000,bg+:#ff00f8,hl+:#5cecff,info:#5cecff,border:#ff00f8,prompt:#ffb1fe,pointer:#5cecff,marker:#ff00f8,spinner:#5cecff,header:#aa00e8' | \
+    sed 's/^[ ]*[0-9]*[ ]*//')
+  
+  if [[ -n "$selected" ]]; then
+    BUFFER="$selected"
+    CURSOR=$#BUFFER
+  fi
+  zle redisplay
+}
+zle -N _fuzzy_history_widget
+bindkey '^P' _fuzzy_history_widget
 
 # fzf keybindings
 if command -v fzf &>/dev/null; then
@@ -197,3 +267,81 @@ if [[ -n "$ZSH_HIGHLIGHT_STYLES" ]]; then
   ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=#fbb725'
   ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=#fbb725'
 fi
+
+# === Auto-ls after cd ===
+# Automatically show tree after changing directory
+chpwd() {
+  emulate -L zsh
+  
+  # Show directory contents as tree if small enough
+  local item_count=$(ls -1A 2>/dev/null | wc -l | tr -d ' ')
+  if [[ $item_count -le 30 ]]; then
+    eza --tree --level=1 --icons --git --color=always --group-directories-first 2>/dev/null || ls
+  fi
+}
+
+# === Command Duration Display & Animations ===
+# Show spinner for slow commands, duration when complete, update iTerm2 badge
+preexec() {
+  _command_start_time=$SECONDS
+  
+  # Start animated spinner after 2 seconds (no job control)
+  setopt local_options no_monitor
+  (
+    sleep 2
+    local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+    while kill -0 $PPID 2>/dev/null; do
+      for frame in "${frames[@]}"; do
+        printf "\r\033[38;5;201m${frame}\033[0m Processing..." >&2
+        sleep 0.1
+      done
+    done
+    printf "\r\033[K" >&2
+  ) &!
+  _spinner_pid=$!
+}
+
+precmd() {
+  # Kill spinner if running
+  [[ -n $_spinner_pid ]] && kill $_spinner_pid 2>/dev/null
+  unset _spinner_pid
+  
+  # Show command duration
+  if [[ -n $_command_start_time ]]; then
+    local elapsed=$(( SECONDS - _command_start_time ))
+    if (( elapsed >= 3 )); then
+      echo -e "\033[38;5;221m⏱  ${elapsed}s\033[0m"
+    fi
+  fi
+  unset _command_start_time
+  
+  # Update iTerm2 badge with git info (shows all changed files up to 10)
+  if git rev-parse --git-dir &>/dev/null 2>&1; then
+    local branch=$(git branch --show-current 2>/dev/null)
+    local count=$(git status -s 2>/dev/null | wc -l | tr -d ' ')
+    
+    if [[ -n "$branch" ]]; then
+      local badge_text="⎇ $branch"
+      
+      # Check if there are changes
+      if [[ "$count" -gt 0 ]]; then
+        local files=$(git status -s 2>/dev/null | head -10)
+        badge_text="$badge_text\n"
+        badge_text="$badge_text$(echo "$files" | awk '{print "  " $2 " " $1}')"
+        
+        # Show "and N more" if more than 10
+        if (( count > 10 )); then
+          badge_text="$badge_text\n  ... and $((count - 10)) more"
+        fi
+      else
+        # No changes - show skull and crossbones
+        badge_text="$badge_text\n\n☠☠☠☠☠\n☠☠☠☠☠\n☠☠☠☠☠"
+      fi
+      
+      printf "\e]1337;SetBadgeFormat=%s\a" $(echo -n "$badge_text" | base64)
+    fi
+  else
+    # Not in a git repo - show skulls
+    printf "\e]1337;SetBadgeFormat=%s\a" $(echo -n "☠☠☠☠☠\n☠☠☠☠☠\n☠☠☠☠☠" | base64)
+  fi
+}

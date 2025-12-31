@@ -8,6 +8,11 @@
 
 - Claude MUST apply the skill defined in skills/default/dry_witted_engineering.md unless explicitly overridden.
 - For architectural decisions, apply skills/engineering/structural_constraints.md (prefer compile-time safety over runtime checks).
+- For design and planning work, apply skills in skills/design/:
+  - systematic_feature_design.md: Use 10-step methodology and Level Framework for new features
+  - socratic_discovery.md: Use questions to build consensus when stakeholders are skeptical
+  - rigorous_critique.md: Apply three-lens critique before implementation (expect 30-50% cuts)
+  - complete_developer_experience.md: Ensure Tools + Documentation + Agents (all three legs)
 
 # Permissions
 
