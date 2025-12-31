@@ -1,0 +1,49 @@
+[user]
+	email = robert.chiniquy@conductorone.com
+	name = rch
+[push]
+	autoSetupRemote = true
+[git]
+	difftool = vimdiff
+[core]
+	pager = delta
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	navigate = true
+	light = false
+	side-by-side = false
+	line-numbers = true
+	# Vaporwave colors with readable contrast
+	commit-decoration-style = bold "#fbb725" box ul
+	file-style = bold "#ff00f8"
+	file-added-label = [+]
+	file-modified-label = [M]
+	file-removed-label = [-]
+	file-renamed-label = [R]
+	hunk-header-style = file line-number syntax bold "#5cecff"
+	hunk-header-decoration-style = "#aa00e8" box
+	# Removed lines: hot pink text on dark red background
+	minus-style = syntax "#330011"
+	minus-non-emph-style = syntax "#330011"
+	minus-emph-style = syntax "#550022"
+	minus-empty-line-marker-style = normal "#330011"
+	# Added lines: cyan text on dark green background
+	plus-style = syntax "#002222"
+	plus-non-emph-style = syntax "#002222"
+	plus-emph-style = syntax "#004444"
+	plus-empty-line-marker-style = normal "#002222"
+	# Line numbers in vaporwave colors
+	line-numbers-minus-style = "#ff0099"
+	line-numbers-plus-style = "#5cecff"
+	line-numbers-zero-style = "#666666"
+	line-numbers-left-format = "{nm:>4}┊"
+	line-numbers-right-format = "{np:>4}│"
+	line-numbers-left-style = "#ff00f8"
+	line-numbers-right-style = "#5cecff"
+	zero-style = syntax
+	whitespace-error-style = "#fbb725" reverse
+[merge]
+	conflictstyle = diff3
+[diff]
+	colorMoved = default
