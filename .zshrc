@@ -1,5 +1,17 @@
 . ~/.zprofile
 
+# Source secrets (tokens, API keys - not in git)
+[[ -f ~/.secrets ]] && source ~/.secrets
+
+# === Persist last working directory (for new tabs/sessions) ===
+# New interactive shells start in the last directory you used.
+__LAST_DIR_FILE="$HOME/.zsh_last_dir"
+if [[ -o interactive && "$PWD" == "$HOME" && -r "$__LAST_DIR_FILE" ]]; then
+  __last_dir="$(<"$__LAST_DIR_FILE")"
+  [[ -d "$__last_dir" ]] && builtin cd -- "$__last_dir"
+  unset __last_dir
+fi
+
 # === Shell Options ===
 # Better directory navigation
 setopt auto_cd              # cd by typing just directory name
@@ -86,8 +98,6 @@ alias yqc='yq -C | less -R'
 # === Markdown Rendering Defaults ===
 # glow wrapper: always use pager mode with vaporwave theme
 glow() {
-  # Set less prompt to show percentage and line numbers
-  LESS='-R -M -i -j3 -P?f%f (%i/%m) ?lt Line %lt?L/%L. :byte %bB?s/%s. .?e(END):?pB %pB\%.. (press h for help)' \
   command glow -p -s ~/.config/glow/vaporwave.json "$@"
 }
 
@@ -164,8 +174,13 @@ _md_browser_widget() {
 }
 
 zle -N _md_browser_widget
+# Make double-Esc bindings responsive.
+# KEYTIMEOUT is in hundredths of a second (20 = 0.20s).
+KEYTIMEOUT=20
 # Bind to double-tap Esc
 bindkey '\e\e' _md_browser_widget
+bindkey -M emacs '\e\e' _md_browser_widget
+bindkey -M viins '\e\e' _md_browser_widget
 
 # === Completion System (BEFORE plugins) ===
 [[ -d "$HOME/.zfunc" ]] && FPATH="$HOME/.zfunc:${FPATH}"
@@ -187,9 +202,22 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 zstyle ':completion:*' insert-tab false
 zstyle ':completion:::::' completer _complete _approximate
 
-# Better completion caching and performance
+# Better completion caching with 1-hour expiry
 zstyle ':completion:*' use-cache on
 zstyle ':completion:*' cache-path ~/.zsh/cache
+
+# Cache policy: invalidate after 1 hour
+_cache_policy_1h() {
+  [[ -z "$1" ]] && return 0
+  [[ ! -f "$1" ]] && return 0
+  local -a stat
+  stat=("${(@f)$(stat -f '%m' "$1" 2>/dev/null)}")
+  (( $(date +%s) - stat[1] > 3600 ))
+}
+zstyle ':completion:*' cache-policy _cache_policy_1h
+
+# Force file completions to verify existence
+zstyle ':completion:*' file-patterns '%p:globbed-files' '*(-/):directories'
 
 # Colorful completion descriptions
 zstyle ':completion:*:descriptions' format '%B%F{201}%d%f%b'
@@ -198,7 +226,7 @@ zstyle ':completion:*' group-name ''
 
 # === Autosuggestions (AFTER compinit) ===
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#190319,bg=#ffb1fe,bold"
-export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+export ZSH_AUTOSUGGEST_STRATEGY=(history)  # Only history, not completion (avoids TAB flip-flop)
 
 for f in \
   /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
@@ -211,9 +239,49 @@ done
 command -v atuin &>/dev/null && eval "$(atuin init zsh)"
 
 # === Key Bindings ===
-bindkey '^[[C' autosuggest-accept
+# Smart TAB: accept autosuggestion OR trigger completion
+# - If autosuggestion visible: TAB accepts it
+# - If completion menu open: TAB accepts selection (via menuselect keymap)
+# - Otherwise: TAB triggers completion
+zmodload zsh/complist
 
-# TAB completion uses default expand-or-complete (no custom binding needed)
+_smart_tab() {
+  if [[ -n "$POSTDISPLAY" ]]; then
+    zle autosuggest-accept
+  else
+    zle expand-or-complete
+  fi
+}
+zle -N _smart_tab
+bindkey '^I' _smart_tab
+
+# Right arrow: move cursor, but accept suggestion if at end of line
+_smart_right() {
+  if [[ $CURSOR -eq ${#BUFFER} && -n "$POSTDISPLAY" ]]; then
+    zle autosuggest-accept
+  else
+    zle forward-char
+  fi
+}
+zle -N _smart_right
+bindkey '^[[C' _smart_right
+
+# Down arrow: open completion menu, else history
+_smart_down() {
+  zle autosuggest-clear 2>/dev/null
+  zle menu-complete
+}
+zle -N _smart_down
+bindkey '^[[B' _smart_down
+
+# In menu: TAB accepts, arrows navigate, ESC exits
+bindkey -M menuselect '^I' accept-line
+bindkey -M menuselect '^[[A' up-line-or-history
+bindkey -M menuselect '^[[B' down-line-or-history
+bindkey -M menuselect '^[[D' backward-char
+bindkey -M menuselect '^[[C' forward-char
+bindkey -M menuselect '\e' send-break
+bindkey -M menuselect '^C' send-break
 
 # Ctrl+P: Fuzzy history search (complements atuin)
 _fuzzy_history_widget() {
@@ -272,6 +340,9 @@ fi
 # Automatically show tree after changing directory
 chpwd() {
   emulate -L zsh
+
+  # Persist last directory for new tabs/sessions
+  [[ -n "$__LAST_DIR_FILE" ]] && print -r -- "$PWD" >| "$__LAST_DIR_FILE" 2>/dev/null
   
   # Show directory contents as tree if small enough
   local item_count=$(ls -1A 2>/dev/null | wc -l | tr -d ' ')
@@ -280,32 +351,74 @@ chpwd() {
   fi
 }
 
-# === Command Duration Display & Animations ===
-# Show spinner for slow commands, duration when complete, update iTerm2 badge
+# === Command Duration Display ===
+# Show duration when complete, update iTerm2 badge
 preexec() {
   _command_start_time=$SECONDS
+  __last_cmd="$1"  # Track command for history cleanup
+}
+
+# Track failed commands for similarity-based history cleanup
+typeset -ga __failed_cmds=()
+
+# Similarity check: same command with minor arg differences
+__cmds_similar() {
+  local succ="$1" fail="$2"
   
-  # Start animated spinner after 2 seconds (no job control)
-  setopt local_options no_monitor
-  (
-    sleep 2
-    local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-    while kill -0 $PPID 2>/dev/null; do
-      for frame in "${frames[@]}"; do
-        printf "\r\033[38;5;201m${frame}\033[0m Processing..." >&2
-        sleep 0.1
-      done
-    done
-    printf "\r\033[K" >&2
-  ) &!
-  _spinner_pid=$!
+  # Exact match (retry worked)
+  [[ "$succ" == "$fail" ]] && return 0
+  
+  # Same base command (first word)
+  local succ_cmd="${succ%% *}" fail_cmd="${fail%% *}"
+  [[ "$succ_cmd" != "$fail_cmd" ]] && return 1
+  
+  # Length difference > 30% = not similar
+  local -i len_s=${#succ} len_f=${#fail}
+  local -i max_len=$(( len_s > len_f ? len_s : len_f ))
+  local -i min_len=$(( len_s < len_f ? len_s : len_f ))
+  (( (max_len - min_len) * 100 / max_len > 30 )) && return 1
+  
+  # Compare char by char (simple diff count)
+  local -i diffs=0 i
+  for (( i=0; i<min_len; i++ )); do
+    [[ "${succ:$i:1}" != "${fail:$i:1}" ]] && (( diffs++ ))
+  done
+  (( diffs += max_len - min_len ))
+  
+  # Similar if <20% different
+  (( diffs * 100 / max_len < 20 ))
 }
 
 precmd() {
-  # Kill spinner if running
-  [[ -n $_spinner_pid ]] && kill $_spinner_pid 2>/dev/null
-  unset _spinner_pid
+  local __last_exit=$?
   
+  # History cleanup: remove similar failed commands when a command succeeds
+  if [[ -n "$__last_cmd" ]]; then
+    if (( __last_exit != 0 )); then
+      # Command failed - remember it
+      __failed_cmds+=("$__last_cmd")
+      # Keep only last 10 failed commands
+      (( ${#__failed_cmds} > 10 )) && __failed_cmds=("${__failed_cmds[@]: -10}")
+    elif (( ${#__failed_cmds} > 0 )); then
+      # Command succeeded - check for similar failed commands to remove
+      local failed
+      for failed in "${__failed_cmds[@]}"; do
+        if __cmds_similar "$__last_cmd" "$failed"; then
+          # Remove the failed command from history file
+          local escaped="${failed//\//\\/}"
+          escaped="${escaped//\[/\\[}"
+          escaped="${escaped//\]/\\]}"
+          sed -i '' "/;${escaped}$/d" "$HISTFILE" 2>/dev/null
+        fi
+      done
+      __failed_cmds=()  # clear after success
+    fi
+  fi
+  unset __last_cmd
+  
+  # Persist last directory for new tabs/sessions (covers shells where you never `cd`)
+  [[ -n "$__LAST_DIR_FILE" ]] && print -r -- "$PWD" >| "$__LAST_DIR_FILE" 2>/dev/null
+
   # Show command duration
   if [[ -n $_command_start_time ]]; then
     local elapsed=$(( SECONDS - _command_start_time ))
@@ -345,3 +458,6 @@ precmd() {
     printf "\e]1337;SetBadgeFormat=%s\a" $(echo -n "☠☠☠☠☠\n☠☠☠☠☠\n☠☠☠☠☠" | base64)
   fi
 }
+
+# opencode
+export PATH=/Users/rch/.opencode/bin:$PATH
