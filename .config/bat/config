@@ -1,5 +1,5 @@
 # bat configuration
---theme="base16"
+--theme="vaporwave-custom"
 --style="numbers,changes,header,grid"
 --italic-text=always
 --paging=auto

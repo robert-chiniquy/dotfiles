@@ -1,6 +1,6 @@
 {
   "document": {
-    "block_prefix": "\n",
+    "block_prefix": "",
     "block_suffix": "\n",
     "color": "#5cecff",
     "margin": 2
@@ -104,10 +104,10 @@
     "format": "▐ {{.text}} ▌"
   },
   "code": {
-    "prefix": "",
-    "suffix": "",
+    "prefix": " ",
+    "suffix": " ",
     "color": "#fbb725",
-    "background_color": "#190319"
+    "background_color": "#2d0033"
   },
   "code_block": {
     "color": "#ffffff",

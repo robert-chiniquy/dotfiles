@@ -1,0 +1,73 @@
+maximize = true
+quit-after-last-window-closed = true
+confirm-close-surface = false
+
+# font-family = JetBrains Mono
+font-family = Fira Code
+font-size = 18
+font-feature = -liga
+
+keybind = unconsumed:super+c=copy_to_clipboard
+
+# Pass escape through to shell
+keybind = unconsumed:escape=text:\x1b
+
+shell-integration = zsh
+command = /opt/homebrew/bin/zsh -l
+keybind = shift+enter=text:\x1b\r
+
+# Cursor
+cursor-style = block
+cursor-style-blink = true
+cursor-color = ff00f8
+cursor-opacity = 1.0
+cursor-invert-fg-bg = true
+
+# Background image from iTerm2
+background-image = /Users/rch/Documents/proof.png
+background-image-fit = contain
+background-image-opacity = 0.095
+
+# Vaporwave colors from vim cioj/inkpot themes
+background = 000000
+foreground = f0f0f0
+selection-background = ab60ed
+selection-foreground = 000000
+
+# ANSI colors - vaporwave palette
+palette = 0=#030c33
+palette = 1=#ff6b9d
+palette = 2=#58e8a3
+palette = 3=#fff9d9
+palette = 4=#99b3f5
+palette = 5=#c080d0
+palette = 6=#bafffd
+palette = 7=#e0e0e0
+palette = 8=#7070b0
+palette = 9=#ff8bff
+palette = 10=#00ff8b
+palette = 11=#ffcd8b
+palette = 12=#808bed
+palette = 13=#ab60ed
+palette = 14=#8b8bff
+palette = 15=#ffffff
+
+custom-shader = ./shaders/underwater-glitchy.glsl
+
+# Focus follows mouse
+focus-follows-mouse = true
+
+# Inactive split dimming
+unfocused-split-opacity = 0.7
+unfocused-split-fill = 1a0030
+
+# Window styling
+macos-titlebar-style = transparent
+macos-window-shadow = false
+window-padding-balance = true
+
+# Text styling
+bold-is-bright = true
+
+# Memory management
+scrollback-limit = 10000

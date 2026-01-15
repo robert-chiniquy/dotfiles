@@ -1,81 +1,56 @@
+# === Locale ===
+export LC_ALL="en_US.UTF-8"
+export LC_CTYPE="en_US.UTF-8"
+export LANG="en_US.UTF-8"
+export LC_MESSAGES="en_US.UTF-8"
+export PYTHONIOENCODING="utf_8"
+
+# === Colors ===
 export CLICOLOR=1
 export LSCOLORS=Gxfxcxdxbxegedabagacad
 
-export LC_ALL="en_US.UTF-8"
-export LC_CTYPE="en_US.UTF-8"
-export PYTHONIOENCODING="utf_8"
-export LANG="en_US.UTF-8"
-export LC_MESSAGES="en_US.UTF-8"
-
-export AWS_CLI_AUTO_PROMPT=on
-
-# . ~/bin/git-completion.bash && PS1=$'\[\e[0;37m\]\W$(__git_ps1 "(%s)") > '
-
-# function git_current_branch() {
-#   git symbolic-ref HEAD 2> /dev/null | sed -e 's/refs\/heads\///'
-# }
-
-# function git_current_origin() {
-#   git config --get remote.origin.url | sed -e 's/^.*\://' | sed -e 's/\.git.*//'
-# }
-
-# function git_ref_origin() {
-#   git rev-parse origin
-# }
-
-# function git_ref_head() {
-#   git rev-parse HEAD
-# }
-
-# alias gpr='open "https://github.com/$(git_current_origin)/pull/new/$(git_current_branch)"'
-# alias gpthis='git push origin HEAD:$(git_current_branch)'
-# alias gs='git status -sb'
-# alias gcompare='open "http://github.com/$(git_current_origin)/compare/$(git_ref_origin)...$(git_ref_head)"'
-
-shopt -s histappend
-
+# === History ===
 HISTFILESIZE=500000
 HISTSIZE=1000000
 HISTCONTROL=ignoredups
+shopt -s histappend
 shopt -s cmdhist
-
-trap append_history EXIT KILL PIPE STOP INT QUIT TERM
 
 append_history() {
   history -a
 }
+trap append_history EXIT
 
 shopt -s checkwinsize
 
-PATH=/usr/local/bin:$PATH:~/bin:~/bin/tf:/usr/local/share/npm/bin
-PATH="/opt/homebrew/opt/python@3.14/libexec/bin:/Users/rch/go/bin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
-MANPATH="/usr/local/opt/findutils/share/man:$MANPATH"
+# === PATH ===
+# Homebrew (macOS)
+[[ -d /opt/homebrew/bin ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+[[ -d /usr/local/bin ]] && PATH="/usr/local/bin:$PATH"
 
-GOPATH=/Users/rch/go
+# GNU coreutils (if installed)
+[[ -d /usr/local/opt/coreutils/libexec/gnubin ]] && PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+[[ -d /usr/local/opt/coreutils/libexec/gnuman ]] && MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
 
-MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
+# Go
+[[ -d "$HOME/go/bin" ]] && PATH="$HOME/go/bin:$PATH"
+export GOPATH="$HOME/go"
 
-# export DOCKER_HOST=tcp://192.168.59.103:2376
-# export DOCKER_CERT_PATH=/Users/rch/.boot2docker/certs/boot2docker-vm
-# export DOCKER_TLS_VERIFY=1
+# Personal bin
+[[ -d "$HOME/bin" ]] && PATH="$HOME/bin:$PATH"
 
-# export VAGRANT_DEFAULT_PROVIDER=vmware_fusion
+# === Rust/Cargo ===
+[[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
 
-alias sdiff='sdiff -d -W -B'
-
-# x.x
+# === Tools ===
 export ANSIBLE_NOCOWS=1
+export AWS_CLI_AUTO_PROMPT=on
 
-source ~/.profile
+# Starship prompt
+command -v starship &>/dev/null && eval "$(starship init bash)"
 
-# source ~/repo/dotfiles/bash_autocomplete
-
-#   [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
-
-export OPENSSL_DIR=/usr/local/ssl/
-
-eval "$(starship init bash)"
+# FZF
 export FZF_DEFAULT_OPTS="--height 8 --reverse"
-eval "$(navi widget bash)"
-#source $(rustc --print sysroot)/etc/bash_completion.d/cargo
-. "$HOME/.cargo/env"
+
+# === Aliases ===
+alias sdiff='sdiff -d -W -B'

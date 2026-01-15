@@ -14,9 +14,14 @@ skills/
 │   ├── systematic_feature_design.md        # 10-step design process with Level Framework
 │   ├── socratic_discovery.md               # Question-driven requirements discovery
 │   ├── rigorous_critique.md                # Three-lens design review
-│   └── complete_developer_experience.md    # Tools + Docs + Agents completeness
+│   ├── complete_developer_experience.md    # Tools + Docs + Agents completeness
+│   └── protogen_stack.md                   # Proto-first architecture patterns
+├── documentation/
+│   ├── layered_documentation.md          # Three-layer documentation strategy
+│   └── gradual_exploration_process.md    # 7-step content pattern, 8-step process
 ├── communication/
 ├── meta/
+│   └── project_process.md          # Mandatory project practices (DATA_SOURCES.md, etc.)
 └── README.md
 ```
 
@@ -44,6 +49,36 @@ Three-lens design review before implementation: (1) Unnecessary Complexity - ide
 
 ### design/complete_developer_experience.md
 Ensure all three components of DX: Tools (CLI, servers, build systems), Documentation (ontology, progressive disclosure, examples), Agents (AI assistance, code generation). Don't ship with only one leg. Minimum: tools + docs. Add agents post-launch for delight.
+
+### design/protogen_stack.md
+Proto-first architecture for Go backends with TypeScript frontends. Covers proto organization, code generation, three-layer architecture, Driver/Controller pattern, WithPassport tenant isolation, FormSchema for dynamic UIs, and frontend patterns (@protobuf-ts, WebSocket).
+
+### documentation/layered_documentation.md
+Three-layer strategy for documentation: (1) Global Skills - reusable patterns, (2) Local Implementation Notes - how this project applies patterns, (3) Domain Design - project-specific models and logic. Prevents conflation of stack knowledge with domain knowledge.
+
+### documentation/gradual_exploration_process.md
+Systematic process for writing technical documentation. Core concepts:
+- **7-step content pattern**: Orient, Contextualize, Explain, Tradeoffs, Demonstrate, Edge Cases, Connect
+- **8-step process**: Pre-flight, Scope, Source, Outline, Draft, Verify, Contradiction, Connect, Publish
+- **Phases**: Iterative passes that incorporate new learnings
+- **Levels**: L0 (critical) before L1 (important) before L2 (supporting) before L3 (reference)
+- **Hard-won learnings**: Avoid version numbers, code is ground truth, document anti-patterns, assertion verification before publication
+
+### meta/project_process.md
+Mandatory practices for all projects. Non-negotiable requirements:
+
+**Mandatory Artifacts:**
+- **DATA_SOURCES.md** - Track provenance of all information: filesystem paths, URLs, other sources. Add as consulted, not retroactively.
+- **LEARNINGS.md** - Preserve discoveries with dated headers (## YYYY-MM-DD: Topic). Append-only, include file paths and code snippets.
+- **HUMAN_ACTIONS_NEEDED.md** - Queue blocking human actions instead of stopping. Continue other work while waiting.
+- **old/** directory - Move deprecated code here instead of deleting. Each item gets README explaining why deprecated and what replaced it.
+- **DEMO.md** - After completing user-facing features, write runnable walkthrough with expected output.
+
+**Mandatory Practices:**
+- **File versioning** - Create V2, V3, PHASE2 versions instead of overwriting documents (except typo fixes).
+- **Stable identifiers** - Never renumber backlog items. Keep holes in sequence, strikethrough removed items.
+- **Checkpoint commits** - Commit at end of each phase, before major changes, when meaningful work completes.
+- **Catalog documents** - Maintain markdown catalogs for enumerable items (components, endpoints, etc.).
 
 ## Usage
 

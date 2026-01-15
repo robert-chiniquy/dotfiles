@@ -3,6 +3,9 @@
 # Source secrets (tokens, API keys - not in git)
 [[ -f ~/.secrets ]] && source ~/.secrets
 
+# === Starship prompt (must be in .zshrc, not .zprofile - needs zle) ===
+eval "$(starship init zsh)"
+
 # === Persist last working directory (for new tabs/sessions) ===
 # New interactive shells start in the last directory you used.
 __LAST_DIR_FILE="$HOME/.zsh_last_dir"
@@ -10,6 +13,11 @@ if [[ -o interactive && "$PWD" == "$HOME" && -r "$__LAST_DIR_FILE" ]]; then
   __last_dir="$(<"$__LAST_DIR_FILE")"
   [[ -d "$__last_dir" ]] && builtin cd -- "$__last_dir"
   unset __last_dir
+fi
+
+# Force horizontal banner output on macOS
+if command -v gbanner >/dev/null 2>&1; then
+  alias banner='gbanner'
 fi
 
 # === Shell Options ===
@@ -26,6 +34,7 @@ setopt glob_dots            # Include hidden files in globs
 setopt null_glob            # Don't error on no matches
 
 # Better history
+HISTFILE=~/.zsh_history
 HISTSIZE=50000
 SAVEHIST=50000
 setopt extended_history     # Save timestamp and duration
@@ -33,6 +42,12 @@ setopt hist_ignore_dups     # Don't save duplicates
 setopt hist_ignore_space    # Ignore commands starting with space
 setopt hist_reduce_blanks   # Clean up whitespace
 setopt share_history        # Share between terminals instantly
+# Note: share_history = intermixed across terminals. Alternative: per-session with
+# HISTFILE=~/.zsh_history_$$ but that fragments history and breaks cross-session recall.
+# Intermixed is better for "what command did I run yesterday" use cases.
+
+# === Vaporwave FZF Colors ===
+export FZF_COLORS='fg:#ffffff,bg:#000000,hl:#ff00f8,fg+:#000000,bg+:#ff00f8,hl+:#5cecff,info:#5cecff,border:#ff00f8,prompt:#ffb1fe,pointer:#5cecff,marker:#ff00f8,spinner:#5cecff,header:#aa00e8'
 
 # Job control
 setopt no_notify            # Don't report background job status immediately
@@ -60,7 +75,7 @@ fi
 if command -v bat &>/dev/null; then
   alias cat='bat --style=plain --paging=never'
   alias bcat='bat --style=full'
-  export BAT_THEME="base16"
+  # Theme set in ~/.config/bat/config
 fi
 
 # ripgrep with colors
@@ -73,10 +88,7 @@ if command -v direnv &>/dev/null; then
   eval "$(direnv hook zsh)"
 fi
 
-# git-delta (better diffs)
-if command -v delta &>/dev/null; then
-  export GIT_PAGER='delta'
-fi
+# git-delta configured in .gitconfig [core] pager = delta
 
 # === Colorized Environment ===
 # Colorize grep output
@@ -96,9 +108,70 @@ alias jqc='jq -C | less -R'
 alias yqc='yq -C | less -R'
 
 # === Markdown Rendering Defaults ===
-# glow wrapper: always use pager mode with vaporwave theme
+# glow wrapper: pager mode + vaporwave theme + TAB to follow local .md links
+# Sets _GLOW_VIEWED_FILES array with fully qualified paths of all viewed files
 glow() {
-  command glow -p -s ~/.config/glow/vaporwave.json "$@"
+  local file="$1"
+  local current_dir
+  
+  # Reset viewed files tracking
+  typeset -ga _GLOW_VIEWED_FILES=()
+  
+  # If no file or multiple files, just run glow normally
+  if [[ -z "$file" || $# -gt 1 || ! -f "$file" ]]; then
+    command glow -p -s ~/.config/glow/vaporwave.json "$@"
+    return
+  fi
+  
+  # Track the base directory for resolving relative links
+  current_dir="$(dirname "$(realpath "$file")")"
+  
+  while true; do
+    # Track this file as viewed
+    _GLOW_VIEWED_FILES+=("$(realpath "$file")")
+    
+    # Show the file
+    command glow -p -s ~/.config/glow/vaporwave.json "$file"
+    
+    # Extract local .md links from the file
+    # Matches: [text](path.md) or [text](path.md#anchor) or [text](./path.md)
+    local -a links=()
+    local link target
+    while IFS= read -r link; do
+      # Remove anchor fragments
+      target="${link%%#*}"
+      # Resolve relative to current file's directory
+      if [[ "$target" == /* ]]; then
+        # Absolute path
+        [[ -f "$target" ]] && links+=("$target")
+      else
+        # Relative path
+        [[ -f "$current_dir/$target" ]] && links+=("$current_dir/$target")
+      fi
+    done < <(grep -oE '\[[^]]*\]\([^)]+\.md[^)]*\)' "$file" 2>/dev/null | \
+             sed -E 's/.*\]\(([^)]+)\)/\1/' | sort -u)
+    
+    # No links found, exit
+    (( ${#links} == 0 )) && break
+    
+    # Deduplicate
+    links=(${(u)links})
+    
+    # Show fzf picker with TAB hint
+    local selected
+    selected=$(printf '%s\n' "${links[@]}" | \
+      fzf --no-mouse \
+          --prompt='TAB found links > ' \
+          --header='Select linked file (ESC to exit)' \
+          --preview 'bat --color=always --style=plain --theme=vaporwave-custom --language=md {}' \
+          --preview-window=right:65%:wrap \
+          --height=100% \
+          --border=rounded \
+          --color="$FZF_COLORS") || break
+    
+    # If user selected a file, loop to show it
+    [[ -n "$selected" ]] && file="$selected" && current_dir="$(dirname "$(realpath "$file")")" || break
+  done
 }
 
 # Enhanced md viewer with TOC support
@@ -145,42 +218,131 @@ md() {
 
 # === Markdown Browser (Esc key) ===
 _md_browser_widget() {
-  # Collect markdown files
-  local files=(*.md(N))
+  local -a all_files=()
+  local -a viewed_files=()
+  local min_files=20
+  local max_files=60
   
-  # If no markdown files, do nothing
-  if (( ${#files} == 0 )); then
-    return 0
+  # Directories to always skip (dependencies, build artifacts, caches)
+  local -a skip_dirs=(node_modules vendor .cache __pycache__ dist build .git 
+                      .venv venv env .tox .pytest_cache .mypy_cache coverage
+                      .next .nuxt .output target pkg mod cache plugin plugins)
+  local skip_pattern="(${(j:|:)skip_dirs})"
+  
+  # 1. Start with current directory markdown files (D = include dotfiles)
+  all_files=(*.md(ND))
+
+  # If no markdown files anywhere, do nothing
+  if (( ${#all_files} == 0 )); then
+    # Try one level of subdirs before giving up (excluding skip dirs)
+    # Include hidden directories with explicit .*/
+    local -a subdir_files=()
+    for f in */**.md(ND) .*/**.md(ND); do
+      [[ "$f" == */${~skip_pattern}/* ]] && continue
+      subdir_files+=("$f")
+    done
+    if (( ${#subdir_files} == 0 )); then
+      return 0
+    fi
   fi
+
+  # 2. If under threshold, cascade into subdirectories
+  if (( ${#all_files} < min_files )); then
+    local -a priority_dirs=() other_dirs=()
+    local dir
+
+    # Categorize subdirectories (prioritize docs-like names)
+    # Include hidden directories with explicit .*/ pattern
+    for dir in */(/ND) .*/(/ND); do
+      dir="${dir%/}"
+      # Skip dependency/build directories
+      [[ "${dir:l}" == ${~skip_pattern} ]] && continue
+      case "${dir:l}" in
+        doc|docs|documentation|readme|readmes|guide|guides|manual|manuals|wiki)
+          priority_dirs+=("$dir")
+          ;;
+        *)
+          other_dirs+=("$dir")
+          ;;
+      esac
+    done
+    
+    # Add files from priority directories first
+    local subfiles
+    for dir in "${priority_dirs[@]}" "${other_dirs[@]}"; do
+      (( ${#all_files} >= max_files )) && break
+      subfiles=("$dir"/*.md(ND))
+      if (( ${#subfiles} > 0 )); then
+        local remaining=$(( max_files - ${#all_files} ))
+        all_files+=("${subfiles[@]:0:$remaining}")
+      fi
+    done
+
+    # If still under threshold, go deeper (2 levels), still filtering
+    if (( ${#all_files} < min_files )); then
+      for dir in "${priority_dirs[@]}" "${other_dirs[@]}"; do
+        (( ${#all_files} >= max_files )) && break
+        for f in "$dir"/**/*.md(ND); do
+          (( ${#all_files} >= max_files )) && break
+          # Skip dependency directories
+          [[ "$f" == */${~skip_pattern}/* ]] && continue
+          # Skip if already added
+          [[ " ${all_files[*]} " == *" $f "* ]] && continue
+          all_files+=("$f")
+        done
+      done
+    fi
+  fi
+  
+  # If still no files, give up
+  (( ${#all_files} == 0 )) && return 0
 
   # fzf with wide preview (80% preview window, keyboard only)
   # Use TERM=xterm-256color to force glow to output colors
   local file
-  file=$(printf '%s\n' "${files[@]}" | \
+  file=$(printf '%s\n' "${all_files[@]}" | \
     TERM=xterm-256color fzf --no-mouse \
         --ansi \
-        --preview 'TERM=xterm-256color command glow -s dark {}' \
-        --preview-window=right:80%:wrap \
+        --preview 'bat --color=always --style=plain --theme=vaporwave-custom --language=md {}' \
+        --preview-window=right:75%:wrap \
         --height=100% \
         --border=rounded \
-        --color='fg:#ffffff,bg:#000000,hl:#ff00f8,fg+:#000000,bg+:#ff00f8,hl+:#5cecff,info:#5cecff,border:#ff00f8,prompt:#ffb1fe,pointer:#5cecff,marker:#ff00f8,spinner:#5cecff,header:#aa00e8') || {
+        --color="$FZF_COLORS") || {
     zle redisplay
     return 0
   }
   
-  [[ -n $file ]] && glow "$file"
-  zle redisplay
+  # View the selected file (glow tracks viewed files in _GLOW_VIEWED_FILES)
+  if [[ -n $file ]]; then
+    # Add the initially selected file
+    viewed_files+=("$(realpath "$file")")
+    glow "$file"
+    # Add any files viewed via link-following
+    viewed_files+=("${_GLOW_VIEWED_FILES[@]}")
+  fi
+  
+  # Deduplicate and print viewed files
+  if (( ${#viewed_files} > 0 )); then
+    viewed_files=(${(u)viewed_files})
+    # Clear line and print files (ensures visibility after glow's terminal manipulation)
+    print ""
+    print -l "${viewed_files[@]}"
+    print ""
+  fi
+  zle reset-prompt
   return 0
 }
 
+# Force emacs keybindings (prevent EDITOR=vim from triggering vi mode)
+bindkey -e
+
 zle -N _md_browser_widget
-# Make double-Esc bindings responsive.
-# KEYTIMEOUT is in hundredths of a second (20 = 0.20s).
-KEYTIMEOUT=20
-# Bind to double-tap Esc
+# Bind to double-tap Esc - KEYTIMEOUT=10 (0.1s) requires fast double-tap
+KEYTIMEOUT=10
 bindkey '\e\e' _md_browser_widget
 bindkey -M emacs '\e\e' _md_browser_widget
 bindkey -M viins '\e\e' _md_browser_widget
+bindkey -M vicmd '\e\e' _md_browser_widget
 
 # === Completion System (BEFORE plugins) ===
 [[ -d "$HOME/.zfunc" ]] && FPATH="$HOME/.zfunc:${FPATH}"
@@ -235,9 +397,6 @@ for f in \
   [[ -f "$f" ]] && source "$f" && break
 done
 
-# === Atuin ===
-command -v atuin &>/dev/null && eval "$(atuin init zsh)"
-
 # === Key Bindings ===
 # Smart TAB: accept autosuggestion OR trigger completion
 # - If autosuggestion visible: TAB accepts it
@@ -265,6 +424,7 @@ _smart_right() {
 }
 zle -N _smart_right
 bindkey '^[[C' _smart_right
+bindkey '^[OC' _smart_right    # SS3 variant (Ghostty sends this)
 
 # Down arrow: open completion menu, else history
 _smart_down() {
@@ -273,13 +433,26 @@ _smart_down() {
 }
 zle -N _smart_down
 bindkey '^[[B' _smart_down
+bindkey '^[OB' _smart_down     # SS3 variant (Ghostty sends this)
+
+# Up arrow: history search
+bindkey '^[[A' up-line-or-history
+bindkey '^[OA' up-line-or-history  # SS3 variant (Ghostty sends this)
+
+# Left arrow: move cursor (explicit binding for both sequence types)
+bindkey '^[[D' backward-char
+bindkey '^[OD' backward-char   # SS3 variant (Ghostty sends this)
 
 # In menu: TAB accepts, arrows navigate, ESC exits
 bindkey -M menuselect '^I' accept-line
 bindkey -M menuselect '^[[A' up-line-or-history
+bindkey -M menuselect '^[OA' up-line-or-history   # SS3 variant
 bindkey -M menuselect '^[[B' down-line-or-history
+bindkey -M menuselect '^[OB' down-line-or-history # SS3 variant
 bindkey -M menuselect '^[[D' backward-char
+bindkey -M menuselect '^[OD' backward-char        # SS3 variant
 bindkey -M menuselect '^[[C' forward-char
+bindkey -M menuselect '^[OC' forward-char         # SS3 variant
 bindkey -M menuselect '\e' send-break
 bindkey -M menuselect '^C' send-break
 
@@ -287,7 +460,7 @@ bindkey -M menuselect '^C' send-break
 _fuzzy_history_widget() {
   local selected
   selected=$(fc -rl 1 | fzf --height=40% --prompt="History: " --tac --no-sort \
-    --color='fg:#ffffff,bg:#000000,hl:#ff00f8,fg+:#000000,bg+:#ff00f8,hl+:#5cecff,info:#5cecff,border:#ff00f8,prompt:#ffb1fe,pointer:#5cecff,marker:#ff00f8,spinner:#5cecff,header:#aa00e8' | \
+    --color="$FZF_COLORS" | \
     sed 's/^[ ]*[0-9]*[ ]*//')
   
   if [[ -n "$selected" ]]; then
@@ -302,12 +475,12 @@ bindkey '^P' _fuzzy_history_widget
 # fzf keybindings
 if command -v fzf &>/dev/null; then
   # Ctrl+T: Fuzzy file search with smart preview (bat for text, xxd for binaries)
-  export FZF_CTRL_T_COMMAND='fd --type f --hidden --follow --exclude .git'
-  export FZF_CTRL_T_OPTS="--preview 'if file -b --mime {} | grep -q text; then bat --color=always --style=numbers --line-range=:500 {}; else xxd -l 512 {}; fi' --preview-window=right:60%:wrap --color='fg:#ffffff,bg:#000000,hl:#ff00f8,fg+:#000000,bg+:#ff00f8,hl+:#5cecff,info:#5cecff,border:#ff00f8,prompt:#ffb1fe,pointer:#5cecff,marker:#ff00f8,spinner:#5cecff,header:#aa00e8'"
+  export FZF_CTRL_T_COMMAND='fd --type f --hidden --follow --exclude .git --exclude cache --exclude plugin --exclude plugins'
+  export FZF_CTRL_T_OPTS="--preview 'if file -b --mime {} | grep -q text; then bat --color=always --style=numbers --line-range=:500 {}; else xxd -l 512 {}; fi' --preview-window=right:60%:wrap --color=$FZF_COLORS"
   
   # Alt+C: Fuzzy cd into subdirectories
-  export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
-  export FZF_ALT_C_OPTS="--preview 'eza --tree --level=1 --color=always {}' --color='fg:#ffffff,bg:#000000,hl:#ff00f8,fg+:#000000,bg+:#ff00f8,hl+:#5cecff,info:#5cecff,border:#ff00f8,prompt:#ffb1fe,pointer:#5cecff,marker:#ff00f8,spinner:#5cecff,header:#aa00e8'"
+  export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git --exclude cache --exclude plugin --exclude plugins'
+  export FZF_ALT_C_OPTS="--preview 'eza --tree --level=1 --color=always {}' --color=$FZF_COLORS"
   
   # Load fzf keybindings
   [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
@@ -315,6 +488,9 @@ if command -v fzf &>/dev/null; then
 fi
 
 export HOMEBREW_NO_ENV_HINTS="true"
+
+# === Atuin (after keybindings so it gets final say on up-arrow) ===
+command -v atuin &>/dev/null && eval "$(atuin init zsh)"
 
 # === Syntax Highlighting (MUST BE LAST) ===
 for f in \
@@ -415,9 +591,6 @@ precmd() {
     fi
   fi
   unset __last_cmd
-  
-  # Persist last directory for new tabs/sessions (covers shells where you never `cd`)
-  [[ -n "$__LAST_DIR_FILE" ]] && print -r -- "$PWD" >| "$__LAST_DIR_FILE" 2>/dev/null
 
   # Show command duration
   if [[ -n $_command_start_time ]]; then
