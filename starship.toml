@@ -46,9 +46,7 @@ symbol = " "
 disabled = true
 
 [cmd_duration]
-min_time = 10_000  # Show command duration over 10,000 milliseconds (=10 sec)
-format = "⏱️ [$duration]($style)"
-style = "blink yellow"
+disabled = true  # Using custom precmd in .zshrc (shows at 3s, more useful)
 
 [custom.git_diff_line_count]
 require_repo = true

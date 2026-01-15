@@ -145,7 +145,7 @@ set statusline+=%*
 
 else
 
-  color inkpot
+  color vaporwave
 
 endif
 

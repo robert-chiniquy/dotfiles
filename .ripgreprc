@@ -8,3 +8,9 @@
 --smart-case
 --hidden
 --glob=!.git/*
+--glob=!cache/*
+--glob=!plugin/*
+--glob=!plugins/*
+--glob=!node_modules/*
+--glob=!vendor/*
+--glob=!__pycache__/*

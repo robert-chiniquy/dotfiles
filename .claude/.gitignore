@@ -2,9 +2,16 @@
 history.jsonl
 stats-cache.json
 
+# Credentials - never commit
+credentials.json
+settings.local.json
+
 # Runtime directories
+cache/
+chrome/
 debug/
 file-history/
+paste-cache/
 plans/
 plugins/
 projects/

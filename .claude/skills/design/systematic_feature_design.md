@@ -13,7 +13,7 @@ Apply a rigorous 10-step methodology for designing new features and systems, ens
 
 ---
 
-## The 10-Step Process
+## The 11-Step Process
 
 ### 1. Research
 Survey prior art and understand the landscape.
@@ -53,6 +53,40 @@ After:  "Lovable" means:
         - Provides clear error messages with suggested fixes
         - Shows progress for operations >2 seconds
         - Supports both interactive and scriptable modes
+```
+
+### 3.5. Design Documentation Ontology
+Create information architecture before writing content.
+
+**Activities:**
+- Map all knowledge domains in the system
+- Organize into logical hierarchy (Getting Started → Advanced)
+- Identify relationships between sections
+- Plan for both MVP and future expansion
+- Ensure ontology covers all personas (developers, users, operators)
+
+**Output:** Documentation ontology (nested bullet structure).
+
+**Why this matters:**
+- Reveals missing knowledge areas early
+- Ensures coherent information architecture
+- Guides content creation priorities
+- Prevents documentation silos and duplication
+
+**Example structure:**
+```
+1. Getting Started
+   - Prerequisites
+   - Quickstart
+2. Core Concepts
+   - Architecture
+   - Key terminology
+3. Building
+   - Implementation guide
+   - API reference
+4. Deployment
+   - Patterns
+   - Production readiness
 ```
 
 ### 4. Ideate (Feature Wishlist)
@@ -145,6 +179,99 @@ Capture decisions for future reference.
 
 **Output:** Architecture decision records, updated index.
 
+### 11. Design Documentation Ontology
+Create complete information architecture.
+
+**Activities:**
+- Map all knowledge domains covered by the system
+- Organize into logical hierarchy (beginner → advanced)
+- Identify cross-references and relationships
+- Plan for both MVP and future content expansion
+- Ensure coverage for all personas
+
+**Output:** Documentation ontology as nested structure.
+
+**Why this is a separate step:**
+- Often reveals missing functional requirements ("we need to document X, but X doesn't exist yet")
+- Ensures documentation is comprehensive before writing content
+- Guides prioritization (what docs are needed for MVP vs later)
+- Creates shared vocabulary for team
+
+**This step may trigger doubling back:** If ontology reveals missing features or personas, return to earlier steps.
+
+---
+
+## The Phase Framework
+
+Phases represent complete passes through the design process. When you revisit a step (e.g., after critique triggers a double-back), that work belongs to the next phase.
+
+### Phase Numbering
+
+```
+PHASE_1_RESEARCH.md      # Initial research
+PHASE_1_COMPARE.md       # Initial comparison
+PHASE_1_IDEATE.md        # Initial feature wishlist
+PHASE_1_CRITIQUE.md      # First critique pass
+  ↓ (critique reveals gaps, triggers double-back)
+PHASE_2_IDEATE.md        # Revised wishlist addressing critique
+PHASE_2_IMPLEMENT.md     # Implementation plan v2
+PHASE_2_CRITIQUE.md      # Second critique pass
+  ↓ (architect review, more refinements)
+PHASE_3_IMPLEMENT.md     # Final implementation plan
+```
+
+### Rules
+
+1. **Never revise prior phase documents** - Create new document in next phase
+2. **Reference prior phases** - New docs should cite what they supersede
+3. **Phase number increments on any double-back** - Not just major rewrites
+4. **Final phase gets `_FINAL` suffix** - Indicates approved plan
+
+### Naming Convention
+
+```
+PHASE_<N>_<STEP>.md           # Standard step document
+PHASE_<N>_<STEP>_REVISED.md   # Minor revision within same phase
+PHASE_<N>_<STEP>_FINAL.md     # Approved/frozen document
+```
+
+### Example Directory Structure
+
+```
+docs/design/
+├── PHASE_1_RESEARCH.md
+├── PHASE_1_COMPARE.md
+├── PHASE_1_IDEATE.md
+├── PHASE_1_CRITIQUE.md           # Identifies issues
+├── PHASE_2_IDEATE.md             # Addresses critique
+├── PHASE_2_IMPLEMENT.md
+├── PHASE_2_CRITIQUE.md           # Architect review
+├── PHASE_2_CRITIQUE_REVISED.md   # Addresses review findings
+├── PHASE_2_CONSOLIDATE.md
+├── PHASE_2_FINAL.md              # Approved implementation plan
+└── README.md                     # Index with phase progression
+```
+
+### When to Increment Phase
+
+| Trigger | Action |
+|---------|--------|
+| Critique identifies issues requiring ideation changes | New phase |
+| Architect review with structural changes | New phase |
+| Stakeholder feedback changing requirements | New phase |
+| Discovery invalidates assumptions | New phase |
+| Minor clarifications or typo fixes | `_REVISED` suffix, same phase |
+
+### Version Suffixes (Alternative Pattern)
+
+For documents that evolve without the full design process (e.g., backlogs, status reports), use version suffixes:
+
+```
+BACKLOG.md      # Initial (implied V1)
+BACKLOG_V2.md   # After significant changes
+BACKLOG_V9.md   # Many iterations later
+```
+
 ---
 
 ## The Level Framework
@@ -220,6 +347,7 @@ Before claiming design is complete, verify:
 
 - [ ] Comparison matrix created with 3+ platforms
 - [ ] Qualitative terms defined with measurable attributes
+- [ ] Documentation ontology designed (all knowledge domains mapped)
 - [ ] Every feature has concrete example
 - [ ] Existing codebase explored for reusable components
 - [ ] Level 0 questions answered (auth, schema, deployment)
@@ -227,3 +355,4 @@ Before claiming design is complete, verify:
 - [ ] At least one double-back iteration completed
 - [ ] Superseded documents marked clearly
 - [ ] Architectural decisions documented with rationale
+- [ ] Documentation ontology covers all personas and use cases

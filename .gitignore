@@ -4,3 +4,15 @@
 .vim
 *.log
 .DS_Store
+
+# Secrets and credentials - never commit
+.secrets
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+*.p12
+*.pfx
+.aws/credentials
+.netrc
