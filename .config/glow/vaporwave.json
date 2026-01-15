@@ -13,6 +13,8 @@
     "background_color": "234"
   },
   "paragraph": {
+    "block_prefix": "",
+    "block_suffix": "",
     "color": "#ffffff"
   },
   "list": {

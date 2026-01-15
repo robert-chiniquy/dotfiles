@@ -42,10 +42,10 @@ hi IncSearch      gui=bold guifg=#000000 guibg=#5cecff
 hi MatchParen     gui=bold guifg=#ffffff guibg=#aa00e8
 
 " === Diff ===
-hi DiffAdd        ctermfg=255 ctermbg=22  guifg=#ffffff guibg=#003322
-hi DiffChange     ctermfg=255 ctermbg=58  guifg=#ffffff guibg=#332200
-hi DiffDelete     ctermfg=255 ctermbg=52  guifg=#ffffff guibg=#330022
-hi DiffText       ctermfg=255 ctermbg=94  cterm=bold gui=bold guifg=#ffffff guibg=#553300
+hi DiffAdd        ctermfg=255 ctermbg=23  guifg=#ffffff guibg=#005555
+hi DiffChange     ctermfg=255 ctermbg=53  guifg=#ffffff guibg=#442266
+hi DiffDelete     ctermfg=255 ctermbg=89  guifg=#ffffff guibg=#772244
+hi DiffText       ctermfg=255 ctermbg=136 cterm=bold gui=bold guifg=#ffffff guibg=#aa8800
 
 " === Folding ===
 hi Folded         guifg=#ffb1fe guibg=#1a0030

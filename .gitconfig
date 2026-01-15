@@ -26,16 +26,16 @@
 	file-renamed-label = [R]
 	hunk-header-style = file line-number syntax bold "#5cecff"
 	hunk-header-decoration-style = "#aa00e8" box
-	# Removed lines: hot pink text on dark red background
-	minus-style = syntax "#330011"
-	minus-non-emph-style = syntax "#330011"
-	minus-emph-style = syntax "#550022"
-	minus-empty-line-marker-style = normal "#330011"
-	# Added lines: cyan text on dark green background
-	plus-style = syntax "#002222"
-	plus-non-emph-style = syntax "#002222"
-	plus-emph-style = syntax "#004444"
-	plus-empty-line-marker-style = normal "#002222"
+	# Removed lines: syntax on dark magenta background
+	minus-style = syntax "#3d0028"
+	minus-non-emph-style = syntax "#3d0028"
+	minus-emph-style = syntax "#660044"
+	minus-empty-line-marker-style = normal "#3d0028"
+	# Added lines: syntax on dark teal background
+	plus-style = syntax "#006666"
+	plus-non-emph-style = syntax "#006666"
+	plus-emph-style = syntax "#008888"
+	plus-empty-line-marker-style = normal "#006666"
 	# Line numbers in vaporwave colors
 	line-numbers-minus-style = "#ff0099"
 	line-numbers-plus-style = "#5cecff"
