@@ -50,6 +50,21 @@ Scan for these markers (case-insensitive where sensible):
 - `raise NotImplementedError`
 - `unimplemented!()`
 
+**Documentation omission markers (in .md files):**
+- `does NOT include`
+- `NOT include`
+- `Not Modeled`
+- `Not yet implemented`
+- `Out of scope`
+- `Future work`
+- `Planned but not`
+- `Will be added`
+- `Coming soon`
+- `Currently missing`
+- `Limitations:` sections with specific items
+- `## Limitations` followed by bullet points
+- Tables with "Why Missing" or "Not Supported" columns
+
 ### Search Commands
 
 ```bash
@@ -70,6 +85,11 @@ grep -rn --include="*.go" \
   --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude="*.pb.go" --exclude="*connect.go" \
   'panic\(".*TODO\|not.implemented\|unimplemented' .
+
+# Documentation omission markers - search .md files
+grep -rn --include="*.md" \
+  --exclude-dir=vendor --exclude-dir=node_modules \
+  -iE "(does NOT include|NOT include|Not Modeled|Not yet implemented|Out of scope|Future work|Planned but not|Will be added|Coming soon|Currently missing|Why Missing)" .
 ```
 
 ### Directories and Files to Skip
@@ -122,7 +142,23 @@ Found N items across M files.
 - Storage: 2 items
 - Frontend: 6 items
 - Tests: 4 items
+- **Documentation omissions**: 2 items (features explicitly marked as "not included")
 ```
+
+## Documentation Omission Analysis
+
+When reviewing documentation, look for sections that explicitly list scope boundaries or missing features. These are often more critical than code TODOs because they represent deliberate omissions that may have been forgotten.
+
+**Red flags in documentation:**
+- A "Limitations" section with specific features listed as "not modeled"
+- Tables showing "Why Missing" reasons
+- Phrases like "does NOT include" followed by specific items
+- "Out of scope" lists that were meant to be revisited
+
+**Action:** When finding documentation omissions:
+1. Check if the omission was intentional (scope decision) or unintentional (forgotten)
+2. If the surrounding context suggests "comprehensive" or "complete", flag as potentially incomplete
+3. Add a TODO in the document or create a task to address the omission
 
 ## Phase 2: Planning (User-Triggered)
 

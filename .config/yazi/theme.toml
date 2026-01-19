@@ -1,0 +1,598 @@
+# Yazi vaporwave theme
+# Hot pink (#ff00f8), cyan (#5cecff), gold (#fbb725), purple (#aa00e8), light pink (#ffb1fe)
+
+[mgr]
+cwd = { fg = "#5cecff", bold = true }
+find_keyword = { fg = "#fbb725", bold = true, underline = true }
+find_position = { fg = "#ff00f8", bold = true }
+
+marker_copied = { fg = "#5cecff", bg = "#5cecff" }
+marker_cut = { fg = "#fbb725", bg = "#fbb725" }
+marker_marked = { fg = "#ffb1fe", bg = "#ffb1fe" }
+marker_selected = { fg = "#ff00f8", bg = "#ff00f8" }
+
+count_copied = { fg = "#000000", bg = "#5cecff" }
+count_cut = { fg = "#000000", bg = "#fbb725" }
+count_selected = { fg = "#000000", bg = "#ff00f8" }
+
+border_symbol = "│"
+border_style = { fg = "#aa00e8" }
+
+[tabs]
+active = { fg = "#000000", bg = "#5cecff", bold = true }
+inactive = { fg = "#aa00e8" }
+
+[mode]
+normal_main = { fg = "#000000", bg = "#5cecff", bold = true }
+normal_alt = { fg = "#5cecff", bg = "#1a0033" }
+select_main = { fg = "#000000", bg = "#ff00f8", bold = true }
+select_alt = { fg = "#ff00f8", bg = "#1a0033" }
+unset_main = { fg = "#000000", bg = "#aa00e8", bold = true }
+unset_alt = { fg = "#aa00e8", bg = "#1a0033" }
+
+[status]
+sep_left = { open = "", close = "" }
+sep_right = { open = "", close = "" }
+
+perm_type = { fg = "#5cecff" }
+perm_read = { fg = "#fbb725" }
+perm_write = { fg = "#ff00f8" }
+perm_exec = { fg = "#5cecff" }
+perm_sep = { fg = "#aa00e8" }
+
+progress_label = { fg = "#5cecff", bold = true }
+progress_normal = { fg = "#5cecff" }
+progress_error = { fg = "#ff00f8" }
+
+[pick]
+border = { fg = "#5cecff" }
+active = { fg = "#ff00f8", bold = true }
+inactive = { fg = "#aa00e8" }
+
+[input]
+border = { fg = "#5cecff" }
+title = { fg = "#ff00f8", bold = true }
+value = { fg = "#ffffff" }
+selected = { bg = "#aa00e8" }
+
+[cmp]
+border = { fg = "#5cecff" }
+active = { fg = "#000000", bg = "#ff00f8" }
+inactive = { fg = "#aa00e8" }
+
+[tasks]
+border = { fg = "#5cecff" }
+title = { fg = "#ff00f8", bold = true }
+hovered = { fg = "#000000", bg = "#ff00f8" }
+
+[which]
+cols = 3
+mask = { bg = "#1a001a" }
+cand = { fg = "#5cecff" }
+rest = { fg = "#aa00e8" }
+desc = { fg = "#ffb1fe" }
+separator = "  "
+separator_style = { fg = "#aa00e8" }
+
+[help]
+on = { fg = "#5cecff", bold = true }
+run = { fg = "#ffb1fe" }
+desc = { fg = "#ffffff" }
+hovered = { fg = "#000000", bg = "#ff00f8", bold = true }
+footer = { fg = "#fbb725", bold = true }
+
+[notify]
+title_info = { fg = "#5cecff", bold = true }
+title_warn = { fg = "#fbb725", bold = true }
+title_error = { fg = "#ff00f8", bold = true }
+
+[filetype]
+rules = [
+  # === Special types ===
+  { url = "*/", fg = "#5cecff", bold = true },          # Directories
+  { url = "*", is = "link", fg = "#ffb1fe", italic = true },        # Symlinks
+  { url = "*", is = "orphan", fg = "#ff0099", bg = "#330011" }, # Broken symlinks
+  { url = "*", is = "exec", fg = "#ff00f8", bold = true },          # Executables
+  { url = "*", is = "sticky", fg = "#fbb725", bg = "#332200", bold = true },  # Sticky bit
+  { url = "*", is = "block", fg = "#02c3fc", bold = true },         # Block devices
+  { url = "*", is = "char", fg = "#02c3fc", bold = true },          # Character devices
+  { url = "*", is = "fifo", fg = "#fbb725", italic = true },        # Named pipes
+  { url = "*", is = "sock", fg = "#aa00e8", italic = true },        # Unix sockets
+
+  # === Rust (the best) - HOT PINK ===
+  { url = "*.rs", fg = "#ff00f8", bold = true },
+  { url = "Cargo.toml", fg = "#ff00f8", bold = true },
+  { url = "Cargo.lock", fg = "#aa00e8" },
+  { url = "rust-toolchain*", fg = "#ff00f8" },
+
+  # === Go - CYAN ===
+  { url = "*.go", fg = "#5cecff" },
+  { url = "go.mod", fg = "#5cecff", bold = true },
+  { url = "go.sum", fg = "#5cecff" },
+
+  # === TypeScript/JavaScript - CYAN/GOLD ===
+  { url = "*.ts", fg = "#5cecff" },
+  { url = "*.tsx", fg = "#5cecff" },
+  { url = "*.mts", fg = "#5cecff" },
+  { url = "*.cts", fg = "#5cecff" },
+  { url = "*.js", fg = "#fbb725" },
+  { url = "*.jsx", fg = "#fbb725" },
+  { url = "*.mjs", fg = "#fbb725" },
+  { url = "*.cjs", fg = "#fbb725" },
+  { url = "package.json", fg = "#fbb725", bold = true },
+  { url = "package-lock.json", fg = "#aa00e8" },
+  { url = "tsconfig*.json", fg = "#5cecff" },
+  { url = "*.d.ts", fg = "#5cecff", italic = true },
+
+  # === Python - GOLD ===
+  { url = "*.py", fg = "#fbb725" },
+  { url = "*.pyw", fg = "#fbb725" },
+  { url = "*.pyi", fg = "#fbb725", italic = true },
+  { url = "pyproject.toml", fg = "#fbb725", bold = true },
+  { url = "requirements*.txt", fg = "#fbb725" },
+  { url = "setup.py", fg = "#fbb725", bold = true },
+  { url = "Pipfile", fg = "#fbb725" },
+  { url = "poetry.lock", fg = "#aa00e8" },
+
+  # === Lua - CYAN ===
+  { url = "*.lua", fg = "#5cecff" },
+  { url = ".luacheckrc", fg = "#aa00e8" },
+
+  # === C/C++ - LIGHT BLUE ===
+  { url = "*.c", fg = "#02c3fc" },
+  { url = "*.h", fg = "#02c3fc" },
+  { url = "*.cpp", fg = "#02c3fc" },
+  { url = "*.hpp", fg = "#02c3fc" },
+  { url = "*.cc", fg = "#02c3fc" },
+  { url = "*.hh", fg = "#02c3fc" },
+  { url = "*.cxx", fg = "#02c3fc" },
+  { url = "CMakeLists.txt", fg = "#02c3fc", bold = true },
+  { url = "*.cmake", fg = "#02c3fc" },
+
+  # === Java/Kotlin - ORANGE ===
+  { url = "*.java", fg = "#ff9966" },
+  { url = "*.kt", fg = "#ff9966" },
+  { url = "*.kts", fg = "#ff9966" },
+  { url = "*.gradle", fg = "#ff9966" },
+  { url = "pom.xml", fg = "#ff9966", bold = true },
+  { url = "build.gradle*", fg = "#ff9966", bold = true },
+
+  # === Ruby - RED/PINK ===
+  { url = "*.rb", fg = "#ff6b9d" },
+  { url = "*.rake", fg = "#ff6b9d" },
+  { url = "Gemfile", fg = "#ff6b9d", bold = true },
+  { url = "Gemfile.lock", fg = "#aa00e8" },
+  { url = "Rakefile", fg = "#ff6b9d", bold = true },
+
+  # === Shell - CYAN ===
+  { url = "*.sh", fg = "#5cecff" },
+  { url = "*.bash", fg = "#5cecff" },
+  { url = "*.zsh", fg = "#5cecff" },
+  { url = "*.fish", fg = "#5cecff" },
+  { url = ".bashrc", fg = "#5cecff" },
+  { url = ".zshrc", fg = "#5cecff" },
+  { url = ".profile", fg = "#5cecff" },
+
+  # === Web - GOLD/CYAN ===
+  { url = "*.html", fg = "#fbb725" },
+  { url = "*.htm", fg = "#fbb725" },
+  { url = "*.xhtml", fg = "#fbb725" },
+  { url = "*.css", fg = "#5cecff" },
+  { url = "*.scss", fg = "#5cecff" },
+  { url = "*.sass", fg = "#5cecff" },
+  { url = "*.less", fg = "#5cecff" },
+  { url = "*.styl", fg = "#5cecff" },
+  { url = "*.vue", fg = "#5cecff" },
+  { url = "*.svelte", fg = "#ff6b9d" },
+  { url = "*.astro", fg = "#ff6b9d" },
+  { url = "*.ejs", fg = "#fbb725" },
+  { url = "*.hbs", fg = "#fbb725" },
+  { url = "*.handlebars", fg = "#fbb725" },
+  { url = "*.pug", fg = "#fbb725" },
+  { url = "*.jade", fg = "#fbb725" },
+
+  # === Data formats - GOLD ===
+  { url = "*.json", fg = "#fbb725" },
+  { url = "*.json5", fg = "#fbb725" },
+  { url = "*.jsonc", fg = "#fbb725" },
+  { url = "*.jsonl", fg = "#fbb725" },
+  { url = "*.ndjson", fg = "#fbb725" },
+  { url = "*.yaml", fg = "#fbb725" },
+  { url = "*.yml", fg = "#fbb725" },
+  { url = "*.xml", fg = "#fbb725" },
+  { url = "*.csv", fg = "#fbb725" },
+  { url = "*.tsv", fg = "#fbb725" },
+  { url = "*.sql", fg = "#fbb725" },
+  { url = "*.graphql", fg = "#ff00f8" },
+  { url = "*.gql", fg = "#ff00f8" },
+  { url = "*.proto", fg = "#5cecff" },
+  { url = "*.parquet", fg = "#fbb725" },
+  { url = "*.avro", fg = "#fbb725" },
+
+  # === Config - PURPLE ===
+  { url = "*.toml", fg = "#aa00e8" },
+  { url = "*.ini", fg = "#aa00e8" },
+  { url = "*.conf", fg = "#aa00e8" },
+  { url = "*.cfg", fg = "#aa00e8" },
+  { url = "*.env", fg = "#aa00e8" },
+  { url = "*.env.*", fg = "#aa00e8" },
+  { url = ".gitignore", fg = "#aa00e8" },
+  { url = ".gitattributes", fg = "#aa00e8" },
+  { url = ".gitmodules", fg = "#aa00e8" },
+  { url = ".dockerignore", fg = "#aa00e8" },
+  { url = ".editorconfig", fg = "#aa00e8" },
+  { url = ".prettierrc*", fg = "#aa00e8" },
+  { url = ".eslintrc*", fg = "#aa00e8" },
+  { url = "*.lock", fg = "#aa00e8" },
+  { url = ".nvmrc", fg = "#aa00e8" },
+  { url = ".node-version", fg = "#aa00e8" },
+  { url = ".tool-versions", fg = "#aa00e8" },
+
+  # === Build/CI - HOT PINK ===
+  { url = "Makefile", fg = "#ff00f8", bold = true },
+  { url = "Dockerfile", fg = "#ff00f8", bold = true },
+  { url = "Dockerfile.*", fg = "#ff00f8", bold = true },
+  { url = "docker-compose*.yml", fg = "#ff00f8", bold = true },
+  { url = "docker-compose*.yaml", fg = "#ff00f8", bold = true },
+  { url = "Justfile", fg = "#ff00f8", bold = true },
+  { url = "justfile", fg = "#ff00f8", bold = true },
+  { url = "Taskfile.yml", fg = "#ff00f8", bold = true },
+  { url = ".github", fg = "#ff00f8", bold = true },
+  { url = "*.workflow", fg = "#ff00f8" },
+  { url = "Jenkinsfile", fg = "#ff00f8", bold = true },
+  { url = ".gitlab-ci.yml", fg = "#ff00f8", bold = true },
+  { url = ".travis.yml", fg = "#ff00f8" },
+  { url = "netlify.toml", fg = "#ff00f8" },
+  { url = "vercel.json", fg = "#ff00f8" },
+
+  # === Terraform/IaC - PURPLE ===
+  { url = "*.tf", fg = "#aa00e8" },
+  { url = "*.tfvars", fg = "#aa00e8" },
+  { url = "*.hcl", fg = "#aa00e8" },
+
+  # === Docs - LIGHT PINK ===
+  { url = "*.md", fg = "#ffb1fe" },
+  { url = "*.mdx", fg = "#ffb1fe" },
+  { url = "*.txt", fg = "#ffb1fe" },
+  { url = "*.rst", fg = "#ffb1fe" },
+  { url = "*.org", fg = "#ffb1fe" },
+  { url = "*.adoc", fg = "#ffb1fe" },
+  { url = "README*", fg = "#ffb1fe", bold = true },
+  { url = "CHANGELOG*", fg = "#ffb1fe", bold = true },
+  { url = "LICENSE*", fg = "#ffb1fe" },
+  { url = "CONTRIBUTING*", fg = "#ffb1fe" },
+  { url = "AUTHORS*", fg = "#ffb1fe" },
+  { url = "SECURITY*", fg = "#ffb1fe" },
+
+  # === MIME-based fallbacks (catch what name rules miss) ===
+  { mime = "text/x-rust", fg = "#ff00f8", bold = true },
+  { mime = "text/x-go", fg = "#5cecff" },
+  { mime = "text/x-python", fg = "#fbb725" },
+  { mime = "text/x-shellscript", fg = "#5cecff" },
+  { mime = "text/x-c", fg = "#02c3fc" },
+  { mime = "text/x-c++", fg = "#02c3fc" },
+  { mime = "text/html", fg = "#fbb725" },
+  { mime = "text/css", fg = "#5cecff" },
+  { mime = "text/javascript", fg = "#fbb725" },
+  { mime = "application/javascript", fg = "#fbb725" },
+  { mime = "application/json", fg = "#fbb725" },
+  { mime = "application/x-yaml", fg = "#fbb725" },
+  { mime = "text/markdown", fg = "#ffb1fe" },
+  { mime = "text/x-toml", fg = "#aa00e8" },
+  { mime = "application/toml", fg = "#aa00e8" },
+  { mime = "text/plain", fg = "#ffffff" },
+  { mime = "application/pdf", fg = "#ff6b9d" },
+  { mime = "application/x-executable", fg = "#ff00f8", bold = true },
+  { mime = "application/x-sharedlib", fg = "#666688" },
+  { mime = "application/x-archive", fg = "#fbb725" },
+  { mime = "application/gzip", fg = "#fbb725" },
+  { mime = "application/x-tar", fg = "#fbb725" },
+  { mime = "application/zip", fg = "#fbb725" },
+  { mime = "application/x-bzip2", fg = "#fbb725" },
+  { mime = "application/x-xz", fg = "#fbb725" },
+  { mime = "application/x-7z-compressed", fg = "#fbb725" },
+  { mime = "application/x-rar-compressed", fg = "#fbb725" },
+  { mime = "application/x-apple-diskimage", fg = "#ff00f8", bold = true },
+  { mime = "application/x-iso9660-image", fg = "#ff00f8" },
+  { mime = "application/vnd.sqlite3", fg = "#02c3fc" },
+  { mime = "application/x-sqlite3", fg = "#02c3fc" },
+
+  # === Images - CYAN ===
+  { mime = "image/*", fg = "#5cecff" },
+  { url = "*.png", fg = "#5cecff" },
+  { url = "*.jpg", fg = "#5cecff" },
+  { url = "*.jpeg", fg = "#5cecff" },
+  { url = "*.gif", fg = "#5cecff" },
+  { url = "*.svg", fg = "#5cecff" },
+  { url = "*.webp", fg = "#5cecff" },
+  { url = "*.ico", fg = "#5cecff" },
+  { url = "*.bmp", fg = "#5cecff" },
+  { url = "*.tiff", fg = "#5cecff" },
+  { url = "*.heic", fg = "#5cecff" },
+  { url = "*.avif", fg = "#5cecff" },
+
+  # === Video - MAGENTA ===
+  { mime = "video/*", fg = "#ff00f8" },
+  { url = "*.mp4", fg = "#ff00f8" },
+  { url = "*.mkv", fg = "#ff00f8" },
+  { url = "*.avi", fg = "#ff00f8" },
+  { url = "*.mov", fg = "#ff00f8" },
+  { url = "*.webm", fg = "#ff00f8" },
+
+  # === Audio - LIGHT PINK ===
+  { mime = "audio/*", fg = "#ffb1fe" },
+  { url = "*.mp3", fg = "#ffb1fe" },
+  { url = "*.wav", fg = "#ffb1fe" },
+  { url = "*.flac", fg = "#ffb1fe" },
+  { url = "*.ogg", fg = "#ffb1fe" },
+  { url = "*.m4a", fg = "#ffb1fe" },
+
+  # === Archives - GOLD ===
+  { url = "*.zip", fg = "#fbb725" },
+  { url = "*.tar", fg = "#fbb725" },
+  { url = "*.gz", fg = "#fbb725" },
+  { url = "*.xz", fg = "#fbb725" },
+  { url = "*.bz2", fg = "#fbb725" },
+  { url = "*.7z", fg = "#fbb725" },
+  { url = "*.rar", fg = "#fbb725" },
+  { url = "*.zst", fg = "#fbb725" },
+  { url = "*.tar.gz", fg = "#fbb725" },
+  { url = "*.tgz", fg = "#fbb725" },
+
+  # === Disk Images - MAGENTA ===
+  { url = "*.dmg", fg = "#ff00f8", bold = true },
+  { url = "*.iso", fg = "#ff00f8" },
+  { url = "*.img", fg = "#ff00f8" },
+  { url = "*.qcow2", fg = "#ff00f8" },
+  { url = "*.vdi", fg = "#ff00f8" },
+  { url = "*.vmdk", fg = "#ff00f8" },
+  { url = "*.vhd", fg = "#ff00f8" },
+  { url = "*.pkg", fg = "#ff00f8" },
+  { url = "*.app", fg = "#ff00f8", bold = true },
+  { url = "*.deb", fg = "#ff00f8" },
+  { url = "*.rpm", fg = "#ff00f8" },
+  { url = "*.apk", fg = "#ff00f8" },
+  { url = "*.ipa", fg = "#ff00f8" },
+
+  # === Fonts - PURPLE ===
+  { url = "*.ttf", fg = "#aa00e8" },
+  { url = "*.otf", fg = "#aa00e8" },
+  { url = "*.woff", fg = "#aa00e8" },
+  { url = "*.woff2", fg = "#aa00e8" },
+  { url = "*.eot", fg = "#aa00e8" },
+
+  # === Databases - CYAN ===
+  { url = "*.db", fg = "#02c3fc" },
+  { url = "*.sqlite", fg = "#02c3fc" },
+  { url = "*.sqlite3", fg = "#02c3fc" },
+  { url = "*.mdb", fg = "#02c3fc" },
+  { url = "*.ldb", fg = "#02c3fc" },
+
+  # === Binary/Compiled - DIMMED ===
+  { url = "*.exe", fg = "#666688" },
+  { url = "*.dll", fg = "#666688" },
+  { url = "*.so", fg = "#666688" },
+  { url = "*.dylib", fg = "#666688" },
+  { url = "*.o", fg = "#666688" },
+  { url = "*.a", fg = "#666688" },
+  { url = "*.class", fg = "#666688" },
+  { url = "*.pyc", fg = "#666688" },
+  { url = "*.pyo", fg = "#666688" },
+  { url = "*.wasm", fg = "#666688" },
+  { url = "*.rlib", fg = "#666688" },
+  { url = "*.rmeta", fg = "#666688" },
+
+  # === Apple/macOS specific ===
+  { url = "*.plist", fg = "#aa00e8" },
+  { url = "*.strings", fg = "#aa00e8" },
+  { url = "*.icns", fg = "#5cecff" },
+  { url = "*.localized", fg = "#666688" },
+
+  # === Shaders/Graphics - MAGENTA ===
+  { url = "*.glsl", fg = "#ff00f8" },
+  { url = "*.vert", fg = "#ff00f8" },
+  { url = "*.frag", fg = "#ff00f8" },
+  { url = "*.hlsl", fg = "#ff00f8" },
+  { url = "*.shader", fg = "#ff00f8" },
+  { url = "*.xcf", fg = "#5cecff" },
+
+  # === Templates - GOLD ===
+  { url = "*.tmpl", fg = "#fbb725" },
+  { url = "*.tpl", fg = "#fbb725" },
+  { url = "*.j2", fg = "#fbb725" },
+  { url = "*.jinja", fg = "#fbb725" },
+  { url = "*.jinja2", fg = "#fbb725" },
+  { url = "*.mustache", fg = "#fbb725" },
+  { url = "*.liquid", fg = "#fbb725" },
+
+  # === Logs/Temp - DIMMED ===
+  { url = "*.log", fg = "#888888" },
+  { url = "*.err", fg = "#ff6b9d" },
+  { url = "*.bak", fg = "#666688", italic = true },
+  { url = "*.backup", fg = "#666688", italic = true },
+  { url = "*.old", fg = "#666688", italic = true },
+  { url = "*.orig", fg = "#666688", italic = true },
+  { url = "*.swp", fg = "#666688" },
+  { url = "*.swo", fg = "#666688" },
+  { url = "*~", fg = "#666688" },
+  { url = "*.sample", fg = "#888888", italic = true },
+  { url = "*.example", fg = "#888888", italic = true },
+  { url = "*.cache", fg = "#666688" },
+
+  # === Nix - CYAN ===
+  { url = "*.nix", fg = "#5cecff" },
+  { url = "flake.nix", fg = "#5cecff", bold = true },
+  { url = "flake.lock", fg = "#aa00e8" },
+
+  # === More languages ===
+  { url = "*.php", fg = "#aa88cc" },
+  { url = "*.ps1", fg = "#02c3fc" },
+  { url = "*.psm1", fg = "#02c3fc" },
+  { url = "*.clj", fg = "#5cecff" },
+  { url = "*.cljs", fg = "#5cecff" },
+  { url = "*.cljc", fg = "#5cecff" },
+  { url = "*.elm", fg = "#5cecff" },
+  { url = "*.ex", fg = "#aa00e8" },
+  { url = "*.exs", fg = "#aa00e8" },
+  { url = "*.erl", fg = "#ff6b9d" },
+  { url = "*.hrl", fg = "#ff6b9d" },
+  { url = "*.zig", fg = "#fbb725" },
+  { url = "*.nim", fg = "#fbb725" },
+  { url = "*.v", fg = "#5cecff" },
+  { url = "*.tcl", fg = "#02c3fc" },
+  { url = "*.ron", fg = "#ff00f8" },
+  { url = "*.kdl", fg = "#aa00e8" },
+  { url = "*.dhall", fg = "#aa00e8" },
+
+  # === Notebooks/Data Science ===
+  { url = "*.ipynb", fg = "#fbb725", bold = true },
+  { url = "*.rmd", fg = "#fbb725" },
+  { url = "*.Rmd", fg = "#fbb725" },
+  { url = "*.r", fg = "#02c3fc" },
+  { url = "*.R", fg = "#02c3fc" },
+  { url = "*.jl", fg = "#5cecff" },
+  { url = "*.mat", fg = "#fbb725" },
+  { url = "*.m", fg = "#fbb725" },
+  { url = "*.nb", fg = "#fbb725" },
+
+  # === Office/Documents ===
+  { url = "*.xlsx", fg = "#5cecff" },
+  { url = "*.xls", fg = "#5cecff" },
+  { url = "*.docx", fg = "#02c3fc" },
+  { url = "*.doc", fg = "#02c3fc" },
+  { url = "*.pptx", fg = "#ff6b9d" },
+  { url = "*.ppt", fg = "#ff6b9d" },
+  { url = "*.odt", fg = "#02c3fc" },
+  { url = "*.ods", fg = "#5cecff" },
+  { url = "*.odp", fg = "#ff6b9d" },
+  { url = "*.pdf", fg = "#ff6b9d" },
+  { url = "*.epub", fg = "#ffb1fe" },
+  { url = "*.mobi", fg = "#ffb1fe" },
+
+  # === Vim ===
+  { url = "*.vim", fg = "#5cecff" },
+  { url = ".vimrc", fg = "#5cecff" },
+  { url = ".gvimrc", fg = "#5cecff" },
+  { url = ".viminfo", fg = "#666688" },
+
+  # === Java ecosystem ===
+  { url = "*.jar", fg = "#ff9966" },
+  { url = "*.war", fg = "#ff9966" },
+  { url = "*.ear", fg = "#ff9966" },
+  { url = "*.properties", fg = "#aa00e8" },
+
+  # === Python packaging ===
+  { url = "*.whl", fg = "#fbb725" },
+  { url = "*.egg", fg = "#fbb725" },
+  { url = "*.egg-info", fg = "#666688" },
+
+  # === Web manifests ===
+  { url = "*.webmanifest", fg = "#fbb725" },
+  { url = "manifest.json", fg = "#fbb725", bold = true },
+
+  # === VS Code ===
+  { url = "*.vsix", fg = "#02c3fc" },
+  { url = "*.vsixmanifest", fg = "#aa00e8" },
+  { url = ".vscodeignore", fg = "#aa00e8" },
+
+  # === Claude/AI ===
+  { url = "*.jsonl", fg = "#fbb725" },
+  { url = ".claude", fg = "#ff00f8", bold = true },
+
+  # === Terraform state (SENSITIVE!) ===
+  { url = "*.tfstate", fg = "#ff0099", bold = true },
+  { url = "*.tfstate.*", fg = "#ff0099" },
+
+  # === Generated - DIMMED ===
+  { url = "*.pb.go", fg = "#666688" },
+  { url = "*.gen.go", fg = "#666688" },
+  { url = "*.generated.*", fg = "#666688" },
+  { url = "*.min.js", fg = "#666688" },
+  { url = "*.min.css", fg = "#666688" },
+  { url = "*.map", fg = "#666688" },
+  { url = "*.tsbuildinfo", fg = "#666688" },
+  { url = "*.d.ts", fg = "#5cecff", italic = true },
+  { url = "node_modules", fg = "#666688" },
+  { url = ".git", fg = "#aa00e8", bold = true },
+  { url = "__pycache__", fg = "#666688" },
+  { url = ".cache", fg = "#666688" },
+  { url = "vendor", fg = "#666688" },
+  { url = "dist", fg = "#666688" },
+  { url = "build", fg = "#888888" },
+  { url = "target", fg = "#888888" },
+
+  # === Tests - LIGHT PINK (distinguished) ===
+  { url = "*_test.go", fg = "#ffb1fe" },
+  { url = "*_test.rs", fg = "#ffb1fe" },
+  { url = "*_test.py", fg = "#ffb1fe" },
+  { url = "*.test.ts", fg = "#ffb1fe" },
+  { url = "*.test.js", fg = "#ffb1fe" },
+  { url = "*.spec.ts", fg = "#ffb1fe" },
+  { url = "*.spec.js", fg = "#ffb1fe" },
+  { url = "test_*.py", fg = "#ffb1fe" },
+  { url = "*_test.rb", fg = "#ffb1fe" },
+
+  # === SSH/Security Config - CYAN ===
+  { url = "config", fg = "#5cecff" },
+  { url = "ssh_config", fg = "#5cecff" },
+  { url = "sshd_config", fg = "#5cecff" },
+  { url = "known_hosts", fg = "#5cecff" },
+  { url = "authorized_keys", fg = "#5cecff" },
+  { url = ".ssh", fg = "#ff0099", bold = true },
+
+  # === Secrets/Sensitive - RED (warning) ===
+  { url = "*.pem", fg = "#ff0099", bold = true },
+  { url = "*.key", fg = "#ff0099", bold = true },
+  { url = "*.pub", fg = "#02c3fc" },
+  { url = "*.crt", fg = "#ff0099" },
+  { url = "*.cer", fg = "#ff0099" },
+  { url = "*.p12", fg = "#ff0099" },
+  { url = "*.pfx", fg = "#ff0099" },
+  { url = "*.csr", fg = "#ff0099" },
+  { url = "id_rsa", fg = "#ff0099", bold = true },
+  { url = "id_rsa.pub", fg = "#02c3fc" },
+  { url = "id_ed25519", fg = "#ff0099", bold = true },
+  { url = "id_ed25519.pub", fg = "#02c3fc" },
+  { url = "id_ecdsa", fg = "#ff0099", bold = true },
+  { url = "id_ecdsa.pub", fg = "#02c3fc" },
+  { url = "id_dsa", fg = "#ff0099", bold = true },
+  { url = "*.gpg", fg = "#ff0099" },
+  { url = "*.asc", fg = "#ff0099" },
+  { url = "*.pgp", fg = "#ff0099" },
+  { url = "*.kdbx", fg = "#ff0099", bold = true },
+  { url = "*.keychain*", fg = "#ff0099" },
+  { url = ".secrets", fg = "#ff0099", bold = true },
+  { url = "*.secret", fg = "#ff0099" },
+  { url = "*.secret.*", fg = "#ff0099" },
+  { url = ".env.local", fg = "#ff0099" },
+  { url = ".env.production", fg = "#ff0099" },
+  { url = "credentials*", fg = "#ff0099", bold = true },
+  { url = "*password*", fg = "#ff0099" },
+  { url = "*token*", fg = "#ff0099" },
+  { url = "*.credentials", fg = "#ff0099" },
+  { url = "htpasswd", fg = "#ff0099" },
+  { url = ".htpasswd", fg = "#ff0099" },
+  { url = ".netrc", fg = "#ff0099" },
+  { url = ".npmrc", fg = "#ff0099" },
+  { url = ".pypirc", fg = "#ff0099" },
+
+  # === AWS/Cloud credentials - RED ===
+  { url = "*.aws", fg = "#ff0099" },
+  { url = "credentials", fg = "#ff0099", bold = true },
+  { url = "config", fg = "#5cecff" },
+
+  # === Kubernetes/Docker secrets ===
+  { url = "kubeconfig", fg = "#ff0099", bold = true },
+  { url = ".kube", fg = "#ff0099", bold = true },
+  { url = "*.kubeconfig", fg = "#ff0099" },
+
+  # === Security policies/contexts ===
+  { url = "SECURITY*", fg = "#ff0099", bold = true },
+  { url = "CODEOWNERS", fg = "#ffb1fe", bold = true },
+  { url = ".snyk", fg = "#ff0099" },
+  { url = "snyk.json", fg = "#ff0099" },
+  { url = "trivy*", fg = "#ff0099" },
+  { url = ".trivyignore", fg = "#ff0099" },
+  { url = "dependabot.yml", fg = "#ff0099" },
+  { url = "renovate.json*", fg = "#ff0099" },
+]

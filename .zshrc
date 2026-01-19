@@ -63,7 +63,23 @@ if command -v eza &>/dev/null; then
   alias lsg='eza --icons --color=always --group-directories-first --git -l'
   
   # Vaporwave colors for eza - retina-searing electric colors
-  export EZA_COLORS="da=38;5;51:di=38;5;51:ex=38;5;201:*.md=38;5;171:*.json=38;5;221:*.yaml=38;5;51:*.go=38;5;51:*.js=38;5;221:*.ts=38;5;51"
+  # 201=hot pink, 51=cyan, 221=gold, 171=light purple, 129=purple
+  export EZA_COLORS="\
+da=38;5;51:\
+di=38;5;51;1:\
+ex=38;5;201;1:\
+ln=38;5;171:\
+*.md=38;5;171:*.txt=38;5;171:*.rst=38;5;171:*.org=38;5;171:\
+*.json=38;5;221:*.yaml=38;5;221:*.yml=38;5;221:*.xml=38;5;221:*.csv=38;5;221:\
+*.go=38;5;51:*.rs=38;5;201:*.py=38;5;221:*.lua=38;5;51:*.ts=38;5;51:*.tsx=38;5;51:\
+*.js=38;5;221:*.jsx=38;5;221:*.html=38;5;221:*.css=38;5;51:*.scss=38;5;51:\
+*.sh=38;5;51:*.bash=38;5;51:*.zsh=38;5;51:*.fish=38;5;51:\
+*.sql=38;5;221:*.graphql=38;5;171:\
+*.toml=38;5;129:*.ini=38;5;129:*.conf=38;5;129:*.cfg=38;5;129:*.env=38;5;129:\
+*.gitignore=38;5;129:*.dockerignore=38;5;129:*.editorconfig=38;5;129:\
+Makefile=38;5;201:Dockerfile=38;5;201:Justfile=38;5;201:Cargo.toml=38;5;201:Cargo.lock=38;5;129:\
+*.proto=38;5;51:*.pb.go=38;5;129:\
+*.test.go=38;5;171:*_test.go=38;5;171:*.spec.ts=38;5;171:*.test.ts=38;5;171"
 fi
 
 # zoxide (smart cd)
@@ -78,6 +94,12 @@ if command -v bat &>/dev/null; then
   # Theme set in ~/.config/bat/config
 fi
 
+# neovim (alias vim to nvim)
+if command -v nvim &>/dev/null; then
+  alias vim='nvim'
+  alias vi='nvim'
+fi
+
 # ripgrep with colors
 if command -v rg &>/dev/null; then
   export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
@@ -90,9 +112,63 @@ fi
 
 # git-delta configured in .gitconfig [core] pager = delta
 
+# difftastic (structural diff via git diff external)
+export DFT_BACKGROUND=dark
+export DFT_COLOR=always
+
 # === Colorized Environment ===
 # Colorize grep output
 export GREP_COLORS='ms=01;38;5;201:mc=01;38;5;51:sl=:cx=:fn=38;5;221:ln=38;5;51:bn=38;5;51:se=38;5;201'
+
+# Vaporwave LS_COLORS (used by erdtree, ls, etc.)
+# 51=cyan, 221=gold, 129=purple, 183=soft orchid, 175=dusty rose
+# Purple for code/important, pink for config/meta
+export LS_COLORS="\
+di=1;38;5;51:\
+ln=38;5;129:\
+so=38;5;129:\
+pi=38;5;221:\
+ex=1;38;5;129:\
+bd=38;5;175:\
+cd=38;5;175:\
+su=38;5;129;48;5;51:\
+sg=38;5;51;48;5;175:\
+tw=38;5;51;48;5;175:\
+ow=38;5;51:\
+*.rs=1;38;5;129:\
+*.go=38;5;51:\
+*.py=38;5;221:\
+*.js=38;5;221:\
+*.ts=38;5;51:\
+*.tsx=38;5;51:\
+*.md=38;5;129:\
+*.json=38;5;221:\
+*.yaml=38;5;221:\
+*.yml=38;5;221:\
+*.toml=38;5;175:\
+*.sh=38;5;51:\
+*.zsh=38;5;51:\
+*.lua=38;5;51:\
+*.sql=38;5;221:\
+*.html=38;5;221:\
+*.css=38;5;51:\
+*.proto=38;5;51:\
+*.txt=38;5;129:\
+*.log=38;5;243:\
+*.git=1;38;5;175:\
+*.gitignore=38;5;175:\
+Makefile=1;38;5;129:\
+Dockerfile=1;38;5;129:\
+Cargo.toml=1;38;5;129:\
+*.lock=38;5;175:\
+*.tar=38;5;221:\
+*.gz=38;5;221:\
+*.zip=38;5;221:\
+*.png=38;5;51:\
+*.jpg=38;5;51:\
+*.svg=38;5;51:\
+*.mp4=38;5;129:\
+*.mp3=38;5;129"
 
 # Vaporwave man pages and less output
 export LESS_TERMCAP_mb=$'\e[1;38;5;201m'      # begin bold (hot pink)
@@ -201,6 +277,53 @@ mdtoc() {
 # Suffix alias: execute .md files directly to render them
 alias -s md='glow'
 
+# mdwatch: watch directory for markdown changes and auto-display with changed line highlight
+mdwatch() {
+  local dir="${1:-.}"
+  local cache_dir="/tmp/mdwatch-$$"
+  mkdir -p "$cache_dir"
+
+  # Cleanup on exit
+  trap "rm -rf '$cache_dir'" EXIT INT TERM
+
+  echo -e "\033[1;38;5;51mWatching $dir for .md changes... (Ctrl+C to stop)\033[0m"
+
+  # Use fswatch with grep filter - more reliable for new file detection
+  fswatch -r "$dir" 2>/dev/null | grep --line-buffered '\.md$' | while read f; do
+    # Skip if file doesn't exist (deleted)
+    [[ -f "$f" ]] || continue
+
+    local hash=$(echo "$f" | md5)
+    local cache_file="$cache_dir/$hash"
+    local first_changed_line=""
+
+    # Find first changed line by diffing with cached version
+    if [[ -f "$cache_file" ]]; then
+      # BSD diff: parse "NNNaNNN" or "NNNcNNN" format to get first changed line in new file
+      first_changed_line=$(diff "$cache_file" "$f" 2>/dev/null | grep -E '^[0-9]' | head -1 | sed -E 's/^[0-9,]+[acd]([0-9]+).*/\1/')
+    fi
+
+    # Cache current version
+    cp "$f" "$cache_file" 2>/dev/null
+
+    clear
+    echo -e "\033[1;38;5;51m[$(date +%H:%M:%S)]\033[0m \033[1;38;5;201m$f\033[0m"
+
+    if [[ -n "$first_changed_line" && "$first_changed_line" =~ ^[0-9]+$ ]]; then
+      echo -e "\033[38;5;221mChanged at line $first_changed_line\033[0m"
+      echo -e "\033[38;5;201m────────────────────────────────────────\033[0m"
+      local start_line=$((first_changed_line > 5 ? first_changed_line - 5 : 1))
+      bat --color=always --style=numbers --theme=vaporwave-custom --language=md \
+          --highlight-line="$first_changed_line" \
+          --line-range="$start_line:" \
+          "$f"
+    else
+      echo -e "\033[38;5;201m────────────────────────────────────────\033[0m"
+      glow "$f"
+    fi
+  done
+}
+
 # md command: render one or all markdown files
 md() {
   if [[ $# -gt 0 ]]; then
@@ -221,7 +344,7 @@ _md_browser_widget() {
   local -a all_files=()
   local -a viewed_files=()
   local min_files=20
-  local max_files=60
+  local max_files=150
   
   # Directories to always skip (dependencies, build artifacts, caches)
   local -a skip_dirs=(node_modules vendor .cache __pycache__ dist build .git 
@@ -299,6 +422,7 @@ _md_browser_widget() {
 
   # fzf with wide preview (80% preview window, keyboard only)
   # Use TERM=xterm-256color to force glow to output colors
+  # Ctrl+R refreshes file list from filesystem
   local file
   file=$(printf '%s\n' "${all_files[@]}" | \
     TERM=xterm-256color fzf --no-mouse \
@@ -307,6 +431,8 @@ _md_browser_widget() {
         --preview-window=right:75%:wrap \
         --height=100% \
         --border=rounded \
+        --header='Ctrl+R to refresh file list' \
+        --bind "ctrl-r:reload(find . -name '*.md' -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/vendor/*' -not -path '*/.cache/*' 2>/dev/null | head -150)" \
         --color="$FZF_COLORS") || {
     zle redisplay
     return 0
@@ -343,6 +469,15 @@ bindkey '\e\e' _md_browser_widget
 bindkey -M emacs '\e\e' _md_browser_widget
 bindkey -M viins '\e\e' _md_browser_widget
 bindkey -M vicmd '\e\e' _md_browser_widget
+
+# Alt+M: start mdwatch in current directory
+_mdwatch_widget() {
+  zle -I
+  mdwatch .
+  zle reset-prompt
+}
+zle -N _mdwatch_widget
+bindkey '\em' _mdwatch_widget
 
 # === Completion System (BEFORE plugins) ===
 [[ -d "$HOME/.zfunc" ]] && FPATH="$HOME/.zfunc:${FPATH}"
@@ -634,3 +769,46 @@ precmd() {
 
 # opencode
 export PATH=/Users/rch/.opencode/bin:$PATH
+
+# === Auto-start yazi in Ghostty ===
+# Ghostty is fast enough for yazi; iTerm2 is not
+if [[ "$TERM_PROGRAM" == "ghostty" && -z "$YAZI_LEVEL" && -o interactive ]]; then
+  # Start yazi, and cd to the directory yazi exits in
+  function _yazi_startup() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+    yazi --cwd-file="$tmp"
+    if [[ -f "$tmp" ]]; then
+      local cwd="$(cat "$tmp")"
+      [[ -n "$cwd" && "$cwd" != "$PWD" ]] && cd "$cwd"
+    fi
+    rm -f "$tmp"
+  }
+  _yazi_startup
+  unfunction _yazi_startup
+fi
+
+# === Empty Enter = Directory Tree ===
+# Wrap accept-line widget (more robust than rebinding ^M)
+# Empty prompt shows tree view of current directory
+# Uses erdtree for multi-column display with disk usage, falls back to eza
+function _accept_line_or_tree() {
+  if [[ -z "$BUFFER" ]]; then
+    echo
+    if command -v erd &>/dev/null; then
+      # erdtree: icons, respects .gitignore, truncate to fit terminal
+      # Adaptive depth: few items = descend (level 2), many items = breadth-first (level 1)
+      # Leave ~7 lines at top for previous output
+      local tree_height=$((LINES - 7))
+      local top_level_count=$(ls -1A 2>/dev/null | wc -l | tr -d ' ')
+      local level=2
+      (( top_level_count > 15 )) && level=1
+      erd --icons --human --level $level --sort name --dir-order first --color force --truncate 2>/dev/null | head -n "$tree_height" || eza --icons --color=always --group-directories-first --tree --level=$level -a
+    else
+      eza --icons --color=always --group-directories-first --tree --level=2 -a 2>/dev/null || ls -la
+    fi
+    zle reset-prompt
+    return 0
+  fi
+  zle .accept-line  # Call original accept-line (note the dot prefix)
+}
+zle -N accept-line _accept_line_or_tree

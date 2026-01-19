@@ -1,0 +1,119 @@
+# Yazi configuration
+
+[manager]
+# Layout: parent, current, preview
+# [2, 3, 5] = 20%, 30%, 50% - balanced with preview emphasis
+ratio = [2, 3, 5]
+
+# Sorting
+sort_by = "natural"
+sort_sensitive = false
+sort_reverse = false
+sort_dir_first = true
+
+# Display
+show_hidden = true
+show_symlink = true
+linemode = "permissions"  # none, size, mtime, permissions, owner
+
+# Selection
+scrolloff = 5
+
+[preview]
+tab_size = 2
+max_width = 2000
+max_height = 1500
+wrap = "yes"
+cache_dir = ""
+
+# Image preview - high quality for Ghostty
+image_filter = "lanczos3"
+image_quality = 90
+sixel_fraction = 25
+ueberzug_scale = 1
+ueberzug_offset = [0, 0, 0, 0]
+
+[opener]
+# Default openers by category
+open = [
+  { run = 'open "$@"', desc = "Open", for = "macos" },
+]
+reveal = [
+  { run = 'open -R "$@"', desc = "Reveal in Finder", for = "macos" },
+]
+edit = [
+  { run = '${EDITOR:-nvim} "$@"', block = true, desc = "Edit" },
+]
+view = [
+  { run = 'bat --paging=always "$@"', block = true, desc = "View" },
+]
+view_md = [
+  { run = 'glow -p -s ~/.config/glow/vaporwave.json "$@"', block = true, desc = "View Markdown" },
+]
+play = [
+  { run = 'mpv --force-window "$@"', orphan = true, for = "unix" },
+]
+
+[open]
+rules = [
+  # Folders
+  { name = "*/", use = ["edit", "open", "reveal"] },
+
+  # Markdown - view with glow first, then edit
+  { name = "*.md", use = ["view_md", "edit"] },
+
+  # Text files - view with bat, then edit
+  { mime = "text/*", use = ["view", "edit"] },
+
+  # Code files
+  { name = "*.{rs,go,py,js,ts,lua,sh,toml,yaml,json}", use = ["edit", "view"] },
+
+  # Images
+  { mime = "image/*", use = ["open", "reveal"] },
+
+  # Video/Audio
+  { mime = "video/*", use = ["play", "open", "reveal"] },
+  { mime = "audio/*", use = ["play", "open", "reveal"] },
+
+  # PDFs
+  { mime = "application/pdf", use = ["open", "reveal"] },
+
+  # Archives
+  { mime = "application/*zip*", use = ["open", "reveal"] },
+  { mime = "application/x-tar", use = ["open", "reveal"] },
+  { mime = "application/x-gzip", use = ["open", "reveal"] },
+
+  # Fallback
+  { name = "*", use = ["open", "reveal"] },
+]
+
+[tasks]
+micro_workers = 25
+macro_workers = 10
+bizarre_retry = 3
+image_alloc = 134217728  # 128MB for image cache (less memory pressure)
+image_bound = [0, 0]
+
+# Git status integration
+[plugin]
+prepend_fetchers = [
+  { id = "git", name = "*", run = "git" },
+  { id = "git", name = "*/", run = "git" },
+]
+
+# Use bat with vaporwave theme for markdown preview
+prepend_previewers = [
+  { mime = "text/markdown", run = "bat-preview" },
+  { name = "*.md", run = "bat-preview" },
+]
+
+[input]
+# Cursor style in input mode
+cursor_blink = true
+
+[log]
+enabled = false
+
+[notify]
+# Show keybindings hint on startup (requires plugin - see init.lua)
+# Press ~ or ? for full help

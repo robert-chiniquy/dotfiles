@@ -315,6 +315,38 @@ message Document {
 
 **Projection:** DynamoDB Streams → be-db-stream → Postgres
 
+#### SQLite (Local/Embedded/Testing)
+
+**Preference:** For local filesystem databases, SQLite is the preferred choice.
+
+**Use cases:**
+- Local development databases
+- Embedded databases in CLI tools
+- Test fixtures and integration tests
+- Single-file data stores
+- Read-heavy workloads with occasional writes
+
+**Why SQLite:**
+- Zero configuration, single-file storage
+- Excellent read performance
+- Built-in full-text search (FTS5)
+- Portable across platforms
+- Well-tested, reliable, and battle-hardened
+- No external processes or network dependencies
+
+**When NOT to use SQLite:**
+- High write concurrency (use Postgres)
+- Distributed systems (use DynamoDB/Postgres)
+- Production multi-tenant SaaS (use DynamoDB + Postgres)
+
+**Pattern for testing:**
+```go
+func TestWithSQLite(t *testing.T) {
+    db, _ := sql.Open("sqlite3", ":memory:")
+    // ... run tests with in-memory SQLite
+}
+```
+
 ### 7. Core Controller Patterns
 
 #### GetOrCreate (Atomic Singleton)
@@ -598,6 +630,98 @@ my-app/
 
 ### Makefile Targets
 
+**Standard Targets (all subprojects MUST implement):**
+
+| Target | Purpose | Command |
+|--------|---------|---------|
+| `build` | Verify compilation | `go build ./...` |
+| `test` | Run all tests | `go test ./...` |
+| `bench` | Run benchmarks | `go test -bench=. -benchmem ./...` |
+| `fmt` | Format code | `go fmt ./...` |
+| `lint` | Run linter | `go vet ./...` |
+| `clean` | Clean artifacts | `go clean ./...` |
+| `tidy` | Update dependencies | `go mod tidy` |
+| `generate` | Run code generation | `go generate ./...` |
+
+**Root Makefile Pattern:**
+- MUST delegate to all subproject Makefiles
+- MUST provide shorthand targets: `01-build`, `08-test`, etc.
+- Running `make build` at root runs `build` in ALL subprojects
+- Running `make tidy` at root runs `tidy` in ALL subprojects
+
+```makefile
+SUBPROJECTS := 01-foo 02-bar 03-baz
+
+.PHONY: all build test bench clean fmt lint tidy generate $(SUBPROJECTS)
+
+all: build test
+
+build:
+	@for dir in $(SUBPROJECTS); do \
+		echo "Building $$dir..."; \
+		$(MAKE) -C $$dir build || exit 1; \
+	done
+
+test:
+	@for dir in $(SUBPROJECTS); do \
+		echo "Testing $$dir..."; \
+		$(MAKE) -C $$dir test || exit 1; \
+	done
+
+tidy:
+	@for dir in $(SUBPROJECTS); do \
+		echo "Tidying $$dir..."; \
+		$(MAKE) -C $$dir tidy || exit 1; \
+	done
+
+generate:
+	@for dir in $(SUBPROJECTS); do \
+		echo "Generating $$dir..."; \
+		$(MAKE) -C $$dir generate || exit 1; \
+	done
+
+# Shorthand targets: make 01-build, make 02-test, etc.
+01-build 01-test 01-bench 01-fmt 01-lint 01-clean 01-tidy 01-generate:
+	$(MAKE) -C 01-foo $(subst 01-,,$@)
+
+02-build 02-test 02-bench 02-fmt 02-lint 02-clean 02-tidy 02-generate:
+	$(MAKE) -C 02-bar $(subst 02-,,$@)
+```
+
+**Subproject Makefile Template:**
+
+```makefile
+.PHONY: all build test bench clean fmt lint tidy generate
+
+all: build test
+
+build:
+	go build ./...
+
+test:
+	go test ./...
+
+bench:
+	go test -bench=. -benchmem ./...
+
+fmt:
+	go fmt ./...
+
+lint:
+	go vet ./...
+
+clean:
+	go clean ./...
+
+tidy:
+	go mod tidy
+
+generate:
+	go generate ./...
+```
+
+**Protogen-Specific Targets:**
+
 ```makefile
 .PHONY: protogen
 protogen:
@@ -615,7 +739,11 @@ mockgen:
 worldgen: protogen wiregen mockgen
 
 .PHONY: build
-build:
+build:  ## REQUIRED: verify compilation before tests
+	go build ./...
+
+.PHONY: build/api
+build/api:
 	go build -o build/pub-api ./pkg/services/pub-api
 ```
 

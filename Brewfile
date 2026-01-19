@@ -4,61 +4,85 @@
 # Taps
 tap "homebrew/bundle"
 
-# Core CLI tools
-brew "coreutils"       # GNU coreutils (gls, gcat, etc.)
-brew "bash"            # Modern bash
-brew "zsh"             # Modern zsh
+# === Core CLI ===
+brew "coreutils"
+brew "bash"
+brew "zsh"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
+brew "zsh-completions"
 
-# Modern replacements
+# === Modern Rust Tools ===
 brew "eza"             # ls replacement
 brew "bat"             # cat replacement
 brew "fd"              # find replacement
 brew "ripgrep"         # grep replacement
 brew "zoxide"          # cd replacement
 brew "fzf"             # fuzzy finder
-brew "delta"           # git diff pager
+brew "git-delta"       # git diff pager
 brew "atuin"           # shell history
+brew "tokei"           # code stats
+brew "yazi"            # file manager TUI
+brew "zellij"          # terminal multiplexer (tmux alternative)
 
-# Development
+# === Git & GitHub ===
 brew "git"
-brew "gh"              # GitHub CLI
+brew "gh"
+brew "difftastic"      # structural diff (understands syntax, not just lines)
+
+# === Terminal & Shell ===
+brew "starship"        # prompt
+brew "glow"            # markdown renderer
+brew "tmux"            # terminal multiplexer
+brew "neovim"          # modern vim
+
+# === Data Formats ===
 brew "jq"              # JSON processor
 brew "yq"              # YAML processor
-brew "tokei"           # Code stats
-brew "direnv"          # Per-directory env
-
-# Terminal/shell
-brew "starship"        # Prompt
-brew "glow"            # Markdown renderer
-brew "zsh-autosuggestions"
-brew "zsh-syntax-highlighting"
-
-# Languages (uncomment as needed)
-brew "go"
-brew "node"
-# brew "python"
-# brew "rust"
-
-# Infrastructure (uncomment as needed)
-# brew "docker"
-# brew "colima"          # Docker runtime for macOS
-# brew "kubectl"
-# brew "terraform"
-
-# Utilities
 brew "curl"
 brew "wget"
+
+# === Development ===
+brew "go"
+brew "golangci-lint"
+brew "staticcheck"
+brew "node"
+brew "deno"
+brew "python@3.14"
+brew "direnv"
+
+# === Proto/gRPC ===
+brew "protobuf"
+brew "grpcurl"
+tap "bufbuild/buf"
+brew "bufbuild/buf/buf"
+
+# === Containers & Infra ===
+brew "docker"
+brew "docker-compose"
+brew "colima"          # Docker runtime for macOS
+brew "terraform"
+
+# === Cloud ===
+brew "awscli"
+
+# === AI ===
+brew "ollama"
+
+# === Media & Visualization ===
+brew "ffmpeg"
+brew "graphviz"
+
+# === Utilities ===
 brew "watch"
-brew "htop"
-brew "tree"
-brew "expect"          # For unbuffer
+brew "expect"          # unbuffer
+brew "pstree"
+brew "cowsay"
+brew "figlet"
+brew "pastel"          # color manipulation
+brew "gum"             # glamorous shell scripts (spinners, prompts, styling)
 
-# Cloud CLI tools
-brew "awscli"          # AWS CLI v2
-
-# Casks (GUI apps) - uncomment as needed
+# === Casks (uncomment as needed) ===
 # cask "ghostty"
-# cask "iterm2"
 # cask "visual-studio-code"
 # cask "cursor"
-# cask "docker"

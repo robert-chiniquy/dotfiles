@@ -185,7 +185,79 @@ old/
 
 ---
 
-### 5. DEMO.md (after completing user-facing features)
+### 5. PLAN_*.md (for all plans)
+
+All plans of any kind MUST be written to local plan markdown files in the project directory.
+
+**Naming convention:** `PLAN_<SPECIFIC_OBJECTIVE>.md`
+
+**Examples:**
+- `PLAN_IMPLEMENT_DFA_CACHING.md`
+- `PLAN_DATALOG_BENCHMARK_INTEGRATION.md`
+- `PLAN_SMT_PROOF_GENERATION.md`
+
+**Rules:**
+- Write the plan BEFORE implementation
+- Use descriptive objective names (not generic like `PLAN_PHASE1.md`)
+- Multiple plans can coexist (different objectives)
+- List all active plans in PROJECT.md if it exists
+- Plans are append-only during execution (don't delete steps that proved wrong)
+- Mark completed/abandoned sections but preserve them
+
+**Contents:**
+- Objective: What are we trying to achieve?
+- Context: What do we know? What constraints exist?
+- Approach: How will we achieve it?
+- Steps: What are the concrete steps?
+- Success criteria: How will we know it's done?
+- Open questions: What needs clarification?
+
+**Why:** Plans are artifacts. They document reasoning. Future sessions can resume from them. Written plans prevent scope creep and forgotten requirements.
+
+---
+
+### 6. FAILURES.md (when something proves impossible)
+
+When a task or feature proves permanently impossible, document it in `FAILURES.md`.
+
+**Purpose:** Track what we tried and why it didn't work. Prevents re-attempting failed approaches.
+
+**Format:**
+
+```markdown
+# FAILURES.md
+
+## [2025-01-17] Attempted: Real-time DFA minimization
+
+**Goal:** Minimize DFAs during product construction
+
+**What we tried:**
+- Hopcroft's algorithm mid-construction
+- Incremental state merging
+
+**Why it failed:**
+- Intermediate states may become reachable later
+- Minimization is only valid for complete DFAs
+
+**Alternatives considered:**
+- Lazy minimization (implemented instead)
+- BDD representation
+
+**Lesson:** Minimization must wait until DFA is complete.
+```
+
+**Rules:**
+- Add immediately when something proves impossible
+- Include what was tried and why it failed
+- Document alternatives considered
+- Extract lessons learned
+- Never delete entries (append-only)
+
+**Why:** Prevents wasted effort on known dead ends. Captures institutional knowledge.
+
+---
+
+### 7. DEMO.md (after completing user-facing features)
 
 When code completely satisfies a use case, write a DEMO markdown file.
 
@@ -197,6 +269,62 @@ When code completely satisfies a use case, write a DEMO markdown file.
 - Must be runnable by user following the steps
 
 **Why:** Validates UX makes sense. Serves as executable documentation.
+
+---
+
+## Interpreting Project Requirements
+
+### "Show Me the Code" is a Premise
+
+All architectural analysis, critique, and design work MUST be grounded in actual code examination.
+
+**Rules:**
+- Don't theorize about what a system does - read the implementation
+- Don't assume bottlenecks - find them in the code
+- Don't claim limitations without citing specific files and line numbers
+- Reference actual data structures, algorithms, and query patterns
+- When analyzing a system you're improving upon, read that system's code first
+
+**Anti-patterns:**
+- "The current system probably does X" (speculation)
+- "This would be slow because Y" (assumption without evidence)
+- "The architecture likely has Z problem" (theory without code)
+
+**Good patterns:**
+- "In pkg/access/resolver.go:234, the query iterates over all grants - O(n)"
+- "The GroupMembership struct at models/group.go:45 doesn't support transitive closure"
+- "baton-entra/pkg/connector/users.go:178 fetches all users then filters client-side"
+
+**Why:** Code is ground truth. Documentation lies. Assumptions compound. Reading code prevents building solutions to imaginary problems.
+
+---
+
+### Subjunctive Mood = "If Possible, Do It"
+
+When project notes, plans, or requirements use subjunctive mood ("perhaps", "could", "might", "if feasible"), interpret this as:
+
+**"Do everything that is possible. Do not stop at the minimum."**
+
+| Written | Interpretation |
+|---------|----------------|
+| "perhaps using Z3" | Implement Z3 integration if possible |
+| "could add caching" | Add caching unless blocked |
+| "might support X" | Support X if feasible |
+| "explore whether Y" | Implement Y if research shows it's possible |
+
+The subjunctive indicates exploratory scope, NOT optional scope. The work is only skipped if it proves technically impossible or permanently blocked.
+
+**Do not interpret subjunctive as:**
+- "Nice to have"
+- "Only if there's time"
+- "Lower priority"
+
+**Correct interpretation:**
+- "Required unless blocked"
+- "Maximum scope unless impossible"
+- "Intent to implement, contingent on feasibility"
+
+**Example:** A project spec saying "perhaps using z3 or another SMT approach" means: Implement Z3 integration. Only stop if Z3 proves fundamentally incompatible with the architecture.
 
 ---
 
@@ -260,6 +388,70 @@ When a project has categories of enumerable items (components, endpoints, comman
 
 ---
 
+### Meta Project Makefiles
+
+Multi-subproject repositories should have a root Makefile that propagates targets to subprojects.
+
+**CRITICAL: When adding new subprojects or targets, ALWAYS update the root Makefile:**
+
+1. **New subproject** -> Add targets: `<subproject>-build`, `<subproject>-test`, `<subproject>-clean`
+2. **New target in subproject Makefile** -> Add corresponding target in root Makefile
+3. **Add to aggregate targets** -> Include in `build`, `test`, `clean` that iterate over all subprojects
+
+Example when adding `09-integration`:
+```makefile
+# Add to SUBDIRS
+SUBDIRS = 01-classifiers 02-egraph ... 09-integration
+
+# Add specific targets
+09-integration-build:
+	$(MAKE) -C 09-integration build
+
+09-integration-test:
+	$(MAKE) -C 09-integration test
+```
+
+This ensures `make build` and `make test` from root include all subprojects.
+
+**Argument passthrough:**
+
+The root Makefile MUST support passing arguments through to underlying commands:
+
+```bash
+# Pass -v flag to all go test commands
+make test -- -v
+
+# Pass -vvvv or any flags
+make test -- -vvvv
+
+# Build with specific flags
+make build -- -race
+```
+
+**Implementation pattern:**
+
+```makefile
+# At top of Makefile, capture extra args
+ARGS = $(filter-out $@,$(MAKECMDGOALS))
+
+# Or use this pattern for -- separation
+%:
+	@:
+
+test:
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir test EXTRA_FLAGS="$(ARGS)"; \
+	done
+
+# In subproject Makefile
+test:
+	go test $(EXTRA_FLAGS) ./...
+```
+
+**Why:** Developers expect to pass flags through. `-v` for verbose, `-race` for race detection, `-count=1` to disable caching.
+
+---
+
 ### Scripts in Project Directory
 
 All scripts (bash, Python, etc.) created during work MUST be saved in the project directory.
@@ -285,6 +477,259 @@ project-root/
 
 ---
 
+### Design Before Implementation (TDD Principle)
+
+Design tasks always take precedence over implementation tasks. Following TDD principles: design for tests comes before design for implementation.
+
+**Every design task completed is an implementation task you have not yet begun.**
+
+This is a reminder: design documents create work, they don't complete it. A design doc for feature X is valuable, but feature X remains unimplemented until code exists. Don't mistake planning for progress.
+
+**Order of priority:**
+1. New data sources and research topics (highest)
+2. Design and planning tasks
+3. Test design (what should be tested, how to verify correctness)
+4. Implementation tasks (lowest)
+
+**TDD workflow:**
+1. **Design** - What problem are we solving?
+2. **Test design** - How will we know it's correct? What properties should hold?
+3. **Implementation** - Write code that passes the tests
+
+**Rationale:** Implementation without design leads to rework. Tests without design verify the wrong things. Good design reduces total effort. But design without implementation is just documentation.
+
+**Signals to pause implementation:**
+- Uncertainty about approach
+- Multiple valid solutions
+- Missing requirements
+- New information that changes assumptions
+- Tests not yet designed
+
+---
+
+### New Data Sources and Research Topics Get Priority
+
+When a new data source arrives or a new research topic opens up:
+
+1. **Immediately promote it to highest priority** in the current work queue
+2. **Investigate before continuing other work** - new information may change decisions
+3. **Update DATA_SOURCES.md** with the new source
+4. **Document findings in LEARNINGS.md** before moving on
+
+**Rationale:** New data sources often contain insights that affect other work. Investigating first prevents wasted effort on invalidated assumptions.
+
+**Example:**
+- User mentions "there's a 1.1GB c1z file under ~/repo" -> find it, examine it, update plans
+- User suggests "look at the RAP implementation in research/agents/" -> read it before designing prompts interface
+- User asks "have you checked the original classifiers repo for caching?" -> search there first
+
+---
+
+### Maintain Momentum (Don't Block on Human)
+
+When work requires human action:
+
+1. **Add the needed action to HUMAN_ACTIONS_NEEDED.md**
+2. **Immediately continue with other available work**
+   - Other threads/tasks
+   - Design docs
+   - Implementation plans
+   - Tests
+   - Documentation
+3. **Only ask human for input when ALL completable work is done**
+
+**Rules:**
+
+- Don't stop and wait for approval unless completely blocked on everything
+- Batch requests rather than blocking repeatedly
+- If uncertain about a decision, make a reasonable choice and document it
+- Queue permissions and approvals for human review
+- Continue with unblocked work in parallel
+
+**Anti-pattern:** Stopping work to ask "should I proceed?" or "is this okay?"
+
+**Good pattern:** "I've queued these items in HUMAN_ACTIONS_NEEDED.md and continued with the remaining tasks."
+
+**Why:** Maximizes autonomous progress. Respects human time. Keeps momentum.
+
+---
+
+## Meta-Learnings: Complex Multi-Subproject Management
+
+Patterns extracted from managing complex research spikes with multiple interrelated subprojects.
+
+### Build System Discipline
+
+**Never bypass the root Makefile in multi-subproject repos.**
+
+| Wrong | Right |
+|-------|-------|
+| `cd subproject && go test ./...` | `make subproject-test` |
+| `cd subproject && make test` | `make subproject-test` |
+| `go build ./subproject/...` | `make subproject-build` |
+
+Direct commands may hang indefinitely due to toolchain configuration handled by the root Makefile. This is especially common with Go modules in monorepos.
+
+**The root Makefile MUST:**
+- Propagate all targets to subprojects
+- Handle environment setup correctly
+- Support argument passthrough (`make test -- -v`)
+
+If commands are timing out or hanging, the FIRST thing to check is whether you're using the root Makefile.
+
+---
+
+### Context Compaction Recovery
+
+**Critical information must appear in multiple locations because context compaction loses memory.**
+
+After compaction, Claude Code starts fresh. Important rules must be:
+1. In `CLAUDE.md` at the TOP (read first after compaction)
+2. In `LEARNINGS.md` prominently
+3. Repeated in both files, not just one
+
+**Pattern:** Add a "READ THIS FIRST" section at the top of CLAUDE.md:
+```markdown
+## READ THIS FIRST AFTER EVERY CONTEXT COMPACTION
+
+[Critical rules that MUST be followed]
+```
+
+If you've been reminded multiple times about the same mistake:
+1. Add it to CLAUDE.md immediately
+2. Make it prominent (top of file)
+3. Also add to LEARNINGS.md
+
+---
+
+### Existing Code Discovery
+
+**Always search existing codebase before assuming something is missing.**
+
+Before implementing tests/features:
+1. Search for files with related naming conventions (`*_test.go`, `laws_*.go`)
+2. Check for alternative naming patterns (`laws_` vs `test_`)
+3. Grep for function names you expect to exist
+
+**Example mistake:** Assuming no property-based tests existed because they used `laws_*.go` naming instead of `*_test.go`.
+
+**Good patterns:**
+```bash
+# Find all test files
+make list-tests  # If available
+glob **/*test*.go
+
+# Find related implementations
+grep -r "func.*Property" --include="*.go"
+```
+
+---
+
+### Unifying Algorithms
+
+**When implementing multiple related operations, find the unifying algorithm.**
+
+Example: All set operations (Union, Intersection, Difference, Complement, SymmetricDifference) can use the same product construction algorithm with different "painter" functions:
+
+| Operation | Painter Logic |
+|-----------|--------------|
+| Union | accept if either accepts |
+| Intersection | accept if both accept |
+| Difference | accept if left accepts, right doesn't |
+| SymmetricDifference | accept if exactly one accepts |
+
+One algorithm, many operations. This reduces bugs and maintenance burden.
+
+---
+
+### Avoiding Mutual Recursion
+
+**When implementing derived predicates, ensure the call graph is acyclic.**
+
+Dangerous pattern:
+```go
+func (a *TypeA) Equals(b *TypeA) bool {
+    return a.SymmetricDifference(b).IsEmpty()  // Calls B.method()
+}
+
+func (b *TypeB) IsEmpty() bool {
+    return b.left.Equals(b.right)  // Calls A.Equals() -> infinite loop!
+}
+```
+
+**Solutions:**
+1. Compute derived predicates via a DIFFERENT mechanism (e.g., DFA product construction)
+2. Use conservative approximations when exact computation would recurse
+3. Separate "structural" operations from "derived" predicates
+
+---
+
+### Conservative Approximation
+
+**When exact computation is expensive or impossible, return conservative estimates.**
+
+Examples:
+- `Relation()` returning `RelationIntersection` ("might overlap") instead of precise relation
+- `IsEmpty()` returning `false` when unable to determine emptiness
+- `IsSubsetOf()` returning `false` when unable to verify
+
+Mark these clearly in documentation. Conservative approximations are SAFE (won't cause incorrect behavior) but may miss optimization opportunities.
+
+---
+
+### Cross-Validation Testing
+
+**Different representations of the same concept can verify each other.**
+
+When you have multiple implementations (DFA, Datalog, SMT, native):
+1. Generate random test cases
+2. Evaluate with each representation
+3. Assert all results agree
+4. On disagreement, minimize to find bug
+
+This catches bugs that single-representation tests miss. Particularly valuable for complex domains like access control.
+
+---
+
+### Subproject Isolation
+
+**Each subproject in a spike should be independently usable.**
+
+Requirements:
+- Own `go.mod` (or equivalent)
+- Own tests (runnable via root Makefile)
+- Own CLAUDE.md if it has code
+- Own DATA_SOURCES.md if it consulted external sources
+- Clear interface to other subprojects
+
+Dependencies between subprojects should be explicit (replace directives during dev, proper module paths for release).
+
+---
+
+### Separation of Concerns
+
+**It is better to create a new subproject than to pollute an existing one.**
+
+When adding functionality that spans multiple concerns:
+1. Ask: "Does this belong in the existing subproject's single responsibility?"
+2. If NO: Create a new subproject for the integration/bridge layer
+3. If YES: Add it, but watch for growing scope
+
+**Signs a subproject needs splitting:**
+- Import cycles between packages within the subproject
+- Tests that require mocking unrelated concerns
+- Multiple independent "main" entry points
+- Different deployment or consumption patterns for different parts
+
+**Integration layers belong in their own subprojects:**
+- `classifiers-egraph-bridge/` not `classifiers/egraph.go`
+- `datalog-smt-bridge/` not `datalog/smt.go`
+- `integration/` for unified services that combine multiple subprojects
+
+**Why:** Clean boundaries enable independent evolution. Coupling at integration points is explicit and manageable. Each subproject can be understood, tested, and used in isolation.
+
+---
+
 ## Self-Check
 
 Before considering any project phase complete:
@@ -297,3 +742,4 @@ Before considering any project phase complete:
 - [ ] Documents versioned, not overwritten
 - [ ] Checkpoint commit created for phase
 - [ ] Catalog documents updated (if enumerable items added)
+- [ ] Root Makefile tested for all subprojects (multi-subproject repos)

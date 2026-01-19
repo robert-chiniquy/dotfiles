@@ -112,6 +112,75 @@ Is this a reusable pattern applicable to other projects?
 
 ---
 
+## Technical Writing Principles
+
+### Code and Expressions in Backticks
+
+All code, expressions, field names, function calls, and technical identifiers must be in backticks. No exceptions.
+
+- Field names: `subject.department`, not subject.department
+- Functions: `GetManagers(subject)`, not GetManagers(subject)
+- Expressions: `subject.department == "Engineering"`, not subject.department == "Engineering"
+- Values: `true`, `false`, `null`, not true, false, null
+
+This applies everywhere: prose, tables, lists, headings.
+
+---
+
+### Diagrams in Mermaid
+
+Unless otherwise specified, all diagrams in documentation use Mermaid syntax. Mermaid diagrams:
+- Render in GitHub, GitLab, and most documentation systems
+- Are version-controllable (text, not binary)
+- Can be edited without external tools
+
+Always include the diagram type on the first line (`flowchart`, `sequenceDiagram`, `stateDiagram-v2`, etc.).
+
+```markdown
+```mermaid
+flowchart LR
+    A[Input] --> B[Process] --> C[Output]
+```
+```
+
+Avoid ASCII art diagrams, image files, or external diagram tools unless Mermaid cannot represent the concept.
+
+---
+
+### Domain Relevance for Advantages
+
+When listing advantages of a technology, framework, or pattern, don't merely state that an attribute is "good" - explain why it matters in the specific domain.
+
+**Wrong** (generic praise):
+```markdown
+This query language is:
+- Fast - Evaluates in microseconds
+- Safe - No loops, bounded execution
+- Type-safe - Errors caught at compile time
+```
+
+**Right** (domain-relevant):
+```markdown
+This query language has properties that matter for authorization systems:
+- **Fast** - Evaluates in microseconds, critical for access decisions in the request path
+- **Bounded execution** - No loops means expressions always terminate; authorization systems cannot hang waiting for policy evaluation
+- **Type-safe** - Expressions checked at compile time; a typo in a policy condition is caught before deployment, not when a user is denied access
+- **No side effects** - Policy evaluation cannot modify state; evaluating "can user X access resource Y" never changes permissions
+```
+
+**The principle**: Every advantage should answer "why does this matter for [domain]?" not just "why is this good in general?"
+
+**Common domains and their concerns**:
+- **Authorization/IAM**: Correctness (wrong decision = security breach), latency (in critical path), reliability (cannot fail open or closed unexpectedly)
+- **Data pipelines**: Throughput, exactly-once semantics, backpressure handling
+- **User interfaces**: Responsiveness, accessibility, error recovery
+- **Financial systems**: Auditability, precision, transaction guarantees
+- **Real-time systems**: Deterministic timing, bounded memory, graceful degradation
+
+**Test**: For each advantage listed, ask "So what?" If the answer requires domain knowledge to be meaningful, you've explained the relevance correctly.
+
+---
+
 ## Anti-Patterns
 
 ### 1. Pattern Leakage into Design Docs
@@ -206,6 +275,97 @@ Is the source repository public?
 - Private repo paths expose proprietary information
 - Patterns are valuable; implementation details may be confidential
 - Local project docs are scoped to users with repo access
+
+---
+
+## Internal Scaffolding vs Published Content
+
+Documentation projects often have internal documents that help organize the work but are not meant for publication.
+
+### Directory Organization
+
+As a documentation project approaches publication-readiness, separate published content from internal scaffolding:
+
+```
+project/
+  docs/                    # Published documentation
+    01_GETTING_STARTED.md
+    02_CORE_CONCEPTS.md
+    ...
+  _ONTOLOGY.md             # Internal: document structure
+  _SOURCES.md              # Internal: citation tracking
+  _TONE_MATRIX.md          # Internal: tone analysis
+  CLAUDE.md                # Project instructions
+  README.md                # Project overview
+```
+
+**Rules:**
+- `docs/` contains only publication-ready content
+- Internal scaffolding stays in the project root (or `meta/` subdirectory)
+- Readers of published docs never see the scaffolding
+- The `docs/` directory can be deployed, synced, or published as a unit
+- **Documents in `docs/` must not reference anything in the project root or meta directories** - no links to ONTOLOGY.md, LEARNINGS.md, DATA_SOURCES.md, etc. These are internal scaffolding. Published docs are self-contained.
+
+### Internal Scaffolding Documents
+
+**Examples**:
+- Ontology indexes (numbered doc structure, section assignments)
+- Tone matrices and style comparisons
+- Source citation tracking (where content came from)
+- Phase/revision tracking documents
+- Content gap analysis
+
+**Characteristics**:
+- Help authors organize and plan
+- May contain internal references, file paths, phase numbers
+- Not meaningful to end readers
+- Live in project root or `meta/` subdirectory, not in `docs/`
+
+**Naming conventions**:
+- Prefix with underscore: `_ONTOLOGY.md`, `_SOURCES.md`
+- Or use a `meta/` subdirectory
+- Or use `00_` prefix (sorts first, signals "not content")
+
+### Numbered Filenames
+
+Number prefixes (e.g., `01_GETTING_STARTED.md`, `02_CORE_CONCEPTS.md`) provide filesystem clarity during authoring:
+- Files sort in reading order
+- Authors can reference "doc 03" in discussions
+- Gaps in numbering show where content was removed
+
+**Before publication, number prefixes are typically removed.** Published filenames become `getting-started.md`, `core-concepts.md`, etc. The navigation structure comes from the publishing system (sidebar config, table of contents), not filename sorting.
+
+### Phase-Specific Directories
+
+When working through multiple revision phases, phase-specific directories can live:
+
+```
+# Option A: In project root (separates phases from published content)
+project/
+  docs/
+  phase1/
+  phase2/
+
+# Option B: Under docs/ (keeps all content together)
+project/
+  docs/
+    phase1/
+    phase2/
+    published/
+```
+
+Use whichever structure is clearer for the project. The key is consistency within a project.
+
+### Before Publication
+
+When publishing documentation:
+
+1. **Exclude scaffolding files** - Don't publish ontology indexes, source tracking, or planning docs
+2. **Remove internal markers** - Phase numbers, citation tags, internal paths
+3. **Strip number prefixes** - `01_GETTING_STARTED.md` becomes `getting-started.md`
+4. **Strip meta-references** - "See section 3" should become actual links or be removed
+
+**The ontology is for you, not the reader.** Readers navigate via table of contents, search, and cross-links - not by memorizing a numbered structure.
 
 ---
 
