@@ -1,6 +1,6 @@
 maximize = true
 quit-after-last-window-closed = true
-confirm-close-surface = false
+confirm-close-surface = always
 
 # font-family = JetBrains Mono
 font-family = Fira Code

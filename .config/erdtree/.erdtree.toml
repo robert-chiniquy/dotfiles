@@ -1,0 +1,31 @@
+# erdtree config - vaporwave defaults
+icons = true
+human = true
+color = "force"
+sort = "name"
+dir-order = "first"
+level = 2
+truncate = true
+
+# Compact view for quick listing
+[quick]
+icons = true
+human = true
+level = 1
+suppress-size = true
+
+# Detailed view with permissions
+[detail]
+icons = true
+human = true
+long = true
+level = 3
+
+# Disk usage analysis
+[du]
+icons = true
+human = true
+disk-usage = "physical"
+sort = "size"
+dir-order = "last"
+level = 2

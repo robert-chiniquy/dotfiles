@@ -1,0 +1,51 @@
+# Yazi keybindings
+# Disable mouse - keyboard navigation only
+
+[manager]
+prepend_keymap = [
+  # Disable mouse completely
+  { on = ["<MouseMove>"], run = "noop" },
+  { on = ["<Click>"], run = "noop" },
+  { on = ["<DoubleClick>"], run = "noop" },
+  { on = ["<RightClick>"], run = "noop" },
+  { on = ["<ScrollUp>"], run = "noop" },
+  { on = ["<ScrollDown>"], run = "noop" },
+
+  # Preview pane controls (toggle-pane plugin)
+  { on = ["T"], run = "plugin toggle-pane max-preview", desc = "Maximize/restore preview" },
+  { on = ["<C-p>"], run = "plugin toggle-pane min-preview", desc = "Hide/show preview" },
+
+  # Quick navigation
+  { on = ["g", "h"], run = "cd ~", desc = "Go home" },
+  { on = ["g", "c"], run = "cd ~/.config", desc = "Go to config" },
+  { on = ["g", "d"], run = "cd ~/Downloads", desc = "Go to downloads" },
+  { on = ["g", "r"], run = "cd ~/repo", desc = "Go to repos" },
+  { on = ["g", "t"], run = "cd /tmp", desc = "Go to tmp" },
+
+  # Toggle hidden files with .
+  { on = ["."], run = "hidden toggle", desc = "Toggle hidden" },
+
+  # Open shell in current directory
+  { on = ["s"], run = "shell '$SHELL' --block --confirm", desc = "Open shell" },
+
+  # Bulk rename with $EDITOR
+  { on = ["R"], run = "shell '$EDITOR \"$@\"' --block --confirm", desc = "Bulk rename" },
+]
+
+[tasks]
+prepend_keymap = [
+  { on = ["<MouseMove>"], run = "noop" },
+  { on = ["<Click>"], run = "noop" },
+]
+
+[select]
+prepend_keymap = [
+  { on = ["<MouseMove>"], run = "noop" },
+  { on = ["<Click>"], run = "noop" },
+]
+
+[input]
+prepend_keymap = [
+  { on = ["<MouseMove>"], run = "noop" },
+  { on = ["<Click>"], run = "noop" },
+]

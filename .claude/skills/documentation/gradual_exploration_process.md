@@ -499,6 +499,63 @@ Before publishing, verify assertions against real implementations:
 
 ---
 
+## AI-Voice Audit Pass
+
+Before publishing, review for passages that read as "written by AI."
+
+**Red flags to look for:**
+
+| Pattern | Example | Fix |
+|---------|---------|-----|
+| Generic hedging | "It's important to note that..." | Delete or be specific |
+| Filler transitions | "Additionally, furthermore, moreover" | Use simpler connectives or restructure |
+| Vague enthusiasm | "This powerful feature enables..." | Name the specific capability |
+| Passive padding | "It should be noted that X can be done" | "Do X" |
+| List-itis | Every section is a bullet list | Vary structure, use prose |
+| Over-qualification | "In many cases, depending on..." | State the common case, note exceptions |
+| Missing specifics | "Various options are available" | Name the options |
+| Robotic consistency | Every section follows identical structure | Vary rhythm |
+| Unnecessary words | "by following this workflow" | "with this workflow" |
+| Weak constructions | "There is a tool that..." | "The tool..." |
+| Ability phrases | "the ability to X" | "can X" |
+
+**Process:**
+1. Read document aloud (or use text-to-speech)
+2. Flag passages that sound like corporate boilerplate
+3. For each flagged passage: delete, simplify, or add specifics
+4. Verify the rewritten version sounds like a person explaining to a colleague
+
+**The test:** Would you say this to a coworker at a whiteboard? If not, rewrite it.
+
+---
+
+## Diagrams
+
+Use Mermaid syntax for diagrams in markdown docs. Mermaid renders natively in GitHub, GitLab, Notion, and most documentation platforms.
+
+```markdown
+```mermaid
+flowchart LR
+    A[Input] --> B[Process] --> C[Output]
+```
+```
+
+**Why Mermaid:**
+- Version-controlled (text, not binary)
+- Diff-friendly
+- No external tool dependencies
+- Renders where docs are read
+
+**When to use diagrams:**
+- System architecture (components, data flow)
+- Sequences (API calls, lifecycle events)
+- State machines (task states, resource states)
+- Hierarchies (resource relationships)
+
+**Keep diagrams simple.** If it needs more than 10-15 nodes, split into multiple diagrams or reconsider whether a diagram is the right format.
+
+---
+
 ## Hard-Won Learnings
 
 Lessons from documentation projects that should inform all future work:
@@ -525,6 +582,46 @@ Documentation describes intent; code describes reality. When they conflict:
 - Note why the divergence existed (helps prevent recurrence)
 
 Auto-generated content (manifests, schemas, configs) should be documented as auto-generated, not as something to write manually.
+
+### Enumerate First, Theorize Second
+
+**Critical anti-pattern to avoid:** Theory-driven codebase exploration.
+
+When researching a codebase, do NOT:
+- Start with a theory about how the system works
+- Search for files that confirm your theory
+- Stop when you've found "enough" evidence
+
+This is confirmation bias applied to code exploration. You will miss features that don't fit your mental model.
+
+**Instead, enumerate systematically:**
+
+```bash
+# WRONG: Search for what you expect to find
+grep -r "GetManagers" pkg/           # Only finds what you're looking for
+ls pkg/foo/*user*.go                 # Only matches your expected pattern
+
+# RIGHT: Enumerate everything, then categorize
+ls pkg/foo/*.go                      # See ALL files first
+ls pkg/foo/**/*.go                   # Include subdirectories
+```
+
+**The correct process:**
+1. **Enumerate** - List all files/functions/types in the area
+2. **Categorize** - Group by naming pattern or purpose
+3. **Read** - Examine each category systematically
+4. **Theorize** - Form mental model AFTER seeing everything
+
+**Real example of this failure:**
+
+Researching an expression language in a codebase, started with theory "there are three canonical environments" from a proto file. Searched for those three, found them, documented them. Missed:
+- `pkg/foo/timelib/*.go` - Time functions in subdirectory (not searched)
+- `pkg/foo/foo_library_netip_v1.go` - IP/CIDR support (file existed, wasn't enumerated)
+- `pkg/foo/foo_env_triggers.go` - Automation context (file existed, wasn't enumerated)
+
+The existing user documentation didn't miss these because it documents from user perspective (what exists) not implementation perspective (what's expected).
+
+**Signal you're doing it wrong:** You're searching for specific patterns rather than listing what's there.
 
 ### Anti-Patterns Are Worth Documenting
 
@@ -681,3 +778,100 @@ docs/NN_TOPIC.md           # Publishable, numbered
 PHASE_1/TOPIC_PHASE_1.md
 PHASE_1/TOPIC_PHASE_2.md
 ```
+
+---
+
+## Retrieval Augmented Prompt (RAP) Documentation
+
+For AI agent consumption, create a parallel `docs-skills/` directory with chunked, self-contained skill files optimized for selective retrieval.
+
+### Why RAP Documentation
+
+Full documentation may exceed context windows. RAP format allows agents to:
+1. Read a small index describing available sections
+2. Select relevant sections based on user query
+3. Retrieve only what's needed
+4. Answer with focused context
+
+### Structure
+
+```
+docs/                    # Human-readable, full documentation
+  01_GETTING_STARTED.md
+  02_CORE_CONCEPTS.md
+  ...
+
+docs-skills/             # Agent-optimized, chunked for retrieval
+  INDEX.md               # Always in context, describes all sections
+  concepts-overview.md   # Self-contained skill file
+  concepts-resources.md
+  build-setup.md
+  debug-errors.md
+  ...
+```
+
+### INDEX.md Requirements
+
+The index is always loaded. It must:
+
+1. **Describe each section concisely** - What it covers in one line
+2. **Provide file names** - So agent knows what to request
+3. **Include selection guidelines** - Map query patterns to relevant files
+4. **Show usage examples** - Demonstrate retrieval for common questions
+
+**Example INDEX structure:**
+
+```markdown
+## Available Sections
+
+| Section | File | Covers |
+|---------|------|--------|
+| What connectors do | `concepts-overview.md` | Problem solved, sync vs provision |
+| Resource model | `concepts-resources.md` | Resources, entitlements, grants |
+
+## Selection Guidelines
+
+**User asks "how do I..."**
+- Build a connector -> `build-setup.md`, `build-syncer.md`
+- Debug a problem -> `debug-workflow.md`, `debug-errors.md`
+
+**User shows code with errors**
+- Look at error message -> `debug-errors.md`
+```
+
+### Skill File Requirements
+
+Each skill file must be:
+
+1. **Self-contained** - Understandable without other files
+2. **Focused** - One topic, not comprehensive overview
+3. **Actionable** - Code examples, concrete patterns
+4. **Concise** - 100-300 lines typical, under 500 max
+
+**Naming convention:** `category-topic.md`
+- `concepts-*` - Conceptual understanding
+- `build-*` - Building/implementation
+- `provision-*` - Provisioning operations
+- `meta-*` - Meta-connector configuration
+- `ops-*` - Operations/deployment
+- `debug-*` - Debugging/troubleshooting
+- `ref-*` - Reference material
+
+### Creating RAP from Full Docs
+
+1. **Identify discrete topics** - Each should answer a specific class of questions
+2. **Extract and simplify** - Pull content, remove cross-references to other sections
+3. **Add context** - Each file should open with a one-line description of what it covers
+4. **Verify independence** - Can this file be understood alone?
+
+### When to Create RAP Version
+
+Create `docs-skills/` when:
+- Documentation will be used by AI agents
+- Full docs exceed typical context windows (>50k tokens)
+- Users will have varied, specific questions (not reading cover-to-cover)
+
+Don't create when:
+- Docs are short enough to fit in context entirely
+- Content is inherently linear (must be read in order)
+- Target audience is humans only

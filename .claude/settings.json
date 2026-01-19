@@ -6,6 +6,10 @@
     "rust-analyzer-lsp@claude-plugins-official": true
   },
   "alwaysThinkingEnabled": true,
+  "statusLine": {
+    "type": "command",
+    "command": "/Users/rch/.claude/statusline-command.sh"
+  },
   "permissions": {
     "allow": [
       "Bash(git status:*)",
