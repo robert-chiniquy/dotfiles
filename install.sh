@@ -61,6 +61,15 @@ unlink_if_exists ~/.config/ghostty
 unlink_if_exists ~/.config/nvim
 unlink_if_exists ~/.config/yazi
 unlink_if_exists ~/bin
+# Nushell config location on macOS
+unlink_if_exists ~/Library/Application\ Support/nushell
+# Window management
+unlink_if_exists ~/.yabairc
+unlink_if_exists ~/.skhdrc
+unlink_if_exists ~/.config/sketchybar
+unlink_if_exists ~/.config/borders
+unlink_if_exists ~/.config/yabai
+unlink_if_exists ~/.hammerspoon
 success "Cleanup done"
 
 # === Create symlinks ===
@@ -87,7 +96,18 @@ link_if_missing .config/glow ~/.config/glow
 link_if_missing .config/ghostty ~/.config/ghostty
 link_if_missing .config/nvim ~/.config/nvim
 link_if_missing .config/yazi ~/.config/yazi
+link_if_missing .config/erdtree ~/.config/erdtree
 link_if_missing bin ~/bin
+# Nushell config location on macOS
+mkdir -p ~/Library/Application\ Support
+link_if_missing .config/nushell ~/Library/Application\ Support/nushell
+# Window management
+link_if_missing .yabairc ~/.yabairc
+link_if_missing .skhdrc ~/.skhdrc
+link_if_missing .config/sketchybar ~/.config/sketchybar
+link_if_missing .config/borders ~/.config/borders
+link_if_missing .config/yabai ~/.config/yabai
+link_if_missing .hammerspoon ~/.hammerspoon
 success "Symlinks done"
 
 # === Post-install ===
@@ -108,7 +128,9 @@ if command -v gum &>/dev/null; then
     --border-foreground="#ff00f8" \
     --padding="1 3" \
     --bold \
-    "DONE" "" "Restart shell or: source ~/.zshrc"
+    "DONE" "" "Restart shell:" "  zsh: source ~/.zshrc" "  nu:  nu"
 else
-  echo "Done! Restart your shell or run: source ~/.zshrc"
+  echo "Done! Restart your shell:"
+  echo "  zsh: source ~/.zshrc"
+  echo "  nu:  nu"
 fi

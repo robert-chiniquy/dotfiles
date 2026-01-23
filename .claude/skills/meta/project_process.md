@@ -185,7 +185,53 @@ old/
 
 ---
 
-### 5. PLAN_*.md (for all plans)
+### 5. private/ Directory (for sensitive documents)
+
+Documents that shouldn't be shared externally should live in a `private/` directory, excluded from git.
+
+**Purpose:** Protect documents that could be misread, misinterpreted, or are not yet ready for external audiences.
+
+**Structure:**
+
+```
+private/
+├── README.md           # Index explaining why each file is private
+├── SENSITIVE_DOC.md    # Harsh internal critique
+└── ...
+```
+
+**The README must explain for each file:**
+
+- What the document contains
+- Why it's private (specific concern)
+
+**Criteria for private/ (any of these):**
+
+1. **Overpromises or unrealistic expectations** - Early drafts that promise more than can be delivered
+2. **Exposes internal weaknesses without context** - Product gaps, limitations that need framing
+3. **Could be read as critical of team/product/customers** - Even if accurate, needs careful positioning
+4. **Harsh language about our own work** - Internal critiques meant for improvement
+5. **Alarming assessments without context** - Risk documents, "NOT READY" statuses
+6. **Stale claims that haven't been updated** - Earlier versions with outdated information
+
+**Workflow:**
+
+1. Create document normally during work
+2. Before sharing/publishing, review against criteria above
+3. If ANY criteria match, move to private/
+4. Add entry to private/README.md
+5. Can always move back to public later, but can't unpublish
+
+**Why:** You can't unpublish. Better to keep things private and add later than publish and regret. Protects team from documents that are accurate but could be misinterpreted without context.
+
+**Relationship to old/:**
+
+- `old/` = superseded code/docs preserved for learning (can be public)
+- `private/` = documents too sensitive to share (excluded from git)
+
+---
+
+### 6. PLAN_*.md (for all plans)
 
 All plans of any kind MUST be written to local plan markdown files in the project directory.
 
@@ -216,7 +262,7 @@ All plans of any kind MUST be written to local plan markdown files in the projec
 
 ---
 
-### 6. FAILURES.md (when something proves impossible)
+### 7. FAILURES.md (when something proves impossible)
 
 When a task or feature proves permanently impossible, document it in `FAILURES.md`.
 
@@ -257,7 +303,7 @@ When a task or feature proves permanently impossible, document it in `FAILURES.m
 
 ---
 
-### 7. DEMO.md (after completing user-facing features)
+### 8. DEMO.md (after completing user-facing features)
 
 When code completely satisfies a use case, write a DEMO markdown file.
 
@@ -449,6 +495,46 @@ test:
 ```
 
 **Why:** Developers expect to pass flags through. `-v` for verbose, `-race` for race detection, `-count=1` to disable caching.
+
+---
+
+### Project Organization: Status Subdirectories
+
+Large projects MUST use status subdirectories to keep the top-level project focused on currently operating specs.
+
+**Required structure:**
+```
+project/
+├── old/           # Superseded versions (V1 when V2 exists, etc.)
+├── design/        # Design documents (DESIGN_*.md, *_DESIGN.md)
+├── plans/         # Plans (PLAN_*.md, *_PLAN.md)
+├── analysis/      # Analysis, research, axioms, assessments
+├── reference/     # Reference documentation (concepts, guides, inventories)
+├── retro/         # Retrospectives, critiques, failures, lessons learned
+└── [process docs] # Only active process files at top level
+```
+
+**Top-level files (keep at root):**
+- CLAUDE.md, README.md, project.md - Project definition
+- DATA_SOURCES.md, GLOSSARY.md, LEARNINGS.md - Knowledge tracking
+- TODO.md, COMPLETED.md, HUMAN_ACTIONS_NEEDED.md - Task tracking
+- DEMO.md or DEMO_V2.md - Current showcase
+
+**Categorization rules:**
+- **old/**: Any file with V1, V2, etc. when a newer version exists. Also: redundant summaries, temporary inventories, superseded approaches.
+- **design/**: DESIGN_*.md, *_DESIGN.md, *_INTEGRATION_DESIGN*.md, UI designs
+- **plans/**: PLAN_*.md, *_PLAN.md, implementation roadmaps
+- **analysis/**: *_ANALYSIS.md, *_AXIOMATIZATION*.md, *_ASSESSMENT.md, scale analysis, product analysis
+- **reference/**: Concept explanations, how-to guides, feature inventories, benchmarks, protocol diffs
+- **retro/**: FAILURES.md, *_CRITIQUE.md, *_GAPS.md, SUGGESTIONS.md, process improvements, verification audits
+
+**Periodic cleanup (every ~50 files at top level):**
+1. List all top-level .md files
+2. Check STATUS header or infer from content/naming
+3. Move to appropriate subdirectory
+4. Update any cross-references
+
+**Why:** Prevents clutter. Makes it clear what's current vs historical. Large projects accumulate documents quickly; this keeps focus on what matters now.
 
 ---
 
@@ -738,6 +824,7 @@ Before considering any project phase complete:
 - [ ] LEARNINGS.md captures discoveries made
 - [ ] HUMAN_ACTIONS_NEEDED.md is empty or only contains truly blocked items
 - [ ] Deprecated code moved to old/ with documentation (if applicable)
+- [ ] Sensitive documents in private/ with README entry (if applicable)
 - [ ] DEMO.md written for user-facing features (if applicable)
 - [ ] Documents versioned, not overwritten
 - [ ] Checkpoint commit created for phase

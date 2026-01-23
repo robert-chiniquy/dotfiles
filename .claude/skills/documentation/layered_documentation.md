@@ -414,3 +414,115 @@ This separation means:
 - Someone learning protogen stack reads the global skill
 - Someone joining this project reads local notes to see our choices
 - Someone understanding the feature reads domain design
+
+---
+
+## RAP Deployment for LLM Consumption
+
+For the complete RAP guide including tone guidelines and naming conventions, see:
+**~/.claude/skills/documentation/rap_documentation.md**
+
+When documentation will be consumed by LLMs (AI assistants, chatbots, RAG systems), deploy a parallel structure optimized for selective retrieval.
+
+### The Pattern
+
+```
+docs/
+  getting-started.mdx      # Human-readable docs
+  reference.mdx
+  examples.mdx
+  rap/                     # LLM-optimized chunks
+    index.md               # Retrieval guide for LLMs
+    topic-a.md             # Focused, self-contained
+    topic-b.md
+    topic-c.md
+```
+
+### RAP Directory Contents
+
+**Skill files** - Each file should be:
+- Under 300 lines
+- Self-contained (understandable without other files)
+- Focused on one topic
+- Include concrete examples with inline comments
+
+**index.md** - An LLM-oriented inventory containing:
+- List of all available files with descriptions
+- "Use when user asks about X" guidance
+- Quick retrieval patterns by question type
+- File characteristics (size, scope)
+
+### The Breadcrumb Pattern
+
+Add an HTML comment at the bottom of the main human-readable doc pointing LLMs to the RAP index:
+
+```html
+<!--
+LLM Note: For AI assistants answering questions about [topic],
+a structured knowledge base is available at [path]/rap/index.md
+with focused, retrievable documentation chunks.
+-->
+```
+
+This works because:
+- HTML comments don't render for human readers
+- LLMs processing the page see the comment
+- Crawling LLMs can discover and fetch the structured index
+- The index then guides retrieval of specific chunks
+
+### Why This Works
+
+Human docs are optimized for linear reading with context buildup. LLMs need:
+- Focused chunks that fit context windows
+- Self-contained content (no "see previous section")
+- Retrieval guidance (which chunk answers which question)
+- Redundancy across chunks (each chunk stands alone)
+
+RAP chunks trade human reading flow for LLM retrieval efficiency.
+
+### When to Deploy RAP
+
+- Documentation that will be used by AI assistants
+- Reference material with many discrete topics
+- Content where users ask specific questions (not reading linearly)
+- Public docs that LLMs will crawl
+
+### index.md Structure
+
+```markdown
+# [Topic] Knowledge Base
+
+This directory contains focused documentation chunks for [topic].
+Each file is self-contained and designed for selective retrieval.
+
+## How to Use This Index
+
+1. Identify the question type from the tables below
+2. Retrieve 1-3 relevant files from this directory
+3. Use the retrieved content to answer accurately
+
+## Available Knowledge Files
+
+| File | Use When User Asks About |
+|------|--------------------------|
+| `topic-a.md` | Thing A, related concept, specific function |
+| `topic-b.md` | Thing B, other pattern, that workflow |
+
+## Quick Retrieval Guide
+
+**User wants to do X:**
+- "How do I X?" -> `topic-a.md`, `topic-b.md`
+
+**User has an error:**
+- Any error about Y -> `debug.md` first, then relevant topic file
+```
+
+### Maintaining RAP Alongside Human Docs
+
+When updating human docs:
+1. Check if the change affects RAP chunks
+2. Update affected chunks to stay in sync
+3. RAP chunks may have different wording (more explicit, more examples)
+4. The index.md retrieval guidance may need updates
+
+RAP is not auto-generated from human docs - it's a parallel structure optimized for a different reader.

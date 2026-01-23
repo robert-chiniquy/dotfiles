@@ -279,17 +279,30 @@ alias -s md='glow'
 
 # mdwatch: watch directory for markdown changes and auto-display with changed line highlight
 mdwatch() {
+  if ! command -v fswatch &>/dev/null; then
+    echo "fswatch not installed. Install with: brew install fswatch" >&2
+    return 1
+  fi
+
   local dir="${1:-.}"
   local cache_dir="/tmp/mdwatch-$$"
+  local fifo="/tmp/mdwatch-fifo-$$"
   mkdir -p "$cache_dir"
+  mkfifo "$fifo"
 
-  # Cleanup on exit
-  trap "rm -rf '$cache_dir'" EXIT INT TERM
+  # Cleanup on exit - kill fswatch and remove temp files
+  cleanup() {
+    pkill -P $$ fswatch 2>/dev/null
+    rm -rf "$cache_dir" "$fifo"
+  }
+  trap cleanup EXIT INT TERM
 
   echo -e "\033[1;38;5;51mWatching $dir for .md changes... (Ctrl+C to stop)\033[0m"
 
-  # Use fswatch with grep filter - more reliable for new file detection
-  fswatch -r "$dir" 2>/dev/null | grep --line-buffered '\.md$' | while read f; do
+  # Start fswatch writing to FIFO in background
+  fswatch -r "$dir" 2>/dev/null | grep --line-buffered '\.md$' > "$fifo" &
+
+  while read -r f; do
     # Skip if file doesn't exist (deleted)
     [[ -f "$f" ]] || continue
 
@@ -299,7 +312,6 @@ mdwatch() {
 
     # Find first changed line by diffing with cached version
     if [[ -f "$cache_file" ]]; then
-      # BSD diff: parse "NNNaNNN" or "NNNcNNN" format to get first changed line in new file
       first_changed_line=$(diff "$cache_file" "$f" 2>/dev/null | grep -E '^[0-9]' | head -1 | sed -E 's/^[0-9,]+[acd]([0-9]+).*/\1/')
     fi
 
@@ -308,20 +320,20 @@ mdwatch() {
 
     clear
     echo -e "\033[1;38;5;51m[$(date +%H:%M:%S)]\033[0m \033[1;38;5;201m$f\033[0m"
+    echo -e "\033[38;5;201m────────────────────────────────────────\033[0m"
 
     if [[ -n "$first_changed_line" && "$first_changed_line" =~ ^[0-9]+$ ]]; then
       echo -e "\033[38;5;221mChanged at line $first_changed_line\033[0m"
-      echo -e "\033[38;5;201m────────────────────────────────────────\033[0m"
       local start_line=$((first_changed_line > 5 ? first_changed_line - 5 : 1))
       bat --color=always --style=numbers --theme=vaporwave-custom --language=md \
           --highlight-line="$first_changed_line" \
           --line-range="$start_line:" \
           "$f"
     else
-      echo -e "\033[38;5;201m────────────────────────────────────────\033[0m"
-      glow "$f"
+      # Use bat for consistent rendering (glow -p hangs in watch context)
+      bat --color=always --style=plain --theme=vaporwave-custom --language=md "$f"
     fi
-  done
+  done < "$fifo"
 }
 
 # md command: render one or all markdown files
@@ -465,7 +477,6 @@ bindkey -e
 zle -N _md_browser_widget
 # Bind to double-tap Esc - KEYTIMEOUT=10 (0.1s) requires fast double-tap
 KEYTIMEOUT=10
-bindkey '\e\e' _md_browser_widget
 bindkey -M emacs '\e\e' _md_browser_widget
 bindkey -M viins '\e\e' _md_browser_widget
 bindkey -M vicmd '\e\e' _md_browser_widget
@@ -485,10 +496,11 @@ bindkey '\em' _mdwatch_widget
 [[ -d /usr/local/share/zsh/site-functions ]] && FPATH="/usr/local/share/zsh/site-functions:${FPATH}"
 
 autoload -Uz compinit
-if [[ -n ~/.zcompdump(#qN.mh+24) ]]; then
-  compinit
-else
+# Use cached completions if dump is fresh (<24h), rebuild if stale
+if [[ -n ~/.zcompdump(#qN.mh-24) ]]; then
   compinit -C
+else
+  compinit
 fi
 
 zstyle ':completion:*' completer _expand _complete _ignored _files
@@ -502,6 +514,7 @@ zstyle ':completion:::::' completer _complete _approximate
 # Better completion caching with 1-hour expiry
 zstyle ':completion:*' use-cache on
 zstyle ':completion:*' cache-path ~/.zsh/cache
+[[ -d ~/.zsh/cache ]] || mkdir -p ~/.zsh/cache
 
 # Cache policy: invalidate after 1 hour
 _cache_policy_1h() {
@@ -715,11 +728,11 @@ precmd() {
       local failed
       for failed in "${__failed_cmds[@]}"; do
         if __cmds_similar "$__last_cmd" "$failed"; then
-          # Remove the failed command from history file
+          # Remove the failed command from history file (portable: macOS + Linux)
           local escaped="${failed//\//\\/}"
           escaped="${escaped//\[/\\[}"
           escaped="${escaped//\]/\\]}"
-          sed -i '' "/;${escaped}$/d" "$HISTFILE" 2>/dev/null
+          sed -i.bak "/;${escaped}$/d" "$HISTFILE" 2>/dev/null && rm -f "$HISTFILE.bak"
         fi
       done
       __failed_cmds=()  # clear after success
@@ -767,9 +780,6 @@ precmd() {
   fi
 }
 
-# opencode
-export PATH=/Users/rch/.opencode/bin:$PATH
-
 # === Auto-start yazi in Ghostty ===
 # Ghostty is fast enough for yazi; iTerm2 is not
 if [[ "$TERM_PROGRAM" == "ghostty" && -z "$YAZI_LEVEL" && -o interactive ]]; then
@@ -787,17 +797,26 @@ if [[ "$TERM_PROGRAM" == "ghostty" && -z "$YAZI_LEVEL" && -o interactive ]]; the
   unfunction _yazi_startup
 fi
 
-# === Empty Enter = Directory Tree ===
+# === Empty Enter = Git Diff or Directory Tree ===
 # Wrap accept-line widget (more robust than rebinding ^M)
-# Empty prompt shows tree view of current directory
-# Uses erdtree for multi-column display with disk usage, falls back to eza
+# Empty prompt shows:
+#   - git diff --stat if there are uncommitted changes
+#   - tree view otherwise
 function _accept_line_or_tree() {
   if [[ -z "$BUFFER" ]]; then
     echo
+    # Check if in git repo and has changes
+    if git rev-parse --is-inside-work-tree &>/dev/null; then
+      local changes=$(git diff --stat 2>/dev/null)
+      if [[ -n "$changes" ]]; then
+        # Show short git diff
+        git diff --stat --color=always 2>/dev/null
+        zle reset-prompt
+        return 0
+      fi
+    fi
+    # No git changes (or not in repo) - show tree
     if command -v erd &>/dev/null; then
-      # erdtree: icons, respects .gitignore, truncate to fit terminal
-      # Adaptive depth: few items = descend (level 2), many items = breadth-first (level 1)
-      # Leave ~7 lines at top for previous output
       local tree_height=$((LINES - 7))
       local top_level_count=$(ls -1A 2>/dev/null | wc -l | tr -d ' ')
       local level=2
@@ -812,3 +831,4 @@ function _accept_line_or_tree() {
   zle .accept-line  # Call original accept-line (note the dot prefix)
 }
 zle -N accept-line _accept_line_or_tree
+alias vw='pkill -9 -f vaporwave-overlay 2>/dev/null && echo Off || (~/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay --fullscreen & echo On)'

@@ -28,6 +28,9 @@ prepend_keymap = [
   # Open shell in current directory
   { on = ["s"], run = "shell '$SHELL' --block --confirm", desc = "Open shell" },
 
+  # Enter opens shell in selected directory (if dir) or current dir (if file)
+  { on = ["<Enter>"], run = "shell 'cd \"$1\" 2>/dev/null || true; exec $SHELL' --block --confirm", desc = "Shell in selected dir" },
+
   # Bulk rename with $EDITOR
   { on = ["R"], run = "shell '$EDITOR \"$@\"' --block --confirm", desc = "Bulk rename" },
 ]
