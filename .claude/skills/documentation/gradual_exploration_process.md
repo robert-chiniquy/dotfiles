@@ -263,12 +263,31 @@ Prerequisites: [e.g., "Completed Getting Started"]
    - Bad: "The connector is built using make build"
    - Good: "Build your connector with make build"
 
-5. **Preserve source traceability inline**
+5. **Use sentence case for h2 and below**
+   - H1 (document title) may use title case
+   - H2 and below: Capitalize first word and proper nouns only
+   - Bad: `## Getting Started With The SDK`
+   - Good: `## Getting started with the SDK`
+   - Bad: `### Configure Your API Client`
+   - Good: `### Configure your API client`
+
+6. **Preserve source traceability inline**
    ```markdown
    The SDK processes all builders together for each phase [VERIFIED: source.go L42].
    ```
 
-6. **One idea per paragraph**
+7. **One idea per paragraph**
+
+8. **Never presume difficulty or ease**
+   - Avoid words that position you at a particular competence level relative to the reader
+   - Bad: "You only need to run `make build`" (implies it's trivially easy)
+   - Bad: "Just add the config file" (dismissive of potential complexity)
+   - Bad: "Simply call the API" (assumes familiarity)
+   - Bad: "This is straightforward" (gatekeeping)
+   - Good: "Run `make build`"
+   - Good: "Add the config file"
+   - Good: "Call the API"
+   - The reader may find "simple" things hard or "complex" things easy - don't prejudge
 
 ---
 
@@ -781,97 +800,15 @@ PHASE_1/TOPIC_PHASE_2.md
 
 ---
 
-## Retrieval Augmented Prompt (RAP) Documentation
+## RAP Documentation
 
-For AI agent consumption, create a parallel `docs-skills/` directory with chunked, self-contained skill files optimized for selective retrieval.
+For creating agent-optimized documentation chunks, see the dedicated skill:
+**~/.claude/skills/documentation/rap_documentation.md**
 
-### Why RAP Documentation
+---
 
-Full documentation may exceed context windows. RAP format allows agents to:
-1. Read a small index describing available sections
-2. Select relevant sections based on user query
-3. Retrieve only what's needed
-4. Answer with focused context
+## Proverbs
 
-### Structure
+Guiding principles for technical documentation:
 
-```
-docs/                    # Human-readable, full documentation
-  01_GETTING_STARTED.md
-  02_CORE_CONCEPTS.md
-  ...
-
-docs-skills/             # Agent-optimized, chunked for retrieval
-  INDEX.md               # Always in context, describes all sections
-  concepts-overview.md   # Self-contained skill file
-  concepts-resources.md
-  build-setup.md
-  debug-errors.md
-  ...
-```
-
-### INDEX.md Requirements
-
-The index is always loaded. It must:
-
-1. **Describe each section concisely** - What it covers in one line
-2. **Provide file names** - So agent knows what to request
-3. **Include selection guidelines** - Map query patterns to relevant files
-4. **Show usage examples** - Demonstrate retrieval for common questions
-
-**Example INDEX structure:**
-
-```markdown
-## Available Sections
-
-| Section | File | Covers |
-|---------|------|--------|
-| What connectors do | `concepts-overview.md` | Problem solved, sync vs provision |
-| Resource model | `concepts-resources.md` | Resources, entitlements, grants |
-
-## Selection Guidelines
-
-**User asks "how do I..."**
-- Build a connector -> `build-setup.md`, `build-syncer.md`
-- Debug a problem -> `debug-workflow.md`, `debug-errors.md`
-
-**User shows code with errors**
-- Look at error message -> `debug-errors.md`
-```
-
-### Skill File Requirements
-
-Each skill file must be:
-
-1. **Self-contained** - Understandable without other files
-2. **Focused** - One topic, not comprehensive overview
-3. **Actionable** - Code examples, concrete patterns
-4. **Concise** - 100-300 lines typical, under 500 max
-
-**Naming convention:** `category-topic.md`
-- `concepts-*` - Conceptual understanding
-- `build-*` - Building/implementation
-- `provision-*` - Provisioning operations
-- `meta-*` - Meta-connector configuration
-- `ops-*` - Operations/deployment
-- `debug-*` - Debugging/troubleshooting
-- `ref-*` - Reference material
-
-### Creating RAP from Full Docs
-
-1. **Identify discrete topics** - Each should answer a specific class of questions
-2. **Extract and simplify** - Pull content, remove cross-references to other sections
-3. **Add context** - Each file should open with a one-line description of what it covers
-4. **Verify independence** - Can this file be understood alone?
-
-### When to Create RAP Version
-
-Create `docs-skills/` when:
-- Documentation will be used by AI agents
-- Full docs exceed typical context windows (>50k tokens)
-- Users will have varied, specific questions (not reading cover-to-cover)
-
-Don't create when:
-- Docs are short enough to fit in context entirely
-- Content is inherently linear (must be read in order)
-- Target audience is humans only
+- **We are all humble before the domain.** Never assume what is easy or hard for the reader. Everyone's path to understanding is different.

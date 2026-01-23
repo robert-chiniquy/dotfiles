@@ -55,3 +55,15 @@ Demos must be grounded in real APIs and connectors. The audience takes their wor
 ## Multi-tenant is not optional.
 
 Every component must support multiple tenants. Period. This is infrastructure for a SaaS product, not a single-tenant tool.
+
+---
+
+## After autocompact, review CLAUDE.md again.
+
+Context compaction loses memory. The first thing to do after resuming is re-read the project's CLAUDE.md to restore critical context. This saves time by preventing mistakes that require correction.
+
+---
+
+## If work can be parallelized, spin up more agents.
+
+Don't wait for one task to finish before starting independent work. Launch all parallelizable agents at once. Time is the constraint.

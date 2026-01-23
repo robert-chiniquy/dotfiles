@@ -1,15 +1,4 @@
 {
-  "enabledPlugins": {
-    "gopls-lsp@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true
-  },
-  "alwaysThinkingEnabled": true,
-  "statusLine": {
-    "type": "command",
-    "command": "/Users/rch/.claude/statusline-command.sh"
-  },
   "permissions": {
     "allow": [
       "Bash(git status:*)",
@@ -124,5 +113,17 @@
       "Bash(docker images:*)",
       "Bash(docker inspect:*)"
     ]
-  }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/Users/rch/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true
+  },
+  "alwaysThinkingEnabled": true
 }

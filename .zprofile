@@ -7,6 +7,7 @@ which -s brew 1>/dev/null 2>/dev/null && (
 )
 
 export PATH="$HOME/go/bin:$PATH"
+export PATH="$HOME/.opencode/bin:$PATH"
 
 export STARSHIP_LOG=error
 # Note: starship init moved to .zshrc (needs zle which isn't available in .zprofile)
