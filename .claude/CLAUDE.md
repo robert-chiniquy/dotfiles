@@ -28,7 +28,7 @@
   
   This creates a fossil record for deriving antipatterns (e.g., for protogen_stack.md "Common Pitfalls"). Deletion loses learning opportunities.
 - **Minimize context pollution from verbose commands** - For commands with large output (protogen, builds, test suites), use `| tail -n 20` or similar to capture only the end. If errors occur, expand as needed. Full verbose output wastes context window on noise.
-- **Weird Makefile rule** - Commands of the pattern `cd directory && npx something` or `cd directory && tsc something` are very likely to timeout. Instead, ensure there's a Makefile target in the parent directory that does the thing (e.g., `make web/check` instead of `cd web && npx tsc --noEmit`). Makefile targets avoid the timeout issues that plague chained cd+npx/tsc commands.
+- **Weird Makefile rule** - Commands of the pattern `cd directory && command` are very likely to timeout due to a Claude Code bug. This affects ANY binary, not just specific tools. Instead, either: (1) use the command's built-in directory flag if available (e.g., `git -C /path/to/repo status` instead of `cd /path/to/repo && git status`), or (2) ensure there's a Makefile target that does the thing (e.g., `make web/check` instead of `cd web && npx tsc --noEmit`). The bug causes background tasks and chained cd commands to fail silently or timeout.
 - **Prefer larger commits for checkpoint commits** - When committing accumulated work, include all related changes rather than splitting into focused micro-commits. Checkpoint commits capture coherent project state.
 - **Proactive checkpoint commits** - Create checkpoint commits when a meaningful unit of work is complete or before beginning major changes. Don't wait to be asked. This preserves rollback points and documents progress.
 - **Every phase gets a checkpoint commit** - When work is organized into phases (Phase 1, Phase 2, etc.), always create a checkpoint commit at the end of each phase before moving on. The commit message should reference the phase number and summarize what was accomplished.
@@ -97,6 +97,16 @@ When code completely satisfies a use case (and tests would pass):
 - Demo should be runnable by user following the steps
 - Include expected output at each step
 - **Especially important for user-facing features** - demos are how we validate the UX makes sense
+
+## Reports
+
+When running experiments, audits, or analyses that produce findings:
+- **Write reports to `reports/` subdirectory** in the project root (create if missing)
+- **Datestamp the filename**: `REPORT_<TOPIC>_YYYY-MM-DD.md` (e.g., `REPORT_SKILL_COMPLIANCE_2026-01-23.md`)
+- **Structure**: Executive summary, methodology, findings, recommendations
+- **Include raw data references**: Link to or embed the underlying data (test output, metrics, logs)
+- **Reports are immutable**: Don't update old reports; create new dated versions for follow-up analysis
+- **Purpose**: Reports capture point-in-time findings for historical reference and decision-making
 
 # Requirements
 
