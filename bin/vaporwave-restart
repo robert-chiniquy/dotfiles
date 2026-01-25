@@ -1,0 +1,6 @@
+#!/bin/bash
+launchctl unload ~/Library/LaunchAgents/com.rch.vaporwave-overlay.plist 2>/dev/null
+pkill -f "VaporwaveOverlay" 2>/dev/null
+sleep 0.5
+open -a ~/Applications/VaporwaveOverlay.app
+echo "Vaporwave overlay restarted"

@@ -1,0 +1,4 @@
+#!/bin/bash
+launchctl unload ~/Library/LaunchAgents/com.rch.vaporwave-overlay.plist 2>/dev/null
+pkill -f "VaporwaveOverlay" 2>/dev/null
+echo "Vaporwave overlay stopped"

@@ -1,93 +1,137 @@
 # Claude Skills
 
-Personal skill definitions for Claude Code.
+Skill files for Claude Code. Load selectively based on task.
+
+## When to Load
+
+| User says | Load |
+|-----------|------|
+| "project" | `meta/project-artifacts.md` + relevant project-* |
+| "proto", "protobuf", "grpc" | `design/proto-overview.md` + relevant proto-* |
+| "design", "feature" | `design/systematic_feature_design.md` |
+| "critique", "review design" | `design/rigorous_critique.md` |
+| "stakeholder", "consensus" | `design/socratic_discovery.md` |
+| "dx", "developer experience" | `design/complete_developer_experience.md` |
+| "docs", "documentation" | `documentation/doc-overview.md` + relevant doc-* |
+| "write docs" | `documentation/doc-process.md`, `doc-content.md` |
+| "rap", "agent docs" | `documentation/rap_documentation.md` |
+| "merge docs" | `documentation/documentation_merging.md` |
+| "marketing", "announce" | `documentation/marketing_lens.md` |
+| "tone matrix" | `documentation/tone_matrixing.md` |
+| "architecture", "constraints" | `engineering/structural_constraints.md` |
+| "audit", "incomplete" | `codebase/incomplete_work_audit.md` |
+| "jsonl" | `utility/jsonl_parsing.md` |
+| "bar chart" | `default/bar_chart_comparison.md` |
+| "humanize", "ai detection" | `humanizer/SKILL.md` |
 
 ## Structure
 
 ```
 skills/
 ├── default/
-│   └── dry_witted_engineering.md   # Default communication style
-├── engineering/
-│   └── structural_constraints.md   # Architectural patterns for compile-time safety
+│   ├── dry_witted_engineering.md    # Default tone (always loaded)
+│   └── bar_chart_comparison.md
 ├── design/
-│   ├── systematic_feature_design.md        # 10-step design process with Level Framework
-│   ├── socratic_discovery.md               # Question-driven requirements discovery
-│   ├── rigorous_critique.md                # Three-lens design review
-│   ├── complete_developer_experience.md    # Tools + Docs + Agents completeness
-│   └── protogen_stack.md                   # Proto-first architecture patterns
+│   ├── systematic_feature_design.md
+│   ├── socratic_discovery.md
+│   ├── rigorous_critique.md
+│   ├── complete_developer_experience.md
+│   ├── proto-overview.md            # Entry point
+│   ├── proto-schema.md
+│   ├── proto-architecture.md
+│   ├── proto-database.md
+│   ├── proto-patterns.md
+│   ├── proto-project.md
+│   ├── proto-testing.md
+│   ├── proto-frontend.md
+│   └── proto-pitfalls.md
 ├── documentation/
-│   ├── layered_documentation.md          # Three-layer documentation strategy
-│   └── gradual_exploration_process.md    # 7-step content pattern, 8-step process
-├── communication/
+│   ├── doc-overview.md              # Entry point
+│   ├── doc-process.md
+│   ├── doc-content.md
+│   ├── doc-templates.md
+│   ├── doc-verify.md
+│   ├── doc-learnings.md
+│   ├── doc-organization.md
+│   ├── rap_documentation.md
+│   ├── layered_documentation.md
+│   ├── documentation_merging.md
+│   ├── tone_matrixing.md
+│   └── marketing_lens.md
+├── engineering/
+│   └── structural_constraints.md
 ├── meta/
-│   └── project_process.md          # Mandatory project practices (DATA_SOURCES.md, etc.)
-└── README.md
+│   ├── project-artifacts.md         # Entry point
+│   ├── project-practices.md
+│   ├── project-organization.md
+│   ├── project-priorities.md
+│   ├── project-multisubproject.md
+│   └── PROVERBS.md
+├── codebase/
+│   └── incomplete_work_audit.md
+├── utility/
+│   └── jsonl_parsing.md
+├── humanizer/
+│   ├── SKILL.md
+│   ├── WARP.md
+│   └── README.md
+└── old/                             # Archived originals
 ```
 
-## Skills
+## Skill Groups
 
-### default/dry_witted_engineering.md
-Default communication mode for all engineering work. Optimizes for technical correctness, salience, and restraint. Applied automatically unless overridden.
+### Protogen (load as needed)
 
-### engineering/structural_constraints.md
-Architectural philosophy for making mistakes structurally impossible rather than relying on developer discipline. Covers:
-- Scoped context propagation
-- Explicit naming of dangerous operations
-- Single source of truth via code generation
-- Fail-closed defaults
-- Interface segregation for minimal authority
+Start with `proto-overview.md`, add others based on task:
 
-### design/systematic_feature_design.md
-10-step methodology for designing features: Research → Compare → Refine → Ideate → Discover → Implement → Critique → Double Back → Consolidate → Document. Includes Level Framework (0=Platform, 1=Workflow, 2=Polish) to ensure fundamentals before polish.
+| File | Content |
+|------|---------|
+| `proto-overview.md` | What, when, philosophy |
+| `proto-schema.md` | Proto organization, codegen |
+| `proto-architecture.md` | Three layers, WithPassport |
+| `proto-database.md` | DynamoDB, Postgres, SQLite |
+| `proto-patterns.md` | GetOrCreate, Mutate, Wire |
+| `proto-project.md` | Directory structure, Makefile |
+| `proto-testing.md` | Unit and integration tests |
+| `proto-frontend.md` | Transport, WebSocket, Proto-UI |
+| `proto-pitfalls.md` | Common mistakes |
 
-### design/socratic_discovery.md
-Use progressively revealing questions to build consensus rather than asserting requirements. 7-step arc: Empathy → Tension → Exposure → Challenge → Comparison → Evaluation → Value. Leads stakeholders to discover problems themselves.
+### Documentation (load as needed)
 
-### design/rigorous_critique.md
-Three-lens design review before implementation: (1) Unnecessary Complexity - identify over-engineering, (2) Missing Fundamentals - check Level 0 coverage, (3) Feasibility and Value - assess benefit vs cost. Expected outcome: 30-50% feature reduction.
+Start with `doc-overview.md`, add others based on task:
 
-### design/complete_developer_experience.md
-Ensure all three components of DX: Tools (CLI, servers, build systems), Documentation (ontology, progressive disclosure, examples), Agents (AI assistance, code generation). Don't ship with only one leg. Minimum: tools + docs. Add agents post-launch for delight.
+| File | Content |
+|------|---------|
+| `doc-overview.md` | Philosophy, phases, levels |
+| `doc-process.md` | 8-step process |
+| `doc-content.md` | 7-step pattern, writing guidelines |
+| `doc-templates.md` | Section templates |
+| `doc-verify.md` | Verification, audits |
+| `doc-learnings.md` | Hard-won lessons |
+| `doc-organization.md` | File structure |
 
-### design/protogen_stack.md
-Proto-first architecture for Go backends with TypeScript frontends. Covers proto organization, code generation, three-layer architecture, Driver/Controller pattern, WithPassport tenant isolation, FormSchema for dynamic UIs, and frontend patterns (@protobuf-ts, WebSocket).
+### Project (load as needed)
 
-### documentation/layered_documentation.md
-Three-layer strategy for documentation: (1) Global Skills - reusable patterns, (2) Local Implementation Notes - how this project applies patterns, (3) Domain Design - project-specific models and logic. Prevents conflation of stack knowledge with domain knowledge.
+Start with `project-artifacts.md`, add others based on task:
 
-### documentation/gradual_exploration_process.md
-Systematic process for writing technical documentation. Core concepts:
-- **7-step content pattern**: Orient, Contextualize, Explain, Tradeoffs, Demonstrate, Edge Cases, Connect
-- **8-step process**: Pre-flight, Scope, Source, Outline, Draft, Verify, Contradiction, Connect, Publish
-- **Phases**: Iterative passes that incorporate new learnings
-- **Levels**: L0 (critical) before L1 (important) before L2 (supporting) before L3 (reference)
-- **Hard-won learnings**: Avoid version numbers, code is ground truth, document anti-patterns, assertion verification before publication
+| File | Content |
+|------|---------|
+| `project-artifacts.md` | DATA_SOURCES, LEARNINGS, etc. |
+| `project-practices.md` | Versioning, commits, catalogs |
+| `project-organization.md` | Directory structure, Makefiles |
+| `project-priorities.md` | Design priority, momentum |
+| `project-multisubproject.md` | Build discipline, isolation |
 
-### meta/project_process.md
-Mandatory practices for all projects. Non-negotiable requirements:
+## Always Loaded
 
-**Mandatory Artifacts:**
-- **DATA_SOURCES.md** - Track provenance of all information: filesystem paths, URLs, other sources. Add as consulted, not retroactively.
-- **LEARNINGS.md** - Preserve discoveries with dated headers (## YYYY-MM-DD: Topic). Append-only, include file paths and code snippets.
-- **HUMAN_ACTIONS_NEEDED.md** - Queue blocking human actions instead of stopping. Continue other work while waiting.
-- **old/** directory - Move deprecated code here instead of deleting. Each item gets README explaining why deprecated and what replaced it.
-- **DEMO.md** - After completing user-facing features, write runnable walkthrough with expected output.
-
-**Mandatory Practices:**
-- **File versioning** - Create V2, V3, PHASE2 versions instead of overwriting documents (except typo fixes).
-- **Stable identifiers** - Never renumber backlog items. Keep holes in sequence, strikethrough removed items.
-- **Checkpoint commits** - Commit at end of each phase, before major changes, when meaningful work completes.
-- **Catalog documents** - Maintain markdown catalogs for enumerable items (components, endpoints, etc.).
+- `default/dry_witted_engineering.md` - Default communication tone
 
 ## Usage
 
-Skills are referenced in CLAUDE.md files:
-- Global: `~/.claude/CLAUDE.md`
-- Project: `<repo>/CLAUDE.md` or `<repo>/.claude/CLAUDE.md`
+Reference in CLAUDE.md:
 
-Reference with requirements block:
 ```markdown
 # Requirements
-- Claude MUST apply the skill defined in skills/default/dry_witted_engineering.md
+- Claude MUST apply skills/default/dry_witted_engineering.md
+- For projects, Claude MUST apply skills/meta/project-artifacts.md
 ```

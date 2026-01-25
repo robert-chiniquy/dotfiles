@@ -1,0 +1,134 @@
+#!/bin/bash
+
+# Vaporwave color palette
+PINK=0xffff00f8
+CYAN=0xff5cecff
+PURPLE=0xffaa00e8
+GOLD=0xfffbb725
+BLACK=0xff000000
+DARK=0xff1a1a2e
+WHITE=0xffffffff
+TRANSPARENT=0x00000000
+
+# Bar appearance
+sketchybar --bar \
+    height=32 \
+    blur_radius=30 \
+    position=top \
+    sticky=on \
+    padding_left=10 \
+    padding_right=10 \
+    color=$DARK \
+    border_color=$PURPLE \
+    border_width=2 \
+    y_offset=4 \
+    margin=8 \
+    corner_radius=10
+
+# Default item settings - BIGGER FONTS
+sketchybar --default \
+    icon.font="SF Pro:Bold:16.0" \
+    icon.color=$CYAN \
+    label.font="SF Pro:Semibold:15.0" \
+    label.color=$WHITE \
+    padding_left=5 \
+    padding_right=5 \
+    label.padding_left=4 \
+    label.padding_right=4 \
+    icon.padding_left=4 \
+    icon.padding_right=4
+
+# Spaces
+SPACE_ICONS=("1" "2" "3" "4" "5" "6" "7" "8" "9" "10")
+for i in "${!SPACE_ICONS[@]}"
+do
+    sid=$((i+1))
+    sketchybar --add space space.$sid left \
+        --set space.$sid associated_space=$sid \
+        icon="${SPACE_ICONS[i]}" \
+        icon.color=$CYAN \
+        icon.highlight_color=$PINK \
+        background.color=$TRANSPARENT \
+        background.corner_radius=5 \
+        background.height=22 \
+        background.drawing=on \
+        script="~/.config/sketchybar/plugins/space.sh" \
+        --subscribe space.$sid space_change
+done
+
+# Left side - Apple logo
+sketchybar --add item apple left \
+    --set apple \
+    icon= \
+    icon.color=$PINK \
+    icon.font="SF Pro:Bold:18.0" \
+    label.drawing=off \
+    click_script="open -a 'System Settings'"
+
+# Front app indicator
+sketchybar --add item front_app left \
+    --set front_app \
+    icon.drawing=off \
+    label.color=$PINK \
+    label.font="SF Pro:Bold:14.0" \
+    script="~/.config/sketchybar/plugins/front_app.sh" \
+    --subscribe front_app front_app_switched
+
+# Center - Date and time
+sketchybar --add item clock center \
+    --set clock \
+    update_freq=10 \
+    icon= \
+    icon.color=$GOLD \
+    script="~/.config/sketchybar/plugins/clock.sh"
+
+# Right side items
+sketchybar --add item battery right \
+    --set battery \
+    update_freq=120 \
+    icon.color=$CYAN \
+    script="~/.config/sketchybar/plugins/battery.sh"
+
+sketchybar --add item wifi right \
+    --set wifi \
+    icon= \
+    icon.color=$PURPLE \
+    script="~/.config/sketchybar/plugins/wifi.sh" \
+    --subscribe wifi wifi_change
+
+sketchybar --add item volume right \
+    --set volume \
+    icon.color=$PINK \
+    script="~/.config/sketchybar/plugins/volume.sh" \
+    --subscribe volume volume_change
+
+sketchybar --add item cpu right \
+    --set cpu \
+    update_freq=5 \
+    icon= \
+    icon.color=$GOLD \
+    script="~/.config/sketchybar/plugins/cpu.sh"
+
+sketchybar --add item memory right \
+    --set memory \
+    update_freq=15 \
+    icon= \
+    icon.color=$CYAN \
+    script="~/.config/sketchybar/plugins/memory.sh"
+
+sketchybar --add item disk right \
+    --set disk \
+    update_freq=60 \
+    icon= \
+    icon.color=$PURPLE \
+    script="~/.config/sketchybar/plugins/disk.sh"
+
+sketchybar --add item uptime right \
+    --set uptime \
+    update_freq=300 \
+    icon= \
+    icon.color=$GOLD \
+    script="~/.config/sketchybar/plugins/uptime.sh"
+
+# Finalize
+sketchybar --update
