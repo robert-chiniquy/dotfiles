@@ -1,0 +1,11 @@
+#!/bin/bash
+# Show active network connections
+# Usage: conns [filter]
+
+filter="${1:-}"
+
+echo -e "\033[38;5;221mListening:\033[0m"
+lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk 'NR>1 {printf "  \033[38;5;51m%-20s\033[0m %s\n", $1, $9}' | sort -u | grep -i "$filter"
+
+echo -e "\n\033[38;5;221mEstablished:\033[0m"
+lsof -iTCP -sTCP:ESTABLISHED -P -n 2>/dev/null | awk 'NR>1 {printf "  \033[38;5;51m%-20s\033[0m %s\n", $1, $9}' | sort -u | grep -i "$filter"

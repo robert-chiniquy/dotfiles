@@ -18,7 +18,18 @@
 - **File versioning, not overwriting** - When receiving feedback or notes on a document, DO NOT overwrite the existing file. Create a new version: `FILENAME_V2.md`, `FILENAME_V3.md`, or `FILENAME_PHASE2.md`, `FILENAME_REVISED.md`. Preserve older content for reference. Exception: Typo fixes or minor corrections can update in place.
 - **Never renumber backlog items** - Once an item has a number, it keeps that number forever. When items are removed, keep original numbers with holes in the sequence (1, 2, 3, 5, 7, 11). Mark removed items with ~~strikethrough~~ and note why removed. When adding items, use the next available number. Items may be referenced in other documents, commit messages, discussions - renumbering breaks those references.
 - **Simple English over business-speak** - Never use business jargon. Banned terms: ROI (use "value" or "benefit vs cost"), KPI (use "metrics"), TCO (use "maintenance cost"), synergy (describe what happens), leverage (use "use"), action item (use "task"), circle back (use "revisit"), low-hanging fruit (use "easy win"), move the needle (use "improve"), bandwidth (use "time" or "capacity"). Business-speak obscures meaning.
-- **Learning preservation** - When you figure something out, add it to `LEARNINGS.md` in the project root immediately. Document what you learned, why it matters, how you discovered it. Include concrete examples, file paths, code snippets. Use dated headers (## 2025-01-14: Topic) for organization. This creates a knowledge base that persists beyond individual conversations.
+- **Show, don't label aesthetics** - When implementing a visual style (vaporwave, retro, etc.), never use the style name in the output itself. The aesthetic should speak through colors, shapes, and design - not by announcing itself. "VAPORWAVE SYSTEM" is cringe; hot pink and cyan gradients are not.
+- **Project accent colors via .envrc** - When creating or updating a project's `.envrc`, include a `PROMPT_ACCENT` export using a color from the vaporwave palette. This gives each project a distinct visual identity in the prompt. Palette options:
+  - `#ff0099` (hot pink)
+  - `#5cecff` (cyan)
+  - `#ff00f8` (magenta)
+  - `#fbb725` (gold)
+  - `#aa00e8` (purple)
+
+  Example: `export PROMPT_ACCENT="#ff0099"`
+
+  Choose colors that feel right for the project's character - cyan for infrastructure, pink for user-facing, gold for data/analytics, purple for experimental.
+- **Learning preservation** - When you figure something out, add it to `LEARNINGS.md` in the project root immediately. Document what you learned, why it matters, how you discovered it. Include concrete examples, file paths, code snippets. Use timestamped headers with minute precision (## 2025-01-14 09:45: Topic) for organization. This creates a knowledge base that persists beyond individual conversations. The minute-level precision helps trace when learnings occurred relative to other events.
 - **No Co-Authored-By trailers** - Never add Co-Authored-By, Signed-off-by, or similar trailers to git commits.
 - **Preserve deprecated code in `old/` directory** - Instead of deleting superseded code, move it to `old/` at project root. Include a README.md documenting:
   - What the code was
@@ -28,6 +39,7 @@
   
   This creates a fossil record for deriving antipatterns (e.g., for protogen_stack.md "Common Pitfalls"). Deletion loses learning opportunities.
 - **Minimize context pollution from verbose commands** - For commands with large output (protogen, builds, test suites), use `| tail -n 20` or similar to capture only the end. If errors occur, expand as needed. Full verbose output wastes context window on noise.
+- **Trace execution chains before adding components** - Before adding a component (function, struct, provider, handler), trace its dependencies through the execution chain. What does it call? What does that need? Follow the chain until you reach things already present. Verify each dependency is satisfied. This applies to wire providers, constructor parameters, interface implementations, and any code that assumes other code exists. Miss one link and the chain breaks at runtime or compile time.
 - **Weird Makefile rule** - Commands of the pattern `cd directory && command` are very likely to timeout due to a Claude Code bug. This affects ANY binary, not just specific tools. Instead, either: (1) use the command's built-in directory flag if available (e.g., `git -C /path/to/repo status` instead of `cd /path/to/repo && git status`), or (2) ensure there's a Makefile target that does the thing (e.g., `make web/check` instead of `cd web && npx tsc --noEmit`). The bug causes background tasks and chained cd commands to fail silently or timeout.
 - **Prefer larger commits for checkpoint commits** - When committing accumulated work, include all related changes rather than splitting into focused micro-commits. Checkpoint commits capture coherent project state.
 - **Proactive checkpoint commits** - Create checkpoint commits when a meaningful unit of work is complete or before beginning major changes. Don't wait to be asked. This preserves rollback points and documents progress.
@@ -36,11 +48,13 @@
 - **Prefer documentation over filesystem discovery** - When needing to enumerate things (components, skills, tools, endpoints, etc.), first check for existing catalog/index documentation in the project's docs/ or CLAUDE.md. Only fall back to shell commands (glob, ls, find) if no documentation exists. If you must use filesystem discovery, that's a signal documentation is missing - create or update the catalog document after completing the immediate task.
 - **Catalog documents for enumerable things** - When a project has a category of enumerable items (UI components, API endpoints, CLI commands, skills, etc.), there should be a markdown catalog document listing them all with key metadata. This catalog is the authoritative source, not the filesystem. When adding new items to such categories, update the catalog as part of the same change.
 - **Maximize autonomous progress, minimize blocking on human** - When work requires human action (running commands, approvals, decisions), don't stop and wait. Instead:
-  1. Add the needed action to a `HUMAN_ACTIONS_NEEDED.md` file in the project root (create if missing)
+  1. Add the needed action to a `HUMAN_TODO.md` file in the project root (create if missing)
   2. Continue with other available work: other threads, design docs, implementation plans, tests, documentation
   3. Only ask the human for input when ALL completable work is done
   4. The human actions file serves as a resumable queue - include enough context for each item that work can continue when the human completes it
   This keeps momentum and respects human time by batching requests rather than blocking repeatedly.
+- **Ignore organizational factors** - Do not concern yourself with teams, roles, people, ownership, consensus, approvals, business risk, coordination overhead, stakeholder alignment, or any human/organizational dynamics. Focus purely on technical design and implementation. Questions like "who owns this?" or "has this been approved?" are not your job. Assume all organizational prerequisites are handled. Never flag organizational risks or blockers in critiques or plans.
+- **Don't critique infrastructure scaling decisions** - When reviewing plans, don't flag "over-engineering" for infrastructure choices like Redis vs in-memory, database vs file storage, or horizontal scaling prep. These are cost/institutional decisions outside technical critique scope. Focus on whether the design works, not whether it's "too much" for MVP.
 - **Semantic presumptiveness is counter-indicated for code** - When documenting, describing, or referencing code-related content:
   - Never assume a term means what you expect - verify against source
   - Never cite line numbers, page numbers, or locations without current-session verification
@@ -52,8 +66,12 @@
   - Implementation is ground truth; documentation describes intent but may be stale
   - Source code comments are more reliable than prose documentation
   This prevents technical misinformation that could mislead developers.
+- **DATA_SOURCE traceability** - Every entry in DATA_SOURCES.md must trace to either: (a) a decision made during design, or (b) code it informed. If a DATA_SOURCE was provided but not used, that is a GAP which MUST be included in any GAP_ANALYSIS. Unused data sources indicate either: missing implementation, misunderstood requirements, or scope reduction that should be documented.
+- **GAP analysis includes demo requirement gaps** - When running a GAP analysis on a project that includes a DEMO, check if the demo requirements were fully satisfied. Gaps in demo requirements (missing visualizations, incomplete walkthroughs, unclear explanations) are gaps in the project itself. A demo that doesn't demonstrate all claimed functionality is incomplete.
 
 ## Testing Guidelines
+
+**Code without tests is incomplete.** When writing implementation code, always write corresponding tests in the same session. Never say "the code is done" or "implementation complete" if tests were not written. If tests cannot be written for some reason (e.g., no test framework, unclear how to test), explicitly flag this as a gap that needs addressing. The default expectation is: code + tests together, not code now and tests maybe later.
 
 Write tests that catch real bugs, not tests that merely exercise code paths:
 
@@ -134,3 +152,11 @@ When running experiments, audits, or analyses that produce findings:
 - **Don't narc, don't snitch** - Never attribute code changes, quotations, ideas, or documents to specific people by name in files, documentation, commit messages, or any output that may be shared. Anonymize sources. Say "a colleague suggested" or "feedback indicated" rather than naming individuals. This protects identities in artifacts that may be widely distributed.
 - **Project status means what remains, not what's done** - When asked for project status, check the project files (REMAINING_TODOS.md, TODO.md, backlog, etc.) and report what work is left. Don't summarize completed work - the user already knows what's done. Status = remaining work.
 - **NEVER publish without explicit instruction** - Never publish, deploy, push, upload, submit, or otherwise make project content externally visible without explicit user instruction to do so. This includes: git push, npm publish, creating PRs, posting to external services, updating Notion pages, sending emails, creating GitHub issues, or any action that shares project content outside the local filesystem. Research and planning stay local until the user explicitly says to publish.
+- **Branch naming convention** - User's branches follow pattern `rch/<type>/<topic>` where type indicates the nature of work:
+  - `rch/feature/<thing>` - new functionality
+  - `rch/bugfix/<thing>` - bug fixes
+  - `rch/perf/<thing>` - performance improvements
+  - `rch/logging/<thing>` - logging/observability changes
+  - `rch/refactor/<thing>` - code restructuring
+  - `rch/docs/<thing>` - documentation only
+  - Examples: `rch/feature/cone-mcp-interactions`, `rch/bugfix/token-refresh`, `rch/perf/sync-batching`

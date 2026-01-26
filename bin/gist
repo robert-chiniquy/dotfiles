@@ -1,0 +1,21 @@
+#!/bin/bash
+# Create GitHub gist from file(s) or stdin
+# Usage: gist file [file2...]
+#        echo "code" | gist
+#        gist -p file  (private)
+
+private=""
+if [[ "$1" == "-p" ]]; then
+  private="--public=false"
+  shift
+fi
+
+if [[ $# -eq 0 ]]; then
+  # Read from stdin
+  tmp=$(mktemp)
+  cat > "$tmp"
+  gh gist create $private "$tmp"
+  rm -f "$tmp"
+else
+  gh gist create $private "$@"
+fi

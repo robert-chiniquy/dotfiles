@@ -111,7 +111,8 @@
       "Bash(kubectl logs:*)",
       "Bash(docker ps:*)",
       "Bash(docker images:*)",
-      "Bash(docker inspect:*)"
+      "Bash(docker inspect:*)",
+			"Bash(head:*)"
     ]
   },
   "statusLine": {

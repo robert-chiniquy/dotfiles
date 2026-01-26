@@ -53,16 +53,20 @@ require('lazy').setup({
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
     config = function()
-      require('nvim-treesitter.configs').setup({
+      -- New API: install parsers, highlighting is automatic in nvim 0.11+
+      require('nvim-treesitter').setup({
         ensure_installed = { 'rust', 'go', 'lua', 'python', 'javascript', 'typescript', 'json', 'yaml', 'markdown', 'bash', 'toml' },
-        auto_install = true,
-        highlight = { enable = true },
-        indent = { enable = true },
       })
     end,
   },
 
-  -- LSP (Language Server Protocol)
+  -- Mason (LSP installer) + LSP config
+  {
+    'williamboman/mason.nvim',
+    config = function()
+      require('mason').setup()
+    end,
+  },
   {
     'neovim/nvim-lspconfig',
     dependencies = {
@@ -70,26 +74,14 @@ require('lazy').setup({
       'williamboman/mason-lspconfig.nvim',
     },
     config = function()
-      require('mason').setup()
       require('mason-lspconfig').setup({
         ensure_installed = { 'rust_analyzer', 'gopls', 'lua_ls', 'pyright', 'ts_ls' },
         automatic_installation = true,
-      })
-
-      local lspconfig = require('lspconfig')
-      local on_attach = function(_, bufnr)
-        local opts = { buffer = bufnr }
-        vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
-        vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
-        vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
-        vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
-        vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, opts)
-      end
-
-      require('mason-lspconfig').setup_handlers({
-        function(server_name)
-          lspconfig[server_name].setup({ on_attach = on_attach })
-        end,
+        handlers = {
+          function(server_name)
+            require('lspconfig')[server_name].setup({})
+          end,
+        },
       })
     end,
   },
@@ -101,8 +93,8 @@ require('lazy').setup({
       'hrsh7th/cmp-nvim-lsp',
       'hrsh7th/cmp-buffer',
       'hrsh7th/cmp-path',
-      'L3MON4D3/LuaSnip',
-      'saadparwaiz1/cmp_luasnip',
+      'hrsh7th/cmp-nvim-lsp-signature-help',  -- Function signatures as you type
+      'L3MON4D3/LuaSnip',  -- Required by nvim-cmp for LSP snippet expansion
     },
     config = function()
       local cmp = require('cmp')
@@ -117,23 +109,44 @@ require('lazy').setup({
         mapping = cmp.mapping.preset.insert({
           ['<C-Space>'] = cmp.mapping.complete(),
           ['<CR>'] = cmp.mapping.confirm({ select = true }),
+          ['<C-u>'] = cmp.mapping.scroll_docs(-4),
+          ['<C-d>'] = cmp.mapping.scroll_docs(4),
           ['<Tab>'] = cmp.mapping(function(fallback)
             if cmp.visible() then
               cmp.select_next_item()
-            elseif luasnip.expand_or_jumpable() then
-              luasnip.expand_or_jump()
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
+          ['<S-Tab>'] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_prev_item()
             else
               fallback()
             end
           end, { 'i', 's' }),
         }),
         sources = cmp.config.sources({
-          { name = 'nvim_lsp' },
-          { name = 'luasnip' },
+          { name = 'nvim_lsp', priority = 1000 },
+          { name = 'nvim_lsp_signature_help' },
         }, {
-          { name = 'buffer' },
+          { name = 'buffer', keyword_length = 3 },
           { name = 'path' },
         }),
+        formatting = {
+          format = function(entry, vim_item)
+            vim_item.menu = ({
+              nvim_lsp = '[LSP]',
+              buffer = '[Buf]',
+              path = '[Path]',
+            })[entry.source.name]
+            return vim_item
+          end,
+        },
+        window = {
+          completion = cmp.config.window.bordered(),
+          documentation = cmp.config.window.bordered(),
+        },
       })
     end,
   },
@@ -179,6 +192,9 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>xx', '<cmd>Trouble diagnostics toggle<cr>')
     end,
   },
+}, {
+  -- Don't pop up UI on startup after initial install
+  change_detection = { enabled = false },
 })
 
 -- === Keybindings ===
@@ -189,3 +205,44 @@ vim.keymap.set('n', '<leader>w', ':w<CR>')
 
 -- Clear search highlight
 vim.keymap.set('n', '<Esc>', ':noh<CR>', { silent = true })
+
+-- === LSP Keybindings ===
+vim.api.nvim_create_autocmd('LspAttach', {
+  callback = function(args)
+    local opts = { buffer = args.buf }
+    vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+    vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
+    vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
+    vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
+    vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, opts)
+    vim.keymap.set('n', '<leader>f', function() vim.lsp.buf.format({ async = true }) end, opts)
+  end,
+})
+
+-- === Highly Supported: Go & Rust ===
+-- Format on save for Go and Rust
+vim.api.nvim_create_autocmd('BufWritePre', {
+  pattern = { '*.go', '*.rs' },
+  callback = function()
+    vim.lsp.buf.format({ async = false })
+  end,
+})
+
+-- Go: organize imports on save
+vim.api.nvim_create_autocmd('BufWritePre', {
+  pattern = '*.go',
+  callback = function()
+    local params = vim.lsp.util.make_range_params()
+    params.context = { only = { 'source.organizeImports' } }
+    local result = vim.lsp.buf_request_sync(0, 'textDocument/codeAction', params, 1000)
+    for _, res in pairs(result or {}) do
+      for _, r in pairs(res.result or {}) do
+        if r.edit then
+          vim.lsp.util.apply_workspace_edit(r.edit, 'utf-8')
+        elseif r.command then
+          vim.lsp.buf.execute_command(r.command)
+        end
+      end
+    end
+  end,
+})

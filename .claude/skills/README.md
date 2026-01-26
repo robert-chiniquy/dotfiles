@@ -23,6 +23,7 @@ Skill files for Claude Code. Load selectively based on task.
 | "jsonl" | `utility/jsonl_parsing.md` |
 | "bar chart" | `default/bar_chart_comparison.md` |
 | "humanize", "ai detection" | `humanizer/SKILL.md` |
+| "terraform", "opentofu", "iac" | `terraform/SKILL.md` |
 
 ## Structure
 
@@ -75,6 +76,15 @@ skills/
 │   ├── SKILL.md
 │   ├── WARP.md
 │   └── README.md
+├── terraform/
+│   ├── SKILL.md
+│   └── references/
+│       ├── ci-cd-workflows.md
+│       ├── code-patterns.md
+│       ├── module-patterns.md
+│       ├── quick-reference.md
+│       ├── security-compliance.md
+│       └── testing-frameworks.md
 └── old/                             # Archived originals
 ```
 
@@ -121,6 +131,20 @@ Start with `project-artifacts.md`, add others based on task:
 | `project-organization.md` | Directory structure, Makefiles |
 | `project-priorities.md` | Design priority, momentum |
 | `project-multisubproject.md` | Build discipline, isolation |
+
+### Terraform / OpenTofu (load as needed)
+
+Start with `terraform/SKILL.md`, references loaded on demand:
+
+| File | Content |
+|------|---------|
+| `SKILL.md` | Core principles, testing strategy, module dev |
+| `references/testing-frameworks.md` | Static analysis, native tests, Terratest |
+| `references/module-patterns.md` | Variable/output best practices |
+| `references/code-patterns.md` | Block ordering, count vs for_each |
+| `references/ci-cd-workflows.md` | GitHub Actions, GitLab CI templates |
+| `references/security-compliance.md` | Trivy/Checkov, secrets management |
+| `references/quick-reference.md` | Command cheat sheets, troubleshooting |
 
 ## Always Loaded
 

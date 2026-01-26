@@ -48,7 +48,7 @@ Rules:
 - Append-only (never delete)
 - Include enough detail to reconstruct reasoning
 
-## HUMAN_ACTIONS_NEEDED.md
+## HUMAN_TODOS.md
 
 Queue blocking actions instead of stopping.
 

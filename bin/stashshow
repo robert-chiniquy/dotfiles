@@ -1,0 +1,13 @@
+#!/bin/bash
+# Show contents of a stash
+# Usage: stashshow [stash@{n}]  - defaults to stash@{0}
+
+stash="${1:-stash@{0}}"
+
+if ! git rev-parse --git-dir &>/dev/null; then
+  echo "Not in a git repository" >&2
+  exit 1
+fi
+
+echo -e "\033[38;5;221mStash: $stash\033[0m"
+git stash show -p "$stash" | delta 2>/dev/null || git stash show -p "$stash"

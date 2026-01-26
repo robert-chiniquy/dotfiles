@@ -1,6 +1,3 @@
-# bat configuration
---theme="vaporwave-custom"
---style="numbers,changes,header,grid"
+--theme="Vaporwave"
 --italic-text=always
---paging=auto
---wrap=auto
+--style=numbers,changes,header

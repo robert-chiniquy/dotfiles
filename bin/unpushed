@@ -1,0 +1,39 @@
+#!/bin/bash
+# Show repos with uncommitted or unpushed work
+# Scans ~/repo/ by default, or pass a directory
+
+dir="${1:-$HOME/repo}"
+
+find "$dir" -maxdepth 3 -name .git -type d 2>/dev/null | while read gitdir; do
+  repo=$(dirname "$gitdir")
+  cd "$repo" || continue
+
+  # Check for uncommitted changes
+  dirty=""
+  if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+    dirty="uncommitted"
+  fi
+
+  # Check for unpushed commits
+  unpushed=""
+  ahead=$(git rev-list --count @{upstream}..HEAD 2>/dev/null)
+  if [[ -n "$ahead" && "$ahead" -gt 0 ]]; then
+    unpushed="${ahead} unpushed"
+  fi
+
+  # Check for stashes
+  stash=""
+  stash_count=$(git stash list 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$stash_count" -gt 0 ]]; then
+    stash="${stash_count} stashed"
+  fi
+
+  # Print if any issues
+  if [[ -n "$dirty" || -n "$unpushed" || -n "$stash" ]]; then
+    status=""
+    [[ -n "$dirty" ]] && status="$dirty"
+    [[ -n "$unpushed" ]] && status="${status:+$status, }$unpushed"
+    [[ -n "$stash" ]] && status="${status:+$status, }$stash"
+    printf "\033[38;5;51m%s\033[0m: \033[38;5;243m%s\033[0m\n" "${repo#$HOME/}" "$status"
+  fi
+done

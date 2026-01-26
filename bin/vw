@@ -1,0 +1,12 @@
+#!/bin/bash
+# Toggle vaporwave overlay on/off
+# Usage: vw
+
+if pkill -9 -f vaporwave-overlay 2>/dev/null; then
+    echo "Off"
+else
+    # Start overlay with stderr in dark grey
+    ~/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay --fullscreen 2> >(while read -r line; do printf '\033[90m%s\033[0m\n' "$line"; done) 1>/dev/null &
+    echo "On"
+fi
+echo -e "\r"

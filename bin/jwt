@@ -1,0 +1,48 @@
+#!/bin/bash
+# Decode JWT token and show header + payload
+# Usage: jwt <token>
+#    or: echo <token> | jwt
+
+if [[ -n "$1" ]]; then
+  token="$1"
+else
+  read -r token
+fi
+
+# Remove Bearer prefix if present
+token="${token#Bearer }"
+
+# Split into parts
+IFS='.' read -ra parts <<< "$token"
+
+if [[ ${#parts[@]} -lt 2 ]]; then
+  echo "Invalid JWT format" >&2
+  exit 1
+fi
+
+decode_base64() {
+  local input="$1"
+  # Add padding if needed
+  local pad=$((4 - ${#input} % 4))
+  (( pad < 4 )) && input+=$(printf '=%.0s' $(seq 1 $pad))
+  # URL-safe base64 to standard
+  echo "$input" | tr '_-' '/+' | base64 -d 2>/dev/null
+}
+
+echo -e "\033[38;5;221mHeader:\033[0m"
+decode_base64 "${parts[0]}" | jq . 2>/dev/null || decode_base64 "${parts[0]}"
+
+echo -e "\n\033[38;5;221mPayload:\033[0m"
+decode_base64 "${parts[1]}" | jq . 2>/dev/null || decode_base64 "${parts[1]}"
+
+# Show expiry if present
+exp=$(decode_base64 "${parts[1]}" | jq -r '.exp // empty' 2>/dev/null)
+if [[ -n "$exp" ]]; then
+  now=$(date +%s)
+  exp_date=$(date -r "$exp" 2>/dev/null || date -d "@$exp" 2>/dev/null)
+  if (( exp < now )); then
+    echo -e "\n\033[38;5;196mExpired:\033[0m $exp_date"
+  else
+    echo -e "\n\033[38;5;51mExpires:\033[0m $exp_date"
+  fi
+fi

@@ -115,9 +115,9 @@ Include:
 
 ---
 
-### 3. HUMAN_ACTIONS_NEEDED.md (when applicable)
+### 3. HUMAN_TODOS.md (when applicable)
 
-When work requires human action that blocks progress, maintain a `HUMAN_ACTIONS_NEEDED.md` file.
+When work requires human action that blocks progress, maintain a `HUMAN_TODOS.md` file.
 
 **Purpose:** Queue blocking actions instead of stopping work.
 
@@ -517,7 +517,7 @@ project/
 **Top-level files (keep at root):**
 - CLAUDE.md, README.md, project.md - Project definition
 - DATA_SOURCES.md, GLOSSARY.md, LEARNINGS.md - Knowledge tracking
-- TODO.md, COMPLETED.md, HUMAN_ACTIONS_NEEDED.md - Task tracking
+- TODO.md, COMPLETED.md, HUMAN_TODOS.md - Task tracking
 - DEMO.md or DEMO_V2.md - Current showcase
 
 **Categorization rules:**
@@ -615,7 +615,7 @@ When a new data source arrives or a new research topic opens up:
 
 When work requires human action:
 
-1. **Add the needed action to HUMAN_ACTIONS_NEEDED.md**
+1. **Add the needed action to HUMAN_TODOS.md**
 2. **Immediately continue with other available work**
    - Other threads/tasks
    - Design docs
@@ -634,7 +634,7 @@ When work requires human action:
 
 **Anti-pattern:** Stopping work to ask "should I proceed?" or "is this okay?"
 
-**Good pattern:** "I've queued these items in HUMAN_ACTIONS_NEEDED.md and continued with the remaining tasks."
+**Good pattern:** "I've queued these items in HUMAN_TODOS.md and continued with the remaining tasks."
 
 **Why:** Maximizes autonomous progress. Respects human time. Keeps momentum.
 
@@ -822,7 +822,7 @@ Before considering any project phase complete:
 
 - [ ] DATA_SOURCES.md exists and is current
 - [ ] LEARNINGS.md captures discoveries made
-- [ ] HUMAN_ACTIONS_NEEDED.md is empty or only contains truly blocked items
+- [ ] HUMAN_TODOS.md is empty or only contains truly blocked items
 - [ ] Deprecated code moved to old/ with documentation (if applicable)
 - [ ] Sensitive documents in private/ with README entry (if applicable)
 - [ ] DEMO.md written for user-facing features (if applicable)
