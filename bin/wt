@@ -1,0 +1,33 @@
+#!/bin/bash
+# Git worktree helper
+# Usage: wt          - list worktrees
+#        wt add name - create worktree for branch
+#        wt rm name  - remove worktree
+
+if ! git rev-parse --git-dir &>/dev/null; then
+  echo "Not in a git repository" >&2
+  exit 1
+fi
+
+cmd="${1:-list}"
+
+case "$cmd" in
+  list|ls)
+    git worktree list
+    ;;
+  add)
+    [[ -z "$2" ]] && { echo "Usage: wt add <branch>"; exit 1; }
+    branch="$2"
+    dir="../${PWD##*/}-$branch"
+    git worktree add "$dir" "$branch" 2>/dev/null || \
+    git worktree add -b "$branch" "$dir"
+    echo -e "\033[38;5;51mCreated:\033[0m $dir"
+    ;;
+  rm|remove)
+    [[ -z "$2" ]] && { echo "Usage: wt rm <path>"; exit 1; }
+    git worktree remove "$2"
+    ;;
+  *)
+    echo "Usage: wt [list|add <branch>|rm <path>]"
+    ;;
+esac

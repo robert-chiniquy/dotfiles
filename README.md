@@ -36,3 +36,20 @@ launchctl load ~/Library/LaunchAgents/com.rch.vaporwave-overlay.plist
 Requires Screen Recording permission in System Preferences for purple detection.
 
 Source: `~/repo/research/shell/metal-overlay/`
+
+## Maintenance
+
+### Tool Updates (check every ~3 months)
+
+Claude should periodically check for updates to these tools:
+
+- **Shell**: zsh, starship, atuin, zoxide, eza, bat, ripgrep, fd, fzf, yazi, erdtree, glow, git-delta
+- **Window management**: yabai, skhd, sketchybar, hammerspoon
+- **Dev tools**: nushell, direnv, jq, yq
+- **Apps**: iTerm2, Ghostty
+
+Check for:
+- Breaking changes in configs
+- New features worth enabling
+- Deprecated options to remove
+- Security updates

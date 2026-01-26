@@ -145,7 +145,7 @@ set statusline+=%*
 
 else
 
-  color vaporwave
+  silent! color vaporwave
 
 endif
 

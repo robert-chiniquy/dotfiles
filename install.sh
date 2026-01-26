@@ -60,6 +60,7 @@ unlink_if_exists ~/.config/glow
 unlink_if_exists ~/.config/ghostty
 unlink_if_exists ~/.config/nvim
 unlink_if_exists ~/.config/yazi
+unlink_if_exists ~/.config/atuin
 unlink_if_exists ~/bin
 # Nushell config location on macOS
 unlink_if_exists ~/Library/Application\ Support/nushell
@@ -96,6 +97,7 @@ link_if_missing .config/glow ~/.config/glow
 link_if_missing .config/ghostty ~/.config/ghostty
 link_if_missing .config/nvim ~/.config/nvim
 link_if_missing .config/yazi ~/.config/yazi
+link_if_missing .config/atuin ~/.config/atuin
 link_if_missing .config/erdtree ~/.config/erdtree
 link_if_missing bin ~/bin
 # Nushell config location on macOS

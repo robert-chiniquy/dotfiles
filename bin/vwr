@@ -1,0 +1,11 @@
+#!/bin/bash
+# Toggle vaporwave overlay (Rust/wgpu version) on/off
+# Usage: vwr
+
+if pkill -9 -f vaporwave-wgpu 2>/dev/null; then
+    echo "Off"
+else
+    ~/repo/dotfiles/vaporwave-wgpu/target/release/vaporwave-wgpu 2> >(while read -r line; do printf '\033[90m%s\033[0m\n' "$line"; done) &
+    echo "On"
+fi
+echo -e "\r"

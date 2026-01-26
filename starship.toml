@@ -1,20 +1,22 @@
 add_newline = false
 
-format = "$character$all"
-right_format = "$git_branch$git_status$rust${custom.tokei_rust}"
+format = "$directory$git_branch${custom.accent}$character"
+right_format = "$custom$golang$rust$nodejs"
 
 [line_break]
 disabled = true
 
 [character]
-success_symbol = '[🦋](magenta)'
-error_symbol = '[🦑](bold red)'
+success_symbol = ' '
+error_symbol = '[ !](203)'
 
 [golang]
-disabled = false
+format = '[$symbol]($style)'
+symbol = ""
+style = "cyan"
 
 [git_status]
-disabled = false
+disabled = true
 style = "#ff00f8"
 format = '([$all_status$ahead_behind]($style) )'
 conflicted = "⚔️"
@@ -29,39 +31,88 @@ renamed = "[»${count}](#aa00e8)"
 deleted = "[✘${count}](#ff0099)"
 
 [nodejs]
-symbol = '☊ '
+format = '[$symbol]($style)'
+symbol = ""
+style = "green"
 
 [rust]
 format = '[$symbol]($style)'
+symbol = ""
+style = "#ff0099"
 
 [package]
 disabled = true
 
 [git_branch]
-format = '[$symbol$branch(:$remote_branch)]($style) '
-style = "#5cecff bold"
-symbol = " "
+format = '[ $symbol$branch(:$remote_branch)]($style)'
+style = "#5cecff"
+symbol = ""
 
 [battery]
 disabled = true
 
+[jobs]
+symbol = "+"
+style = "#fbb725"
+number_threshold = 1
+format = "[$symbol$number]($style) "
+
+[memory_usage]
+disabled = true
+
+[time]
+disabled = true
+
+[directory]
+truncation_length = 1
+truncation_symbol = ""
+truncate_to_repo = false
+style = "#fbb725"
+
+[status]
+disabled = false
+style = "#ff0099"
+format = "[$status]($style) "
+
 [cmd_duration]
 disabled = true  # Using custom precmd in .zshrc (shows at 3s, more useful)
 
+[custom.accent]
+command = "prompt-char"
+when = "true"
+format = ' $output'
+style = ""
+
 [custom.git_diff_line_count]
-require_repo = true
-command = ''' git diff --shortstat | awk '{printf "+%s -%s", ($4 > 0 ? $4 : 0), ($6 > 0 ? $6 : 0)}' '''
-symbol = "🐝"
-when = ''' git status | grep -q modified '''
-style = "cyan"
-format = "$symbol [$output]($style) "
+disabled = true
 
 [custom.tokei_rust]
-require_repo = true
-command = ''' tokei -t=Rust | awk '/^ Rust/{print $4;}' '''
-symbol = "🐚"
-when = ''' which tokei '''
-detect_files = ["Cargo.toml"]
-style = "cyan"
-format = "[$output ]($style)$symbol"
+disabled = true
+
+[custom.coding_hours]
+disabled = true
+
+[custom.phase]
+command = "echo $__current_phase"
+when = "test -n \"$__current_phase\""
+format = '[$output]($style) '
+style = "#444444"
+
+[custom.focus]
+command = "echo $__focus_time"
+when = "test -n \"$__focus_time\""
+format = '[$output]($style) '
+style = "#444444"
+
+[custom.momentum]
+command = "cat ~/.cache/weekly-momentum 2>/dev/null | awk -v start=$(date -v-$(($(date +%u)-1))d +%Y-%m-%d 2>/dev/null) '$1 >= start' | wc -l | tr -d ' ' | xargs -I{} echo '{}/7'"
+when = "test -f ~/.cache/weekly-momentum"
+format = '[$output]($style) '
+style = "#444444"
+
+[custom.spark]
+command = "echo $__momentum_spark"
+when = "test -n \"$__momentum_spark\""
+format = '[$output]($style)'
+style = "#333333"
 

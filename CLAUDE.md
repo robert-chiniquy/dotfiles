@@ -72,6 +72,15 @@ All tools share the vaporwave palette:
 
 When modifying configs, maintain color consistency.
 
+## Security
+
+**Never commit secrets.** Before any git commit in this repo, verify that no tokens, API keys, passwords, or other secrets are being staged. This includes:
+- `.claude/mcp.json` - may contain literal token values
+- Any config file that could have credentials embedded
+- Environment variable values that were expanded into files
+
+If secrets are found in staged changes, abort the commit and help the user remove them.
+
 ## Dependencies
 
 Modern CLI tools (install via homebrew):

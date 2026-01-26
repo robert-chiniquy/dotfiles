@@ -1,0 +1,84 @@
+#!/bin/bash
+# Compare CPU usage between Swift/Metal and Rust/wgpu vaporwave overlays
+# Usage: vw-compare [duration_seconds]
+# Runs each version for the specified duration (default 30s) and reports CPU stats
+
+duration=${1:-30}
+
+echo "Vaporwave Overlay CPU Comparison"
+echo "================================"
+echo "Duration: ${duration}s each"
+echo ""
+
+# Kill any existing overlays
+pkill -9 -f vaporwave-overlay 2>/dev/null
+pkill -9 -f vaporwave-wgpu 2>/dev/null
+sleep 1
+
+# Test Swift/Metal version
+echo "Testing Swift/Metal version..."
+~/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay --fullscreen &
+pid_swift=$!
+sleep 2
+
+# Sample CPU over duration
+swift_samples=()
+for ((i=0; i<duration; i+=2)); do
+    cpu=$(ps -p $pid_swift -o %cpu= 2>/dev/null | tr -d ' ')
+    [[ -n "$cpu" ]] && swift_samples+=("$cpu")
+    sleep 2
+done
+
+pkill -9 -f vaporwave-overlay 2>/dev/null
+sleep 2
+
+# Test Rust/wgpu version
+echo "Testing Rust/wgpu version..."
+~/repo/dotfiles/vaporwave-wgpu/target/release/vaporwave-wgpu &
+pid_rust=$!
+sleep 2
+
+# Sample CPU over duration
+rust_samples=()
+for ((i=0; i<duration; i+=2)); do
+    cpu=$(ps -p $pid_rust -o %cpu= 2>/dev/null | tr -d ' ')
+    [[ -n "$cpu" ]] && rust_samples+=("$cpu")
+    sleep 2
+done
+
+pkill -9 -f vaporwave-wgpu 2>/dev/null
+
+# Calculate averages
+calc_avg() {
+    local arr=("$@")
+    local sum=0
+    local count=${#arr[@]}
+    [[ $count -eq 0 ]] && echo "N/A" && return
+    for v in "${arr[@]}"; do
+        sum=$(echo "$sum + $v" | bc)
+    done
+    echo "scale=1; $sum / $count" | bc
+}
+
+swift_avg=$(calc_avg "${swift_samples[@]}")
+rust_avg=$(calc_avg "${rust_samples[@]}")
+
+echo ""
+echo "Results"
+echo "-------"
+printf "Swift/Metal: %s%% CPU (avg of %d samples)\n" "$swift_avg" "${#swift_samples[@]}"
+printf "Rust/wgpu:   %s%% CPU (avg of %d samples)\n" "$rust_avg" "${#rust_samples[@]}"
+echo ""
+
+# Compare
+if [[ "$swift_avg" != "N/A" && "$rust_avg" != "N/A" ]]; then
+    diff=$(echo "scale=1; $swift_avg - $rust_avg" | bc)
+    if (( $(echo "$diff > 0" | bc -l) )); then
+        echo "Rust/wgpu uses ${diff}% less CPU"
+    elif (( $(echo "$diff < 0" | bc -l) )); then
+        diff=$(echo "$diff * -1" | bc)
+        echo "Swift/Metal uses ${diff}% less CPU"
+    else
+        echo "Both use similar CPU"
+    fi
+fi

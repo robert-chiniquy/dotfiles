@@ -1,0 +1,12 @@
+[theme]
+name = "vaporwave"
+
+[colors]
+AlertInfo = "#5cecff"
+AlertWarn = "#fbb725"
+AlertError = "#ff0099"
+Annotation = "#aa00e8"
+Base = "#ffffff"
+Guidance = "#666666"
+Important = "#ff00f8"
+Title = "#5cecff"
