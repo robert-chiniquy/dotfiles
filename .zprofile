@@ -6,8 +6,12 @@ which -s brew 1>/dev/null 2>/dev/null && (
   eval "$(/opt/homebrew/bin/brew shellenv)"
 )
 
+export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
+
+# Rust/Cargo
+[[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
 
 export STARSHIP_LOG=error
 # Note: starship init moved to .zshrc (needs zle which isn't available in .zprofile)

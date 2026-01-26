@@ -16,3 +16,10 @@ id_rsa*
 *.pfx
 .aws/credentials
 .netrc
+.claude/mcp.json
+.claude/tasks/
+
+*/target/release/*
+
+*/target/*
+

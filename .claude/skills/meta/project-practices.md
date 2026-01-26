@@ -63,12 +63,31 @@ When notes use "perhaps", "could", "might", "if feasible":
 Subjunctive = exploratory scope, NOT optional scope.
 Only skip if technically impossible.
 
+## Test Generated Code Compiles
+
+Any code generation (scaffolding, templates, codegen) MUST have tests that:
+
+1. Generate output
+2. Run the build tool (go build, npm build, etc.)
+3. Fail if build fails
+
+Without this, generated code drifts from reality silently.
+
+**Why:** SDK APIs evolve. Templates written for SDK v1 break on SDK v2.
+Discovered when cone connector init generated code that didn't compile.
+
+**Applies to:**
+- CLI scaffolding commands (init, create, new)
+- Cookiecutter/yeoman/create-X templates
+- Code generators (protoc, openapi-generator, etc.)
+- Any tool that outputs code meant to be built
+
 ## Self-Check
 
 Before any phase complete:
 - [ ] DATA_SOURCES.md current
 - [ ] LEARNINGS.md captures discoveries
-- [ ] HUMAN_ACTIONS_NEEDED.md empty or truly blocked
+- [ ] HUMAN_TODOS.md empty or truly blocked
 - [ ] Deprecated code in old/ with docs
 - [ ] Sensitive docs in private/
 - [ ] DEMO.md for user-facing features
