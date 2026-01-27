@@ -1,0 +1,17 @@
+#!/bin/bash
+# Output prompt character with project-specific color from PROMPT_ACCENT env var
+# Colors are hex like #ff0099, converted to ANSI 24-bit color
+
+CHAR=">"
+COLOR="${PROMPT_ACCENT:-#5cecff}"
+
+# Strip # if present
+COLOR="${COLOR#\#}"
+
+# Convert hex to RGB
+R=$((16#${COLOR:0:2}))
+G=$((16#${COLOR:2:2}))
+B=$((16#${COLOR:4:2}))
+
+# Output with 24-bit ANSI color
+echo -e "\033[38;2;${R};${G};${B}m${CHAR}\033[0m"

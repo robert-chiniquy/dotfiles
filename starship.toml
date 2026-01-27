@@ -78,7 +78,7 @@ format = "[$status]($style) "
 disabled = true  # Using custom precmd in .zshrc (shows at 3s, more useful)
 
 [custom.accent]
-command = "prompt-char"
+command = "prompt-accent"
 when = "true"
 format = ' $output'
 style = ""

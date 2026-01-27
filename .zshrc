@@ -1639,3 +1639,8 @@ function _accept_line_or_diffstat() {
 }
 zle -N accept-line _accept_line_or_diffstat
 
+export PATH="$HOME/.local/bin:$PATH"
+
+# Dynamic wallpaper project
+# ~/Pictures/dynamic-wallpaper/ - AI-generated wallpapers for time-based cycling
+# Use wallpapper CLI to build HEIC from images

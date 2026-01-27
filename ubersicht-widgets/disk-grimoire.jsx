@@ -3,11 +3,15 @@
 
 
 export const refreshFrequency = 60000; // 1 minute
+export const clickThrough = false;
 
 const PRIME = 37; // Appears when minute % 37 === 0
 
 export const command = `
-  echo "$(date +%M)|$(df -h / | tail -1 | awk '{print $3 "|" $4 "|" $5}')"
+  DISK=$(df -h / | tail -1 | awk '{print $3 "|" $4 "|" $5}')
+  # Find largest subdirectory in ~/repo
+  LARGEST=$(du -sh ~/repo/* 2>/dev/null | sort -hr | head -1 | awk '{print $2}')
+  echo "$(date +%M)|$DISK|$LARGEST"
 `;
 
 export const render = ({ output }) => {
@@ -18,7 +22,7 @@ export const render = ({ output }) => {
   // Visible for 4 minutes each cycle
   if (minute % PRIME >= 4) return null;
 
-  const [, used, avail, percent] = parts;
+  const [, used, avail, percent, largestDir] = parts;
   const pctNum = parseInt(percent);
 
   // Grimoire state
@@ -37,8 +41,11 @@ export const render = ({ output }) => {
     color = "#aa00e8";
   }
 
+  // Click to open Finder at largest directory
+  const openUrl = `hammerspoon://finder?path=${encodeURIComponent(largestDir || '/')}`;
+
   return (
-    <div style={container}>
+    <a href={openUrl} style={{...container, textDecoration: 'none', display: 'block'}}>
       <div style={title}>GRIMOIRE</div>
       <div style={book}>
         <div style={spine}></div>
@@ -49,7 +56,7 @@ export const render = ({ output }) => {
       <div style={{...stateText, color}}>{state}</div>
       <div style={stats}>{used} inscribed</div>
       <div style={stats}>{avail} blank</div>
-    </div>
+    </a>
   );
 };
 

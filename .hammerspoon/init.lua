@@ -216,7 +216,7 @@ hs.hotkey.bind({"cmd", "ctrl"}, "r", function()
 end)
 
 -- Floating CPU meter (desktop widget, behind windows)
-cpuCanvas = hs.canvas.new({x = 20, y = 60, w = 200, h = 120})
+cpuCanvas = hs.canvas.new({x = 20, y = 110, w = 200, h = 120})
 cpuCanvas:level(hs.canvas.windowLevels.desktopIcon)
 cpuCanvas:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
 
@@ -426,5 +426,59 @@ end)
 
 -- Initialize state file
 writePomodoroState()
+
+-- URL handler for tarot://shuffle
+hs.urlevent.bind("tarot", function(eventName, params)
+    if params.action == "shuffle" then
+        local f = io.open("/tmp/tarot-shuffle", "w")
+        if f then
+            f:write(tostring(os.time()))
+            f:close()
+        end
+        hs.alert.show("Cards shuffled")
+    end
+end)
+
+-- URL handler for iching://cast
+hs.urlevent.bind("iching", function(eventName, params)
+    if params.action == "cast" then
+        local f = io.open("/tmp/iching-cast", "w")
+        if f then
+            f:write(tostring(os.time()))
+            f:close()
+        end
+        hs.alert.show("Yarrow stalks cast")
+    end
+end)
+
+-- URL handler for git://open - open repo in iTerm2
+hs.urlevent.bind("git", function(eventName, params)
+    if params.action == "open" and params.path then
+        local path = hs.http.urlParts(params.path) and params.path or os.getenv("HOME") .. "/repo"
+        -- URL decode the path
+        path = path:gsub("%%(%x%x)", function(hex)
+            return string.char(tonumber(hex, 16))
+        end)
+        hs.osascript.applescript([[
+            tell application "iTerm2"
+                activate
+                create window with default profile
+                tell current session of current window
+                    write text "cd ]] .. path .. [["
+                end tell
+            end tell
+        ]])
+    end
+end)
+
+-- URL handler for finder://path - open Finder at path
+hs.urlevent.bind("finder", function(eventName, params)
+    if params.path then
+        local path = params.path:gsub("%%(%x%x)", function(hex)
+            return string.char(tonumber(hex, 16))
+        end)
+        hs.execute("open " .. path)
+    end
+end)
 
 hs.alert.show("Hammerspoon loaded")

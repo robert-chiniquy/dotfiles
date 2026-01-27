@@ -3,19 +3,21 @@
 
 
 export const refreshFrequency = 60000;
+export const clickThrough = false;
 
 const PRIME = 43; // Appears when minute % 43 === 0
 
 export const command = `
   cd ~/repo 2>/dev/null || cd ~
+  REPO_PATH=$(pwd)
   if git rev-parse --git-dir > /dev/null 2>&1; then
     DIRTY=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
     BRANCH=$(git branch --show-current 2>/dev/null)
     AHEAD=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
     BEHIND=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo 0)
-    echo "$(date +%M)|$DIRTY|$BRANCH|$AHEAD|$BEHIND"
+    echo "$(date +%M)|$DIRTY|$BRANCH|$AHEAD|$BEHIND|$REPO_PATH"
   else
-    echo "$(date +%M)|none"
+    echo "$(date +%M)|none||||| "
   fi
 `;
 
@@ -28,10 +30,10 @@ export const render = ({ output }) => {
   if (minute % PRIME >= 4) return null;
 
   if (parts[1] === "none") {
-    return <div style={container}><div style={symbol}>◌</div><div style={label}>The Void</div></div>;
+    return <div style={container}><div style={symbolStyle}>◌</div><div style={label}>The Void</div></div>;
   }
 
-  const [, dirty, branch, ahead, behind] = parts;
+  const [, dirty, branch, ahead, behind, repoPath] = parts;
   const dirtyNum = parseInt(dirty) || 0;
   const aheadNum = parseInt(ahead) || 0;
   const behindNum = parseInt(behind) || 0;
@@ -60,12 +62,15 @@ export const render = ({ output }) => {
     state = "In flux";
   }
 
+  // Click to open repo in terminal
+  const openUrl = `hammerspoon://git?action=open&path=${encodeURIComponent(repoPath)}`;
+
   return (
-    <div style={container}>
-      <div style={{...symbol, color}}>{sigil}</div>
+    <a href={openUrl} style={{...container, textDecoration: 'none', display: 'block'}}>
+      <div style={{...symbolStyle, color}}>{sigil}</div>
       <div style={branchStyle}>{branch}</div>
       <div style={label}>{state}</div>
-    </div>
+    </a>
   );
 };
 
@@ -84,7 +89,7 @@ const container = {
   minWidth: "80px"
 };
 
-const symbol = {
+const symbolStyle = {
   fontSize: "64px",
   marginBottom: "5px"
 };

@@ -198,31 +198,38 @@ const HEXAGRAMS = [
 
 
 export const refreshFrequency = 60000; // Check every minute
+export const clickThrough = false;
 
-export const command = "date '+%Y%m%d %M'";
+export const command = `
+  CAST=$(cat /tmp/iching-cast 2>/dev/null || date +%Y%m%d)
+  echo "$CAST $(date +%M)"
+`;
 
 const PRIME = 17; // Appears when minute % 17 === 0
 
 export const render = ({ output }) => {
   if (!output) return null;
-  const [dateStr, minuteStr] = output.trim().split(' ');
+  const [castStr, minuteStr] = output.trim().split(' ');
   const minute = parseInt(minuteStr);
 
   // Visible for 3 minutes each cycle
   if (minute % PRIME >= 3) return null;
 
-  const day = parseInt(dateStr);
-  const idx = day % 64;
+  const seed = parseInt(castStr);
+  const idx = seed % 64;
   const hex = HEXAGRAMS[idx];
 
+  // Click to cast new reading
+  const castUrl = `hammerspoon://iching?action=cast`;
+
   return (
-    <div style={container}>
+    <a href={castUrl} style={{...container, textDecoration: 'none', display: 'block'}}>
       <div style={hexagram}>{hex.hex}</div>
       <div style={number}>{hex.num}. {hex.name}</div>
       <div style={title}>{hex.title}</div>
       <div style={meaning}>{hex.meaning}</div>
       <div style={image}>{hex.image}</div>
-    </div>
+    </a>
   );
 };
 
