@@ -6,7 +6,7 @@ Skill files for Claude Code. Load selectively based on task.
 
 | User says | Load |
 |-----------|------|
-| "project" | `meta/project-artifacts.md` + relevant project-* |
+| "project" | `meta/project-index.md` (references all project-* files) |
 | "proto", "protobuf", "grpc" | `design/proto-overview.md` + relevant proto-* |
 | "design", "feature" | `design/systematic_feature_design.md` |
 | "critique", "review design" | `design/rigorous_critique.md` |
@@ -60,14 +60,16 @@ skills/
 │   ├── tone_matrixing.md
 │   └── marketing_lens.md
 ├── engineering/
-│   └── structural_constraints.md
+│   ├── structural_constraints.md
+│   └── check_feature_flag_conflicts.md
 ├── meta/
-│   ├── project-artifacts.md         # Entry point
+│   ├── project-index.md             # Entry point (references all project-* files)
+│   ├── project-artifacts.md
 │   ├── project-practices.md
 │   ├── project-organization.md
 │   ├── project-priorities.md
 │   ├── project-multisubproject.md
-│   └── PROVERBS.md
+│   └── PROVERBS.md                  # Guiding principles (MUST read)
 ├── codebase/
 │   └── incomplete_work_audit.md
 ├── utility/
@@ -122,15 +124,17 @@ Start with `doc-overview.md`, add others based on task:
 
 ### Project (load as needed)
 
-Start with `project-artifacts.md`, add others based on task:
+Start with `project-index.md`, which references all project files:
 
 | File | Content |
 |------|---------|
+| `project-index.md` | Index referencing all project-* files |
 | `project-artifacts.md` | DATA_SOURCES, LEARNINGS, etc. |
 | `project-practices.md` | Versioning, commits, catalogs |
 | `project-organization.md` | Directory structure, Makefiles |
 | `project-priorities.md` | Design priority, momentum |
 | `project-multisubproject.md` | Build discipline, isolation |
+| `PROVERBS.md` | Guiding principles (always loaded) |
 
 ### Terraform / OpenTofu (load as needed)
 
@@ -149,6 +153,8 @@ Start with `terraform/SKILL.md`, references loaded on demand:
 ## Always Loaded
 
 - `default/dry_witted_engineering.md` - Default communication tone
+- `meta/project-index.md` - Project process (references all project-* files)
+- `meta/PROVERBS.md` - Guiding principles
 
 ## Usage
 

@@ -25,7 +25,7 @@ sketchybar --bar \
     margin=8 \
     corner_radius=10
 
-# Default item settings - BIGGER FONTS
+# Default item settings
 sketchybar --default \
     icon.font="SF Pro:Bold:16.0" \
     icon.color=$CYAN \
@@ -74,7 +74,30 @@ sketchybar --add item front_app left \
     script="~/.config/sketchybar/plugins/front_app.sh" \
     --subscribe front_app front_app_switched
 
-# Center - Date and time
+# ============ OCCULT ITEMS - CENTER ============
+
+# Daily Tarot
+sketchybar --add item tarot center \
+    --set tarot \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:14.0" \
+    icon.color=$PINK \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/tarot.sh" \
+    click_script="open 'https://sacred-texts.com/tarot/'"
+
+# Daily Rune
+sketchybar --add item rune center \
+    --set rune \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:18.0" \
+    icon.color=$WHITE \
+    label.font="SF Pro:Regular:11.0" \
+    label.color=0xff666666 \
+    script="~/.config/sketchybar/plugins/rune.sh" \
+    click_script="open 'https://en.wikipedia.org/wiki/Elder_Futhark'"
+
+# Clock
 sketchybar --add item clock center \
     --set clock \
     update_freq=10 \
@@ -82,7 +105,145 @@ sketchybar --add item clock center \
     icon.color=$GOLD \
     script="~/.config/sketchybar/plugins/clock.sh"
 
-# Right side items
+# Lunar phase
+sketchybar --add item lunar center \
+    --set lunar \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:16.0" \
+    icon.color=$CYAN \
+    script="~/.config/sketchybar/plugins/lunar.sh" \
+    click_script="open 'https://www.timeanddate.com/moon/phases/'"
+
+# I Ching hexagram
+sketchybar --add item iching center \
+    --set iching \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:18.0" \
+    icon.color=$PURPLE \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/iching.sh" \
+    click_script="open 'https://sacred-texts.com/ich/'"
+
+# ============ JOHN DEE'S ENOCHIAN SYSTEM ============
+
+# Enochian letter - angelic alphabet
+sketchybar --add item enochian center \
+    --set enochian \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:18.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/enochian.sh" \
+    click_script="open 'https://www.esotericarchives.com/dee/enochian.htm'"
+
+# Heptarchic angel - planetary ruler of the day
+sketchybar --add item heptarch center \
+    --set heptarch \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:16.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/heptarch.sh" \
+    click_script="open 'https://www.esotericarchives.com/dee/heptmyst.htm'"
+
+# Monas Hieroglyphica - Dee's unified symbol
+sketchybar --add item monas center \
+    --set monas \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:16.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/monas.sh" \
+    click_script="open 'https://www.esotericarchives.com/dee/monad.htm'"
+
+# Scrying mirror - reflects recent activity
+sketchybar --add item scrying center \
+    --set scrying \
+    update_freq=60 \
+    icon.font="SF Pro:Bold:16.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/scrying.sh" \
+    click_script="open 'https://en.wikipedia.org/wiki/Scrying'"
+
+# ============ WESTERN ESOTERICA ============
+
+# Goetia - 72 spirits of Solomon
+sketchybar --add item goetia center \
+    --set goetia \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:16.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/goetia.sh" \
+    click_script="open 'https://www.esotericarchives.com/solomon/goetia.htm'"
+
+# Sephirah - Kabbalah Tree of Life
+sketchybar --add item sephirah center \
+    --set sephirah \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:18.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/sephirah.sh" \
+    click_script="open 'https://www.jewishvirtuallibrary.org/the-kabbalah'"
+
+# Hermetic - 7 principles from the Kybalion
+sketchybar --add item hermetic center \
+    --set hermetic \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:16.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/hermetic.sh" \
+    click_script="open 'https://sacred-texts.com/eso/kyb/'"
+
+# Theban - Witch's alphabet
+sketchybar --add item theban center \
+    --set theban \
+    update_freq=60 \
+    icon.font="SF Pro:Bold:18.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/theban.sh" \
+    click_script="open 'https://en.wikipedia.org/wiki/Theban_alphabet'"
+
+# ============ CELTIC & VODOU ============
+
+# Ogham - Celtic tree alphabet
+sketchybar --add item ogham center \
+    --set ogham \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:18.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/ogham.sh" \
+    click_script="open 'https://ogham.co/'"
+
+# Veve - Vodou sacred symbols
+sketchybar --add item veve center \
+    --set veve \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:16.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/veve.sh" \
+    click_script="open 'https://en.wikipedia.org/wiki/Veve'"
+
+# ============ ANCIENT SCRIPTS ============
+
+# Linear B - Mycenaean Greek syllabary
+sketchybar --add item linearb center \
+    --set linearb \
+    update_freq=60 \
+    icon.font="SF Pro:Bold:18.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/linearb.sh" \
+    click_script="open 'https://www.ancientscripts.com/linearb.html'"
+
+# ============ DYNAMIC SIGILS ============
+
+# Sigil - morphs based on system state
+sketchybar --add item sigil center \
+    --set sigil \
+    update_freq=30 \
+    icon.font="SF Pro:Bold:18.0" \
+    label.drawing=off \
+    script="~/.config/sketchybar/plugins/sigil.sh" \
+    click_script="open 'https://en.wikipedia.org/wiki/Sigil'"
+
+# ============ RIGHT SIDE ============
+
 sketchybar --add item battery right \
     --set battery \
     update_freq=120 \
@@ -101,34 +262,6 @@ sketchybar --add item volume right \
     icon.color=$PINK \
     script="~/.config/sketchybar/plugins/volume.sh" \
     --subscribe volume volume_change
-
-sketchybar --add item cpu right \
-    --set cpu \
-    update_freq=5 \
-    icon= \
-    icon.color=$GOLD \
-    script="~/.config/sketchybar/plugins/cpu.sh"
-
-sketchybar --add item memory right \
-    --set memory \
-    update_freq=15 \
-    icon= \
-    icon.color=$CYAN \
-    script="~/.config/sketchybar/plugins/memory.sh"
-
-sketchybar --add item disk right \
-    --set disk \
-    update_freq=60 \
-    icon= \
-    icon.color=$PURPLE \
-    script="~/.config/sketchybar/plugins/disk.sh"
-
-sketchybar --add item uptime right \
-    --set uptime \
-    update_freq=300 \
-    icon= \
-    icon.color=$GOLD \
-    script="~/.config/sketchybar/plugins/uptime.sh"
 
 # Finalize
 sketchybar --update

@@ -14,4 +14,4 @@ else
     ICON=""
 fi
 
-sketchybar --set volume icon="$ICON" label="${VOLUME}%"
+sketchybar --set volume icon="$ICON" label="vol ${VOLUME}%"

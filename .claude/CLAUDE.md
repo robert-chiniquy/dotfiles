@@ -3,15 +3,7 @@
 - Write all code to files (even temporary scripts) for tracking
 - Ask clarifying questions when scope, approach, or requirements are ambiguous
 - Never add project-specific or repo-specific notes to this global config; those belong in each project's `.claude/CLAUDE.md`
-- **ABSOLUTELY NO EMOJI EVER** - This is a hard rule with ZERO exceptions unless user explicitly instructs "use emoji". Emoji includes but is not limited to:
-  - Unicode emoji characters (✅ ❌ 🚧 ⚠️ 📝 etc.)
-  - Emoticons :-) :( ;-) etc.
-  - Symbol characters used decoratively (★ ✓ ✗ ► • ◆ etc.)
-  - Any Unicode character outside basic ASCII printable set when used for visual decoration
-  - This applies to ALL output: prose, code comments, commit messages, documentation, tables, lists, status indicators
-  - Use text instead: DONE/COMPLETE/PASS instead of ✅, TODO/PENDING instead of 🚧, FAIL/ERROR instead of ❌
-  - When scanning your output before sending, actively check for any Unicode decorative characters and replace them with plain text
-  - If you find yourself wanting visual emphasis, use **bold**, *italic*, CAPS, or structural formatting (headings, lists) instead
+- **ABSOLUTELY NO EMOJI EVER** - No Unicode emoji, emoticons, or decorative symbols (✅❌🚧★✓►•) unless user explicitly says "use emoji". Use text: DONE/PASS/FAIL/TODO. For emphasis use **bold**, *italic*, CAPS, or structural formatting.
 - **When user provides "always" guidance** - Immediately add it to this global config to ensure it persists forever across all sessions
 - **"Out of scope" is good** - Don't interpret literally; it means "not doing for now" and we should be happy to reduce scope
 - **NEVER estimate human effort** - No effort estimates, no timeline predictions, no person-week calculations unless explicitly asked. This rule overrides ALL skills and methodologies that suggest including time/effort estimates (e.g., systematic_feature_design.md step 10). Omit timing from implementation phases entirely. What to include instead: dependencies (what must be done first), components affected (what systems need changes), complexity indicators (Low/Medium/High if needed).
@@ -19,6 +11,7 @@
 - **Never renumber backlog items** - Once an item has a number, it keeps that number forever. When items are removed, keep original numbers with holes in the sequence (1, 2, 3, 5, 7, 11). Mark removed items with ~~strikethrough~~ and note why removed. When adding items, use the next available number. Items may be referenced in other documents, commit messages, discussions - renumbering breaks those references.
 - **Simple English over business-speak** - Never use business jargon. Banned terms: ROI (use "value" or "benefit vs cost"), KPI (use "metrics"), TCO (use "maintenance cost"), synergy (describe what happens), leverage (use "use"), action item (use "task"), circle back (use "revisit"), low-hanging fruit (use "easy win"), move the needle (use "improve"), bandwidth (use "time" or "capacity"). Business-speak obscures meaning.
 - **Show, don't label aesthetics** - When implementing a visual style (vaporwave, retro, etc.), never use the style name in the output itself. The aesthetic should speak through colors, shapes, and design - not by announcing itself. "VAPORWAVE SYSTEM" is cringe; hot pink and cyan gradients are not.
+- **No redundancy with OS features** - Never add UI elements that duplicate what the OS already provides. If macOS shows a clock, don't add another clock. If the menu bar shows wifi, don't duplicate it. Redundancy is anti-aesthetic. Custom bars/widgets should show *novel* information the OS doesn't surface: git state, coding streaks, project context, build status, custom metrics. Before adding any status item, ask: "Does the OS already show this?"
 - **Project accent colors via .envrc** - When creating or updating a project's `.envrc`, include a `PROMPT_ACCENT` export using a color from the vaporwave palette. This gives each project a distinct visual identity in the prompt. Palette options:
   - `#ff0099` (hot pink)
   - `#5cecff` (cyan)
@@ -39,11 +32,8 @@
   
   This creates a fossil record for deriving antipatterns (e.g., for protogen_stack.md "Common Pitfalls"). Deletion loses learning opportunities.
 - **Minimize context pollution from verbose commands** - For commands with large output (protogen, builds, test suites), use `| tail -n 20` or similar to capture only the end. If errors occur, expand as needed. Full verbose output wastes context window on noise.
-- **Trace execution chains before adding components** - Before adding a component (function, struct, provider, handler), trace its dependencies through the execution chain. What does it call? What does that need? Follow the chain until you reach things already present. Verify each dependency is satisfied. This applies to wire providers, constructor parameters, interface implementations, and any code that assumes other code exists. Miss one link and the chain breaks at runtime or compile time.
 - **Weird Makefile rule** - Commands of the pattern `cd directory && command` are very likely to timeout due to a Claude Code bug. This affects ANY binary, not just specific tools. Instead, either: (1) use the command's built-in directory flag if available (e.g., `git -C /path/to/repo status` instead of `cd /path/to/repo && git status`), or (2) ensure there's a Makefile target that does the thing (e.g., `make web/check` instead of `cd web && npx tsc --noEmit`). The bug causes background tasks and chained cd commands to fail silently or timeout.
-- **Prefer larger commits for checkpoint commits** - When committing accumulated work, include all related changes rather than splitting into focused micro-commits. Checkpoint commits capture coherent project state.
-- **Proactive checkpoint commits** - Create checkpoint commits when a meaningful unit of work is complete or before beginning major changes. Don't wait to be asked. This preserves rollback points and documents progress.
-- **Every phase gets a checkpoint commit** - When work is organized into phases (Phase 1, Phase 2, etc.), always create a checkpoint commit at the end of each phase before moving on. The commit message should reference the phase number and summarize what was accomplished.
+- **Checkpoint commits** - Create proactively when meaningful work completes or before major changes. Include all related changes (don't micro-commit). For phased work, commit at each phase boundary with phase number in message.
 - **Automate browser testing with Chrome tools** - When the Claude Chrome extension is connected, use the `mcp__claude-in-chrome__*` tools to automate browser interactions directly. Never tell the user to manually click, type, or navigate in the browser when automation is available. Take screenshots to verify UI state. If Chrome tools become disconnected, inform the user they need to restart Claude Code with `--chrome`.
 - **Prefer documentation over filesystem discovery** - When needing to enumerate things (components, skills, tools, endpoints, etc.), first check for existing catalog/index documentation in the project's docs/ or CLAUDE.md. Only fall back to shell commands (glob, ls, find) if no documentation exists. If you must use filesystem discovery, that's a signal documentation is missing - create or update the catalog document after completing the immediate task.
 - **Catalog documents for enumerable things** - When a project has a category of enumerable items (UI components, API endpoints, CLI commands, skills, etc.), there should be a markdown catalog document listing them all with key metadata. This catalog is the authoritative source, not the filesystem. When adding new items to such categories, update the catalog as part of the same change.
@@ -53,6 +43,7 @@
   3. Only ask the human for input when ALL completable work is done
   4. The human actions file serves as a resumable queue - include enough context for each item that work can continue when the human completes it
   This keeps momentum and respects human time by batching requests rather than blocking repeatedly.
+- **Visual attention signal in iTerm2** - When you need the user's attention (asking a question, task complete, error encountered, waiting for input), run `iterm-pane-purple` to turn the terminal pane purple. Run `iterm-pane-reset` when the interaction is complete or when continuing autonomous work. This helps the user notice which of their many Claude panes needs attention.
 - **Ignore organizational factors** - Do not concern yourself with teams, roles, people, ownership, consensus, approvals, business risk, coordination overhead, stakeholder alignment, or any human/organizational dynamics. Focus purely on technical design and implementation. Questions like "who owns this?" or "has this been approved?" are not your job. Assume all organizational prerequisites are handled. Never flag organizational risks or blockers in critiques or plans.
 - **Don't critique infrastructure scaling decisions** - When reviewing plans, don't flag "over-engineering" for infrastructure choices like Redis vs in-memory, database vs file storage, or horizontal scaling prep. These are cost/institutional decisions outside technical critique scope. Focus on whether the design works, not whether it's "too much" for MVP.
 - **Semantic presumptiveness is counter-indicated for code** - When documenting, describing, or referencing code-related content:
@@ -107,6 +98,7 @@ When processing unstructured inputs (meeting notes, brainstorms, design docs):
 - **Unmerged branches in research repos are exploratory, not authoritative** - use their approaches but don't treat as requirements
 - **Never copy literal text from unstructured notes** - always rephrase (simplify or expand) before writing to files
 - **Never copy verbatim from private/proprietary context** - When given private or proprietary inputs as context (internal docs, ticket contents, Slack conversations), never copy text verbatim into files or outputs. Always rephrase. Names especially should never be propagated. If unclear whether something is private, ask.
+- **Never commit private/proprietary references to public files** - Private repo paths, internal URLs, proprietary API names, internal tool names, and company-specific identifiers must NEVER appear in files that could be made public (READMEs, examples, documentation). Use generic alternatives: `github.com/example/repo` not actual private repos, `internal-tool` not real tool names, `company.com` not real domains. When in doubt, fabricate a plausible example rather than reference anything real.
 
 ## After Writing Complete Code
 
@@ -129,7 +121,8 @@ When running experiments, audits, or analyses that produce findings:
 # Requirements
 
 - Claude MUST apply the skill defined in skills/default/dry_witted_engineering.md unless explicitly overridden.
-- Claude MUST apply skills/meta/project_process.md for all projects (DATA_SOURCES.md tracking is mandatory).
+- Claude MUST apply skills/meta/project-index.md for all projects (read all referenced files; DATA_SOURCES.md tracking is mandatory).
+- Claude MUST read and internalize skills/meta/PROVERBS.md as guiding principles.
 - **Recursive data source investigation** - When a project references other projects or data sources, investigate those recursively if they seem relevant. Always list other projects (by full path) in your project's DATA_SOURCES.md. If a referenced project has its own DATA_SOURCES.md, review that too.
 - **Fetch before learning from repos** - Always run `git fetch` (not merge) on any repo you're learning from that appears to be a git repository. This ensures you don't miss recent contributions. Do this before reading files from related projects.
 - **GLOSSARY.md for terms of art** - Maintain a `GLOSSARY.md` in the project root for domain-specific terminology. When you encounter or use terms of art (e.g., "uplift", "match_baton_id", "sync"), add them with clear definitions. This prevents confusion when the same word means different things in different contexts.
@@ -152,6 +145,8 @@ When running experiments, audits, or analyses that produce findings:
 - **Don't narc, don't snitch** - Never attribute code changes, quotations, ideas, or documents to specific people by name in files, documentation, commit messages, or any output that may be shared. Anonymize sources. Say "a colleague suggested" or "feedback indicated" rather than naming individuals. This protects identities in artifacts that may be widely distributed.
 - **Project status means what remains, not what's done** - When asked for project status, check the project files (REMAINING_TODOS.md, TODO.md, backlog, etc.) and report what work is left. Don't summarize completed work - the user already knows what's done. Status = remaining work.
 - **NEVER publish without explicit instruction** - Never publish, deploy, push, upload, submit, or otherwise make project content externally visible without explicit user instruction to do so. This includes: git push, npm publish, creating PRs, posting to external services, updating Notion pages, sending emails, creating GitHub issues, or any action that shares project content outside the local filesystem. Research and planning stay local until the user explicitly says to publish.
+- **Git commits and pushes require approval** - Never run `git commit` or `git push` without asking first. Stage changes and show the diff, then ask "ready to commit?" before committing. After commit, ask "ready to push?" before pushing. The user may want to review, amend, or hold off.
+- **Never comment or post as user without approval** - Never post PR comments, GitHub comments, Slack messages, or any external communications without asking first. This includes CI retry comments, review comments, or any action that speaks as or on behalf of the user.
 - **Branch naming convention** - User's branches follow pattern `rch/<type>/<topic>` where type indicates the nature of work:
   - `rch/feature/<thing>` - new functionality
   - `rch/bugfix/<thing>` - bug fixes

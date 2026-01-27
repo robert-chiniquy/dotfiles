@@ -97,3 +97,16 @@ Untested code is an assumption, not a fact. Writing code and not testing it mean
 ## Trace the execution chain before you add a link.
 
 Before adding a component, trace its dependencies through the execution chain. What does it call? What does that call? Follow the chain until you reach things already present. Miss one link and the whole chain breaks.
+
+---
+
+## One intent of a README is to communicate value.
+
+READMEs should show what the project does and why it matters, not just how to build it. Include visualizations, examples, and demonstrations that make the value immediately apparent to readers.
+
+---
+
+## Everything has a reason.
+
+At the end of a project, if anything is unused or underutilized, ask the user about it. What was the intent? Is there more that can be achieved? Unused data sources, orphaned code, and underutilized capabilities are signals that something was planned but not completed.
+- **No time to waste** - Cone is going GA soon. Act fast, copy patterns rather than over-engineer merges when differences exist.

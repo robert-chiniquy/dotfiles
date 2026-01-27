@@ -28,3 +28,4 @@ if ! command -v eza &>/dev/null; then
   alias ll="ls -lG"
   alias lh="ls -lhG"
 fi
+export PATH="$HOME/.local/bin:$PATH"
