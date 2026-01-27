@@ -16,4 +16,4 @@ else
     ICON=""
 fi
 
-sketchybar --set battery icon="$ICON" label="${PERCENTAGE}%"
+sketchybar --set battery icon="$ICON" label="bat ${PERCENTAGE}%"

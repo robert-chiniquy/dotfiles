@@ -27,13 +27,13 @@ const MAJOR_ARCANA = [
 
 
 export const refreshFrequency = 60000;
-export const command = "date '+%Y%m%d %M'";
+export const clickThrough = false;
+export const command = `
+  SHUFFLE=$(cat /tmp/tarot-shuffle 2>/dev/null || date +%Y%m%d)
+  echo "$SHUFFLE $(date +%M)"
+`;
 
 const PRIME = 31; // Appears when minute % 31 === 0
-
-const handleClick = () => {
-  window.location.href = "https://en.wikipedia.org/wiki/Major_Arcana";
-};
 
 function toRoman(num) {
   const map = [[21,"XXI"],[20,"XX"],[19,"XIX"],[18,"XVIII"],[17,"XVII"],[16,"XVI"],[15,"XV"],[14,"XIV"],[13,"XIII"],[12,"XII"],[11,"XI"],[10,"X"],[9,"IX"],[8,"VIII"],[7,"VII"],[6,"VI"],[5,"V"],[4,"IV"],[3,"III"],[2,"II"],[1,"I"]];
@@ -43,18 +43,21 @@ function toRoman(num) {
 
 export const render = ({ output }) => {
   if (!output) return null;
-  const [dateStr, minuteStr] = output.trim().split(' ');
+  const [shuffleStr, minuteStr] = output.trim().split(' ');
   const minute = parseInt(minuteStr);
 
   // Visible for 10 minutes each cycle
   if (minute % PRIME >= 10) return null;
 
-  const day = parseInt(dateStr);
-  const idx = day % 22;
+  const seed = parseInt(shuffleStr);
+  const idx = seed % 22;
   const card = MAJOR_ARCANA[idx];
 
+  // Click to shuffle - write new random seed
+  const shuffleUrl = `hammerspoon://tarot?action=shuffle`;
+
   return (
-    <div style={container} onClick={handleClick}>
+    <a href={shuffleUrl} style={{...container, textDecoration: 'none', display: 'block'}}>
       <div style={cardFrame}>
         <div style={numeral}>{card.num === 0 ? "0" : toRoman(card.num)}</div>
         <div style={symbol}>{card.symbol}</div>
@@ -65,7 +68,7 @@ export const render = ({ output }) => {
       </div>
       <div style={meaning}>{card.upright}</div>
       <div style={shadow}>Shadow: {card.shadow}</div>
-    </div>
+    </a>
   );
 };
 
