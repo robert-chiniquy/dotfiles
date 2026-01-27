@@ -71,6 +71,10 @@ unlink_if_exists ~/.config/sketchybar
 unlink_if_exists ~/.config/borders
 unlink_if_exists ~/.config/yabai
 unlink_if_exists ~/.hammerspoon
+# Übersicht widgets (macOS only)
+if [[ "$OSTYPE" == darwin* ]]; then
+  unlink_if_exists ~/Library/Application\ Support/Übersicht/widgets
+fi
 success "Cleanup done"
 
 # === Create symlinks ===
@@ -110,6 +114,11 @@ link_if_missing .config/sketchybar ~/.config/sketchybar
 link_if_missing .config/borders ~/.config/borders
 link_if_missing .config/yabai ~/.config/yabai
 link_if_missing .hammerspoon ~/.hammerspoon
+# Übersicht widgets (macOS only)
+if [[ "$OSTYPE" == darwin* ]]; then
+  mkdir -p ~/Library/Application\ Support/Übersicht
+  link_if_missing ubersicht-widgets ~/Library/Application\ Support/Übersicht/widgets
+fi
 success "Symlinks done"
 
 # === Post-install ===
