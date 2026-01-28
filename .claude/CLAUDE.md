@@ -3,10 +3,8 @@
 - Write all code to files (even temporary scripts) for tracking
 - Ask clarifying questions when scope, approach, or requirements are ambiguous
 - Never add project-specific or repo-specific notes to this global config; those belong in each project's `.claude/CLAUDE.md`
-- **ABSOLUTELY NO EMOJI EVER** - No Unicode emoji, emoticons, or decorative symbols (✅❌🚧★✓►•) unless user explicitly says "use emoji". Use text: DONE/PASS/FAIL/TODO. For emphasis use **bold**, *italic*, CAPS, or structural formatting.
 - **When user provides "always" guidance** - Immediately add it to this global config to ensure it persists forever across all sessions
 - **"Out of scope" is good** - Don't interpret literally; it means "not doing for now" and we should be happy to reduce scope
-- **NEVER estimate human effort** - No effort estimates, no timeline predictions, no person-week calculations unless explicitly asked. This rule overrides ALL skills and methodologies that suggest including time/effort estimates (e.g., systematic_feature_design.md step 10). Omit timing from implementation phases entirely. What to include instead: dependencies (what must be done first), components affected (what systems need changes), complexity indicators (Low/Medium/High if needed).
 - **File versioning, not overwriting** - When receiving feedback or notes on a document, DO NOT overwrite the existing file. Create a new version: `FILENAME_V2.md`, `FILENAME_V3.md`, or `FILENAME_PHASE2.md`, `FILENAME_REVISED.md`. Preserve older content for reference. Exception: Typo fixes or minor corrections can update in place.
 - **Never renumber backlog items** - Once an item has a number, it keeps that number forever. When items are removed, keep original numbers with holes in the sequence (1, 2, 3, 5, 7, 11). Mark removed items with ~~strikethrough~~ and note why removed. When adding items, use the next available number. Items may be referenced in other documents, commit messages, discussions - renumbering breaks those references.
 - **Simple English over business-speak** - Never use business jargon. Banned terms: ROI (use "value" or "benefit vs cost"), KPI (use "metrics"), TCO (use "maintenance cost"), synergy (describe what happens), leverage (use "use"), action item (use "task"), circle back (use "revisit"), low-hanging fruit (use "easy win"), move the needle (use "improve"), bandwidth (use "time" or "capacity"). Business-speak obscures meaning.
@@ -23,7 +21,6 @@
 
   Choose colors that feel right for the project's character - cyan for infrastructure, pink for user-facing, gold for data/analytics, purple for experimental.
 - **Learning preservation** - When you figure something out, add it to `LEARNINGS.md` in the project root immediately. Document what you learned, why it matters, how you discovered it. Include concrete examples, file paths, code snippets. Use timestamped headers with minute precision (## 2025-01-14 09:45: Topic) for organization. This creates a knowledge base that persists beyond individual conversations. The minute-level precision helps trace when learnings occurred relative to other events.
-- **No Co-Authored-By trailers** - Never add Co-Authored-By, Signed-off-by, or similar trailers to git commits.
 - **Preserve deprecated code in `old/` directory** - Instead of deleting superseded code, move it to `old/` at project root. Include a README.md documenting:
   - What the code was
   - Why it was deprecated
@@ -43,22 +40,11 @@
   3. Only ask the human for input when ALL completable work is done
   4. The human actions file serves as a resumable queue - include enough context for each item that work can continue when the human completes it
   This keeps momentum and respects human time by batching requests rather than blocking repeatedly.
-- **Visual attention signal in iTerm2** - When you need the user's attention (asking a question, task complete, error encountered, waiting for input), run `iterm-pane-purple` to turn the terminal pane purple. Run `iterm-pane-reset` when the interaction is complete or when continuing autonomous work. This helps the user notice which of their many Claude panes needs attention.
 - **Ignore organizational factors** - Do not concern yourself with teams, roles, people, ownership, consensus, approvals, business risk, coordination overhead, stakeholder alignment, or any human/organizational dynamics. Focus purely on technical design and implementation. Questions like "who owns this?" or "has this been approved?" are not your job. Assume all organizational prerequisites are handled. Never flag organizational risks or blockers in critiques or plans.
 - **Don't critique infrastructure scaling decisions** - When reviewing plans, don't flag "over-engineering" for infrastructure choices like Redis vs in-memory, database vs file storage, or horizontal scaling prep. These are cost/institutional decisions outside technical critique scope. Focus on whether the design works, not whether it's "too much" for MVP.
-- **Semantic presumptiveness is counter-indicated for code** - When documenting, describing, or referencing code-related content:
-  - Never assume a term means what you expect - verify against source
-  - Never cite line numbers, page numbers, or locations without current-session verification
-  - Never describe API behavior, SDK patterns, or CLI commands from memory - read the implementation
-  - Never inflate counts ("150+ connectors" when source shows 99)
-  - Never fabricate exit codes, version numbers, or technical contracts
-  - Distinguish clearly between: (a) verified from source this session, (b) paraphrased from documentation, (c) inferred/synthesized, (d) generated/presumed
-  - When in doubt, say "unverified" rather than assert confidence
-  - Implementation is ground truth; documentation describes intent but may be stale
-  - Source code comments are more reliable than prose documentation
-  This prevents technical misinformation that could mislead developers.
 - **DATA_SOURCE traceability** - Every entry in DATA_SOURCES.md must trace to either: (a) a decision made during design, or (b) code it informed. If a DATA_SOURCE was provided but not used, that is a GAP which MUST be included in any GAP_ANALYSIS. Unused data sources indicate either: missing implementation, misunderstood requirements, or scope reduction that should be documented.
 - **GAP analysis includes demo requirement gaps** - When running a GAP analysis on a project that includes a DEMO, check if the demo requirements were fully satisfied. Gaps in demo requirements (missing visualizations, incomplete walkthroughs, unclear explanations) are gaps in the project itself. A demo that doesn't demonstrate all claimed functionality is incomplete.
+- **Parsimony** - When a task requires multiple shell commands that need permission, write a single script that does everything, then ask permission once to run it. Don't ask for permission 500 times for each individual step. Batch operations into scripts so the user can approve in one stroke.
 
 ## Testing Guidelines
 
@@ -97,7 +83,6 @@ When processing unstructured inputs (meeting notes, brainstorms, design docs):
 - Extract the kernel of truth from verbose descriptions
 - **Unmerged branches in research repos are exploratory, not authoritative** - use their approaches but don't treat as requirements
 - **Never copy literal text from unstructured notes** - always rephrase (simplify or expand) before writing to files
-- **Never copy verbatim from private/proprietary context** - When given private or proprietary inputs as context (internal docs, ticket contents, Slack conversations), never copy text verbatim into files or outputs. Always rephrase. Names especially should never be propagated. If unclear whether something is private, ask.
 - **Never commit private/proprietary references to public files** - Private repo paths, internal URLs, proprietary API names, internal tool names, and company-specific identifiers must NEVER appear in files that could be made public (READMEs, examples, documentation). Use generic alternatives: `github.com/example/repo` not actual private repos, `internal-tool` not real tool names, `company.com` not real domains. When in doubt, fabricate a plausible example rather than reference anything real.
 
 ## After Writing Complete Code
@@ -120,6 +105,12 @@ When running experiments, audits, or analyses that produce findings:
 
 # Requirements
 
+- **Claude MUST signal for attention in iTerm2** - Run `iterm-pane-purple` ONLY when blocking on user input: asking a question, requesting approval, or waiting for the user to do something. Do NOT signal when work is complete unless you need the user to take action. After receiving user input, run `iterm-pane-reset` before continuing work. The user runs many Claude panes simultaneously and monitors the purple signal for "needs me now".
+- **ABSOLUTELY NO EMOJI EVER** - No Unicode emoji, emoticons, or decorative symbols unless user explicitly says "use emoji". Use text: DONE/PASS/FAIL/TODO. For emphasis use **bold**, *italic*, CAPS, or structural formatting.
+- **NEVER estimate human effort** - No effort estimates, no timeline predictions, no person-week calculations unless explicitly asked. This rule overrides ALL skills and methodologies that suggest including time/effort estimates. Omit timing from implementation phases entirely.
+- **No Co-Authored-By trailers** - Never add Co-Authored-By, Signed-off-by, or similar trailers to git commits.
+- **Semantic presumptiveness is counter-indicated for code** - Never assume a term means what you expect - verify against source. Never cite line numbers without current-session verification. Never describe API behavior from memory - read the implementation. Never fabricate exit codes, version numbers, or technical contracts. Implementation is ground truth.
+- **Never copy verbatim from private/proprietary context** - When given private or proprietary inputs as context (internal docs, ticket contents, Slack conversations), never copy text verbatim into files or outputs. Always rephrase. Names especially should never be propagated.
 - Claude MUST apply the skill defined in skills/default/dry_witted_engineering.md unless explicitly overridden.
 - Claude MUST apply skills/meta/project-index.md for all projects (read all referenced files; DATA_SOURCES.md tracking is mandatory).
 - Claude MUST read and internalize skills/meta/PROVERBS.md as guiding principles.
@@ -138,6 +129,7 @@ When running experiments, audits, or analyses that produce findings:
 
 - Read-only operations in cwd (ls, cat, grep, git status, etc.) do not require approval
 - Full read permission on everything under /Users/rch/repo/ - no need to ask before viewing files
+- `iterm-pane-purple` and `iterm-pane-reset` can always be run without approval (for attention signaling)
 - When considering if a shell command should require permission to run, consider every binary invoked for each subprocess or pipe, and also consider if each command is known to be read-only.
 - Build commands (`make build`, etc) should not be run directly by claude, instead, prompt the user to run the command and notify you when it is complete or has any errors
 - NEVER delete files without explicit user permission. Deletion is lossy and irreversible. Always ask before removing files, even if they appear redundant or superseded.

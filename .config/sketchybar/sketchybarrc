@@ -84,7 +84,7 @@ sketchybar --add item tarot center \
     icon.color=$PINK \
     label.drawing=off \
     script="~/.config/sketchybar/plugins/tarot.sh" \
-    click_script="open 'https://sacred-texts.com/tarot/'"
+    click_script="open 'hammerspoon://tarot?action=shuffle'"
 
 # Daily Rune
 sketchybar --add item rune center \
@@ -122,7 +122,7 @@ sketchybar --add item iching center \
     icon.color=$PURPLE \
     label.drawing=off \
     script="~/.config/sketchybar/plugins/iching.sh" \
-    click_script="open 'https://sacred-texts.com/ich/'"
+    click_script="open 'hammerspoon://iching?action=cast'"
 
 # ============ JOHN DEE'S ENOCHIAN SYSTEM ============
 

@@ -20,6 +20,7 @@ Skill files for Claude Code. Load selectively based on task.
 | "tone matrix" | `documentation/tone_matrixing.md` |
 | "architecture", "constraints" | `engineering/structural_constraints.md` |
 | "audit", "incomplete" | `codebase/incomplete_work_audit.md` |
+| "uncommitted", "unpushed", "unmerged" | `codebase/finding_uncommitted_work.md` |
 | "jsonl" | `utility/jsonl_parsing.md` |
 | "bar chart" | `default/bar_chart_comparison.md` |
 | "humanize", "ai detection" | `humanizer/SKILL.md` |
@@ -71,7 +72,8 @@ skills/
 │   ├── project-multisubproject.md
 │   └── PROVERBS.md                  # Guiding principles (MUST read)
 ├── codebase/
-│   └── incomplete_work_audit.md
+│   ├── incomplete_work_audit.md
+│   └── finding_uncommitted_work.md
 ├── utility/
 │   └── jsonl_parsing.md
 ├── humanizer/
