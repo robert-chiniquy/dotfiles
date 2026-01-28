@@ -1,5 +1,5 @@
 #!/bin/bash
-# Color the current iTerm2 pane purple (for notifications/attention)
+# Color the current iTerm2 pane a random vaporwave color (for notifications/attention)
 # Uses ITERM_SESSION_ID to target the correct pane
 
 # ITERM_SESSION_ID format is "w0t0p0:UUID" - extract just the UUID
@@ -9,13 +9,24 @@ if [ -z "$SESSION_ID" ]; then
     exit 1
 fi
 
+# Vaporwave colors (no gold or hot pink - too bright)
+# Cyan #5cecff, Magenta #ff00f8, Purple #aa00e8
+COLORS=(
+    "23644, 60652, 65535"  # cyan
+    "65535, 0, 63736"      # magenta
+    "43690, 0, 59624"      # purple
+)
+
+# Pick random color
+COLOR="${COLORS[$RANDOM % ${#COLORS[@]}]}"
+
 osascript -e "
 tell application \"iTerm2\"
     repeat with w in windows
         repeat with t in tabs of w
             repeat with s in sessions of t
                 if unique ID of s is \"$SESSION_ID\" then
-                    set background color of s to {10794, 6682, 15934}
+                    set background color of s to {$COLOR}
                     return
                 end if
             end repeat

@@ -471,13 +471,13 @@ hs.urlevent.bind("git", function(eventName, params)
     end
 end)
 
--- URL handler for finder://path - open Finder at path
+-- URL handler for finder://path - open Ghostty at path
 hs.urlevent.bind("finder", function(eventName, params)
     if params.path then
         local path = params.path:gsub("%%(%x%x)", function(hex)
             return string.char(tonumber(hex, 16))
         end)
-        hs.execute("open " .. path)
+        hs.execute("/Applications/Ghostty.app/Contents/MacOS/ghostty --working-directory=" .. path .. " &")
     end
 end)
 

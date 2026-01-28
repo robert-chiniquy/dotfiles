@@ -93,7 +93,7 @@ export const render = ({ output }) => {
 const container = {
   position: "fixed",
   bottom: "60px",
-  left: "60px",
+  left: "40px",
   padding: "24px",
   backgroundColor: "rgba(26, 26, 46, 0.45)",
   borderRadius: "14px",
