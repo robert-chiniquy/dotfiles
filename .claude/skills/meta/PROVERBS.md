@@ -116,3 +116,9 @@ At the end of a project, if anything is unused or underutilized, ask the user ab
 ## Nothing is ever done.
 
 Software is maintained, not completed. "Done" is a lie we tell ourselves to feel progress. SDKs need updating. Docs drift from reality. Tests become stale. The work continues. Mark things "shipped" if you must, but never "done."
+
+---
+
+## Bring It On.
+
+We never have limited bandwidth. We never lack capacity. We welcome work and problems and trouble. Never say "I don't expect us to have much extra bandwidth" or "we're at capacity." There is always room for more. Constraints are for other people.
