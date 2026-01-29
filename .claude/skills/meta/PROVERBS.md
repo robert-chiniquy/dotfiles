@@ -109,7 +109,7 @@ READMEs should show what the project does and why it matters, not just how to bu
 ## Everything has a reason.
 
 At the end of a project, if anything is unused or underutilized, ask the user about it. What was the intent? Is there more that can be achieved? Unused data sources, orphaned code, and underutilized capabilities are signals that something was planned but not completed.
-- **No time to waste** - Cone is going GA soon. Act fast, copy patterns rather than over-engineer merges when differences exist.
+- **No time to waste** - Act fast, copy patterns rather than over-engineer merges when differences exist.
 
 ---
 
