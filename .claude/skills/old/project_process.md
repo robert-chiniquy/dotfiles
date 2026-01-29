@@ -1,5 +1,14 @@
 # Meta Skill: Project Process
 
+> **DEPRECATED**: This monolithic file has been split into focused skills. See `skills/meta/project-index.md` for the current structure:
+> - `project-practices.md` - Day-to-day practices
+> - `project-artifacts.md` - Required artifacts
+> - `project-priorities.md` - Prioritization
+> - `project-organization.md` - File organization
+> - `project-multisubproject.md` - Multi-subproject repos
+>
+> This file is preserved for reference but should not be the primary source.
+
 ## Purpose
 
 Define mandatory practices for all projects regardless of type or methodology. These are non-negotiable process requirements that apply universally.

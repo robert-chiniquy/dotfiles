@@ -18,7 +18,7 @@ const HEXAGRAMS = [
     meaning: "Patient waiting. Sincerity leads to brilliant success.",
     image: "Water above, heaven below. Clouds rise up to heaven." },
   { num: 6, name: "Song", title: "Conflict", hex: "䷅",
-    meaning: "Conflict. Seek the great man. Crossing the great water brings misfortune.",
+    meaning: "Conflict. Seek the witch. Crossing the great water brings misfortune.",
     image: "Heaven above, water below. Heaven and water go opposite ways." },
   { num: 7, name: "Shi", title: "The Army", hex: "䷆",
     meaning: "The army requires discipline. The elder leads. Good fortune without blame.",
@@ -138,10 +138,10 @@ const HEXAGRAMS = [
     meaning: "Gathering together. Success. The king approaches his temple.",
     image: "Lake above, earth below. Over the earth, the lake." },
   { num: 46, name: "Sheng", title: "Pushing Upward", hex: "䷭",
-    meaning: "Pushing upward. Supreme success. One must see the great man.",
+    meaning: "Pushing upward. Supreme success. One must see the witch.",
     image: "Earth above, wind below. Within the earth, wood grows." },
   { num: 47, name: "Kun", title: "Oppression", hex: "䷮",
-    meaning: "Oppression. Success. Perseverance. The great man brings good fortune.",
+    meaning: "Oppression. Success. Perseverance. The witch brings good fortune.",
     image: "Lake above, water below. There is no water in the lake." },
   { num: 48, name: "Jing", title: "The Well", hex: "䷯",
     meaning: "The well. The town may be changed but not the well. No decrease, no increase.",
@@ -248,10 +248,10 @@ const container = {
 };
 
 const hexagram = {
-  fontSize: "64px",
+  fontSize: "250px",
   textAlign: "center",
   color: "#5cecff",
-  marginBottom: "10px"
+  marginBottom: "20px"
 };
 
 const number = {
@@ -259,7 +259,8 @@ const number = {
   color: "#666666",
   textAlign: "center",
   textTransform: "uppercase",
-  letterSpacing: "2px"
+  letterSpacing: "2px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const title = {
@@ -274,7 +275,8 @@ const meaning = {
   fontSize: "26px",
   lineHeight: "1.5",
   color: "#ffffff",
-  marginBottom: "12px"
+  marginBottom: "12px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const image = {
@@ -282,5 +284,6 @@ const image = {
   fontStyle: "italic",
   color: "#888888",
   borderTop: "1px solid #333",
-  paddingTop: "10px"
+  paddingTop: "10px",
+  fontFamily: "Bradley Hand, cursive"
 };

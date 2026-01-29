@@ -97,11 +97,12 @@ const symbolStyle = {
 const branchStyle = {
   fontSize: "28px",
   color: "#5cecff",
-  fontFamily: "SF Mono, monospace"
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const label = {
   fontSize: "32px",
   color: "#666",
-  marginTop: "5px"
+  marginTop: "5px",
+  fontFamily: "Bradley Hand, cursive"
 };
