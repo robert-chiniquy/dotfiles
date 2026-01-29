@@ -101,7 +101,8 @@ const numeral = {
   fontSize: "27px",
   color: "#666",
   letterSpacing: "3px",
-  marginBottom: "12px"
+  marginBottom: "12px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const symbol = {
@@ -133,14 +134,16 @@ const keyword = {
   color: "#5cecff",
   borderRadius: "12px",
   textTransform: "uppercase",
-  letterSpacing: "1px"
+  letterSpacing: "1px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const meaning = {
   fontSize: "30px",
   lineHeight: "1.6",
   color: "#ffffff",
-  marginBottom: "12px"
+  marginBottom: "12px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const shadow = {
@@ -148,5 +151,6 @@ const shadow = {
   color: "#666",
   fontStyle: "italic",
   borderTop: "1px solid #333",
-  paddingTop: "12px"
+  paddingTop: "12px",
+  fontFamily: "Bradley Hand, cursive"
 };

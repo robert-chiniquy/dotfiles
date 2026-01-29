@@ -25,6 +25,9 @@ Skill files for Claude Code. Load selectively based on task.
 | "bar chart" | `default/bar_chart_comparison.md` |
 | "humanize", "ai detection" | `humanizer/SKILL.md` |
 | "terraform", "opentofu", "iac" | `terraform/SKILL.md` |
+| "qol", "quality of life" | `default/passive_qol.md` |
+| "pr status", "github" | `github/pr-status.md` |
+| "feature flags" | `engineering/check_feature_flag_conflicts.md` |
 
 ## Structure
 
@@ -32,6 +35,7 @@ Skill files for Claude Code. Load selectively based on task.
 skills/
 ├── default/
 │   ├── dry_witted_engineering.md    # Default tone (always loaded)
+│   ├── passive_qol.md               # Proactive QoL improvements
 │   └── bar_chart_comparison.md
 ├── design/
 │   ├── systematic_feature_design.md
@@ -74,6 +78,9 @@ skills/
 ├── codebase/
 │   ├── incomplete_work_audit.md
 │   └── finding_uncommitted_work.md
+├── github/
+│   ├── INDEX.md
+│   └── pr-status.md
 ├── utility/
 │   └── jsonl_parsing.md
 ├── humanizer/
@@ -157,6 +164,18 @@ Start with `terraform/SKILL.md`, references loaded on demand:
 - `default/dry_witted_engineering.md` - Default communication tone
 - `meta/project-index.md` - Project process (references all project-* files)
 - `meta/PROVERBS.md` - Guiding principles
+
+## Proactive Triggers
+
+Load these without being asked when context matches:
+
+| Condition | Load |
+|-----------|------|
+| Working in dotfiles, shell config, or system settings | `default/passive_qol.md` |
+| User mentions design critique or reviews a plan | `design/rigorous_critique.md` |
+| Multi-repo exploration needed | Check `~/.claude/codebases.json` for repo paths |
+| Auditing for incomplete work | `codebase/incomplete_work_audit.md` |
+| Writing documentation for others | `documentation/doc-content.md` |
 
 ## Usage
 

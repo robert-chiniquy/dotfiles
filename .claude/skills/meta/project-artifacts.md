@@ -174,3 +174,37 @@ Contents:
 - Commands at each step
 - Expected output
 - Must be runnable by user
+
+## sources/ Directory
+
+Cache external artifacts locally for offline development and study.
+
+```
+sources/
+├── README.md           # Index of cached artifacts
+├── papers/
+│   ├── chow-ruskey-2012.pdf
+│   └── speuler-vis2021.pdf
+├── specs/
+│   └── rfc-7519-jwt.txt
+└── snapshots/
+    └── api-docs-2025-01-28.html
+```
+
+Purpose:
+- Enable offline development without internet
+- Preserve artifacts that may disappear (URLs go stale)
+- Allow human study of reference materials
+- Version-pin external dependencies
+
+README.md should include:
+- Original URL for each artifact
+- Date downloaded
+- Brief description of contents
+- Which DATA_SOURCES.md entries reference it
+
+Rules:
+- Add to .gitignore if artifacts are large or have redistribution concerns
+- Prefer PDFs over HTML (more stable)
+- Include version/date in filename when content may change
+- Reference local paths in DATA_SOURCES.md after caching

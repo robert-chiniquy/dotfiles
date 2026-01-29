@@ -113,7 +113,8 @@ const filled = {
 const stateText = {
   fontSize: "32px",
   marginTop: "8px",
-  fontStyle: "italic"
+  fontStyle: "italic",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const stats = {

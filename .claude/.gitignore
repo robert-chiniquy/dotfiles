@@ -6,6 +6,9 @@ stats-cache.json
 credentials.json
 settings.local.json
 
+# Machine-specific
+codebases.json
+
 # Runtime directories
 cache/
 chrome/
