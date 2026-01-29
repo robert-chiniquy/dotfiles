@@ -12,7 +12,7 @@ TRANSPARENT=0x00000000
 
 # Bar appearance
 sketchybar --bar \
-    height=32 \
+    height=40 \
     blur_radius=30 \
     position=top \
     sticky=on \
@@ -27,9 +27,9 @@ sketchybar --bar \
 
 # Default item settings
 sketchybar --default \
-    icon.font="SF Pro:Bold:16.0" \
+    icon.font="SF Pro:Bold:20.0" \
     icon.color=$CYAN \
-    label.font="SF Pro:Semibold:15.0" \
+    label.font="SF Pro:Semibold:18.0" \
     label.color=$WHITE \
     padding_left=5 \
     padding_right=5 \
@@ -97,13 +97,14 @@ sketchybar --add item rune center \
     script="~/.config/sketchybar/plugins/rune.sh" \
     click_script="open 'https://en.wikipedia.org/wiki/Elder_Futhark'"
 
-# Clock
-sketchybar --add item clock center \
-    --set clock \
-    update_freq=10 \
-    icon= \
-    icon.color=$GOLD \
-    script="~/.config/sketchybar/plugins/clock.sh"
+# Sabbat - next pagan holiday countdown
+sketchybar --add item sabbat center \
+    --set sabbat \
+    update_freq=3600 \
+    icon.font="SF Pro:Bold:20.0" \
+    label.drawing=on \
+    script="~/.config/sketchybar/plugins/sabbat.sh" \
+    click_script="open 'https://en.wikipedia.org/wiki/Wheel_of_the_Year'"
 
 # Lunar phase
 sketchybar --add item lunar center \

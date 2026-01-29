@@ -116,5 +116,6 @@ const activeName = {
   marginTop: "8px",
   fontSize: "32px",
   color: "#ff0099",
-  fontStyle: "italic"
+  fontStyle: "italic",
+  fontFamily: "Bradley Hand, cursive"
 };

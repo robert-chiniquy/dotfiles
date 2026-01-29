@@ -33,6 +33,62 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
     (( _brew_count > 0 )) && print -P "%F{243}$_brew_count outdated brew packages%f"
   fi
 
+  # GitHub PR status check (hourly, only if something to report)
+  _pr_marker=~/.cache/gh-pr-status
+  if command -v gh &>/dev/null && { [[ ! -f "$_pr_marker" ]] || [[ $(find "$_pr_marker" -mmin +60 2>/dev/null) ]]; }; then
+    touch "$_pr_marker"
+    (
+      # Check for PRs with activity in last hour
+      pr_data=$(gh pr list --author @me --state open --json number,title,updatedAt,reviewDecision,statusCheckRollup,comments 2>/dev/null)
+      [[ -z "$pr_data" || "$pr_data" == "[]" ]] && exit 0
+
+      # Parse with jq - find PRs updated in last hour or with failures
+      cutoff=$(date -v-1H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d '1 hour ago' --iso-8601=seconds 2>/dev/null)
+
+      output=""
+
+      # PRs with CI failures
+      failures=$(echo "$pr_data" | jq -r --arg cutoff "$cutoff" '
+        .[] | select(.statusCheckRollup != null) |
+        select([.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length > 0) |
+        "#\(.number) \(.title | .[0:40])"' 2>/dev/null)
+      [[ -n "$failures" ]] && output="${output}CI failures:\n$failures\n"
+
+      # PRs with changes requested
+      changes=$(echo "$pr_data" | jq -r '
+        .[] | select(.reviewDecision == "CHANGES_REQUESTED") |
+        "#\(.number) \(.title | .[0:40])"' 2>/dev/null)
+      [[ -n "$changes" ]] && output="${output}Changes requested:\n$changes\n"
+
+      # PRs updated in last hour (new comments/reviews)
+      recent=$(echo "$pr_data" | jq -r --arg cutoff "$cutoff" '
+        .[] | select(.updatedAt > $cutoff) |
+        select(.reviewDecision != "CHANGES_REQUESTED") |
+        select([.statusCheckRollup // [] | .[] | select(.conclusion == "FAILURE")] | length == 0) |
+        "#\(.number) updated"' 2>/dev/null)
+      [[ -n "$recent" ]] && output="${output}Recent activity:\n$recent\n"
+
+      # PRs ready to merge (approved + all checks pass)
+      ready=$(echo "$pr_data" | jq -r '
+        .[] | select(.reviewDecision == "APPROVED") |
+        select([.statusCheckRollup // [] | .[] | select(.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)] | length == 0) |
+        "#\(.number) ready to merge"' 2>/dev/null)
+      [[ -n "$ready" ]] && output="${output}Ready to merge:\n$ready\n"
+
+      [[ -n "$output" ]] && echo "$output" > "$_pr_marker.data"
+    ) &!
+  fi
+  if [[ -f "$_pr_marker.data" ]]; then
+    _pr_status=$(cat "$_pr_marker.data" 2>/dev/null)
+    if [[ -n "$_pr_status" ]]; then
+      print -P "%F{201}PRs:%f"
+      echo "$_pr_status" | while IFS= read -r line; do
+        [[ -n "$line" ]] && print -P "  %F{243}$line%f"
+      done
+      rm -f "$_pr_marker.data"
+    fi
+  fi
+
   # Next calendar event (cached for 15 min)
   _cal_marker=~/.cache/next-event
   if [[ ! -f "$_cal_marker" ]] || [[ $(find "$_cal_marker" -mmin +15 2>/dev/null) ]]; then
@@ -1644,3 +1700,48 @@ export PATH="$HOME/.local/bin:$PATH"
 # Dynamic wallpaper project
 # ~/Pictures/dynamic-wallpaper/ - AI-generated wallpapers for time-based cycling
 # Use wallpapper CLI to build HEIC from images
+setopt HIST_VERIFY
+WORDCHARS='${WORDCHARS//[\/]}'
+zstyle ':completion:*' use-cache on
+export LESS="-R -F -X -i -J -W"
+
+# Auto-remove command-not-found typos from history
+__prune_typos() {
+    [[ $? -eq 127 ]] || return
+    fc -W
+    head -n -1 "$HISTFILE" > "$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE"
+    fc -R
+}
+precmd_functions+=(__prune_typos)
+
+# Port-in-use helper - show what's using port on bind errors
+__port_helper() {
+    [[ $? -ne 0 ]] && fc -ln -1 | grep -q "address.*in use\|EADDRINUSE" && \
+        lsof -i -P | grep LISTEN
+}
+precmd_functions+=(__port_helper)
+
+# Show git diff stat when entering dirty repo
+__git_dirty_reminder() {
+    [[ -d .git ]] && ! git diff --stat --quiet 2>/dev/null && git diff --stat 2>/dev/null | tail -1
+}
+chpwd_functions+=(__git_dirty_reminder)
+
+# Warn before large rm -rf
+unalias rm 2>/dev/null
+rm() {
+    if [[ "$*" =~ "-rf" ]] || [[ "$*" =~ "-r" ]]; then
+        local target="${@[-1]}"
+        [[ -e "$target" ]] && local size=$(du -sh "$target" 2>/dev/null | cut -f1)
+        [[ -n "$size" ]] && print -P "%F{yellow}Removing $size%f"
+    fi
+    command rm -v "$@"
+}
+
+# Auto-title terminal with current command/directory
+preexec() { print -Pn "\e]0;$1\a"; }
+precmd() { print -Pn "\e]0;%~\a"; }
+
+# SSH key auto-add on first use
+ssh-add -l &>/dev/null || ssh-add --apple-use-keychain ~/.ssh/id_* 2>/dev/null
+ulimit -n 10240

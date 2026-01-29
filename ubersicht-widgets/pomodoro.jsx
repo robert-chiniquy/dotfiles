@@ -110,7 +110,8 @@ const label = {
   fontSize: "10px",
   color: "#555",
   letterSpacing: "3px",
-  marginBottom: "8px"
+  marginBottom: "8px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const symbol = {
@@ -130,7 +131,8 @@ const phaseName = {
   fontSize: "14px",
   color: "#ff0099",
   fontStyle: "italic",
-  marginBottom: "12px"
+  marginBottom: "12px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const progressBar = {
@@ -149,5 +151,6 @@ const progressFill = {
 
 const desc = {
   fontSize: "11px",
-  color: "#666"
+  color: "#666",
+  fontFamily: "Bradley Hand, cursive"
 };

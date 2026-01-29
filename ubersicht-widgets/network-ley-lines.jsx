@@ -91,7 +91,8 @@ const symbol = {
 const label = {
   flex: 1,
   color: "#666",
-  fontSize: "32px"
+  fontSize: "32px",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const num = {

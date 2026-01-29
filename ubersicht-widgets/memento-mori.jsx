@@ -110,7 +110,8 @@ const beats = {
 const bpmStyle = {
   fontSize: "14px",
   color: "#666",
-  marginTop: "4px"
+  marginTop: "4px",
+  fontFamily: "SF Mono, monospace"
 };
 
 const msg = {
@@ -118,5 +119,6 @@ const msg = {
   color: "#555",
   textTransform: "uppercase",
   letterSpacing: "2px",
-  marginTop: "5px"
+  marginTop: "5px",
+  fontFamily: "Bradley Hand, cursive"
 };

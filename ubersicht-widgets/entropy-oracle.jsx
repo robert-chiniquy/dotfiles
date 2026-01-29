@@ -84,12 +84,13 @@ const symbol = {
 const meaning = {
   fontSize: "32px",
   color: "#888",
-  fontStyle: "italic"
+  fontStyle: "italic",
+  fontFamily: "Bradley Hand, cursive"
 };
 
 const value = {
   fontSize: "27px",
   color: "#444",
   marginTop: "8px",
-  fontFamily: "SF Mono, monospace"
+  fontFamily: "SF Mono, monospace"  // Keep monospace for numbers
 };
