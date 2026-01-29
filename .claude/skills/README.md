@@ -6,6 +6,7 @@ Skill files for Claude Code. Load selectively based on task.
 
 | User says | Load |
 |-----------|------|
+| "/project" | `project/SKILL.md` (initialize project framework) |
 | "project" | `meta/project-index.md` (references all project-* files) |
 | "proto", "protobuf", "grpc" | `design/proto-overview.md` + relevant proto-* |
 | "design", "feature" | `design/systematic_feature_design.md` |
@@ -87,6 +88,8 @@ skills/
 │   ├── SKILL.md
 │   ├── WARP.md
 │   └── README.md
+├── project/
+│   └── SKILL.md                # /project slash command
 ├── terraform/
 │   ├── SKILL.md
 │   └── references/
