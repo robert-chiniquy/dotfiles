@@ -48,7 +48,7 @@ Don't just benchmark the happy path. Find where things break catastrophically an
 
 ## Demo for the people who built the system.
 
-Demos must be grounded in real APIs and connectors. The audience takes their work seriously. Show concrete value, not feature showcases.
+Demos must be grounded in real APIs and software. The audience takes their work seriously. Show concrete value, not feature showcases.
 
 ---
 
