@@ -82,6 +82,23 @@ Discovered when cone connector init generated code that didn't compile.
 - Code generators (protoc, openapi-generator, etc.)
 - Any tool that outputs code meant to be built
 
+## Ticketing and Wiki Integration
+
+When ticketing system or wiki integrations are available:
+
+**On project start or when working on a project without existing representation:**
+1. Check if the project already has an associated issue or wiki page
+2. If not, ask the user whether to:
+   - Create a new issue/page for this project
+   - Attach to an existing one (provide a list of candidates)
+3. Query the integration for relevant existing items to offer as attachment options
+
+**Why:** Projects should be tracked in the system of record. Asking early prevents orphaned work and ensures visibility.
+
+**What to list:**
+- For ticketing: Recent issues in the relevant team/project, issues with related labels
+- For wiki: Recent pages in the relevant space/database, pages with related tags
+
 ## Self-Check
 
 Before any phase complete:
