@@ -99,6 +99,158 @@ When ticketing system or wiki integrations are available:
 - For ticketing: Recent issues in the relevant team/project, issues with related labels
 - For wiki: Recent pages in the relevant space/database, pages with related tags
 
+## Upstream/Downstream Agent Communication
+
+Projects can receive goals and data sources from upstream agents (agents working in other projects that feed into this one).
+
+### INBOX Directory
+
+Every project MAY have an `INBOX/` directory at its root:
+
+```
+project/
+├── INBOX/
+│   ├── goal_001_axiomatize_connectors.md
+│   ├── goal_002_verify_okta_model.md
+│   ├── datasource_001_connector_catalog.md
+│   └── processed/
+│       └── goal_000_initial_setup.md
+```
+
+### Rules for Upstream Agents
+
+1. **Append-only**: Never modify or delete existing INBOX files
+2. **One item per file**: Each file is a single goal OR data source
+3. **Naming**: `goal_NNN_short_description.md` or `datasource_NNN_short_description.md`
+4. **Format**:
+
+```markdown
+# Goal: Short Title
+<!-- or # Data Source: Short Title -->
+
+**From**: project-path or agent-id
+**Priority**: high | medium | low
+**Added**: YYYY-MM-DD HH:MM
+
+## Description
+
+What needs to be done or what data is being provided.
+
+## Context
+
+Why this matters, how it relates to upstream work.
+
+## Acceptance Criteria (for goals)
+
+- [ ] Specific measurable outcome
+- [ ] Another outcome
+```
+
+### Rules for Downstream Projects
+
+1. **Check INBOX on start**: When beginning work, check for new items
+2. **Process items**: Add goals to TODO, add data sources to DATA_SOURCES.md
+3. **Mark processed**: Move to `INBOX/processed/` or prefix filename with `PROCESSED_`
+4. **Never delete**: Keep for audit trail
+
+### Why This Exists
+
+- Upstream agents may have context the downstream agent lacks
+- Enables pipeline-style multi-agent workflows
+- Creates traceable provenance for goals
+- Allows async communication between agents
+
+### Example Workflow
+
+1. Agent A (working in `research/analysis`) discovers that `research/spike-classifiers` needs new axioms
+2. Agent A creates `spike-classifiers/INBOX/goal_042_auth0_axioms.md`
+3. Later, Agent B starts work in `spike-classifiers`
+4. Agent B checks INBOX, sees new goal, adds to task list
+5. Agent B moves file to `INBOX/processed/` after completing
+
+### Neighbor Subproject Requests
+
+In multi-subproject repos, sibling subprojects can request work from each other.
+
+Example: `18-go-afl` discovers it needs a new classifier operation from `01-classifiers`:
+
+```
+spike-classifiers/
+├── 01-classifiers/
+│   └── INBOX/
+│       └── goal_003_add_powerset_operation.md
+├── 18-go-afl/
+│   └── (requesting subproject)
+```
+
+Rules for neighbor requests:
+1. **Same INBOX format**: Use standard goal/datasource format
+2. **Include requester**: Add `**From**: ../18-go-afl` or similar relative path
+3. **Cross-reference**: Requesting subproject notes the request in its own TODO/LEARNINGS
+4. **No circular dependencies**: If A requests from B, B should not need A to complete the request
+
+When to use neighbor requests vs doing it yourself:
+- **Request**: The work belongs in the neighbor's domain/responsibility
+- **Do yourself**: It's integration code that spans both (put in integration layer)
+- **Request**: You lack context about the neighbor's internals
+- **Do yourself**: It's a trivial addition you fully understand
+
+## Multi-Agent Coordination (COORDINATOR Protocol)
+
+When multiple agents work in the same repository:
+
+### COORDINATOR INBOX
+
+The repo root has an `INBOX/` directory for agent-to-COORDINATOR communication:
+
+```
+repo/
+├── INBOX/
+│   ├── README.md           # Protocol documentation
+│   ├── report_ALPHA_*.md   # Progress reports
+│   ├── request_BETA_*.md   # Requests/questions
+│   └── blocked_GAMMA_*.md  # Blocker notifications
+```
+
+### Pending Work on Context Compaction
+
+**Critical:** Report pending work to COORDINATOR BEFORE compaction, not after.
+
+When you notice context is getting full or receive a compaction warning:
+
+1. **Immediately** drop a progress report to COORDINATOR INBOX
+2. Include:
+   - What you're currently working on (in progress)
+   - What remains to be done
+   - Any context the next session will need
+   - Files modified but not committed
+3. This ensures the next session can resume without information loss
+
+**Why before, not after:**
+- After compaction, the new session has no memory of pending work
+- The progress report becomes the source of truth
+- COORDINATOR can reassign or queue the work appropriately
+
+### Role Assignments
+
+Agents receive assignments via their project's INBOX:
+- `<subproject>/INBOX/assignment_<ROLE>_*.md`
+
+The assignment defines:
+- Your role name (e.g., ALPHA, BETA, DELTA)
+- Your territory (files you own)
+- Read-only areas
+- Do-not-touch areas
+- Current tasks
+
+### Protocol Requirements
+
+1. **Prefix messages**: `ROLE: <message>` (e.g., `DELTA: Task complete`)
+2. **Progress reports**: At task completion, phase boundaries, session end
+3. **Stay in territory**: Don't edit files outside your assigned directories
+4. **Report blockers**: Immediately, not at scheduled reports
+5. **Coordinate on conflicts**: If you touched another agent's territory, coordinate via their INBOX
+
 ## Self-Check
 
 Before any phase complete:
@@ -111,3 +263,5 @@ Before any phase complete:
 - [ ] Documents versioned, not overwritten
 - [ ] Checkpoint commit created
 - [ ] Catalog documents updated
+- [ ] INBOX/ checked and processed
+- [ ] If multi-agent: Progress report to COORDINATOR

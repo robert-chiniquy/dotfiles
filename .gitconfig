@@ -7,13 +7,15 @@
 	difftool = vimdiff
 [core]
 	pager = delta
+	excludesfile = ~/.gitignore_global
 [interactive]
 	diffFilter = delta --color-only
 [delta]
 	navigate = true
 	light = false
-	side-by-side = false
+	side-by-side = true
 	line-numbers = true
+	wrap-max-lines = unlimited
 	# Vaporwave colors with readable contrast
 	commit-decoration-style = bold "#fbb725" box ul
 	file-style = bold "#ff00f8"
@@ -48,6 +50,10 @@
 [diff]
 	colorMoved = default
 	algorithm = histogram
+	# Syntax-aware diffs via difftastic (comment out to use delta instead)
+	# external = difft
+	# Word-level diff for prose/comments
+	wordRegex = [a-zA-Z0-9_]+|[^[:space:]]
 [fetch]
 	parallel = 0
 	prune = true
@@ -92,3 +98,15 @@
 	amend = commit --amend --no-edit
 	undo = reset --soft HEAD~1
 	wip = commit -am 'WIP'
+	# Diff variations
+	d = diff
+	ds = diff --staged
+	dw = diff --ignore-all-space
+	dws = diff --staged --ignore-all-space
+	dww = diff --word-diff --ignore-all-space
+	# Syntax-aware diff via difftastic
+	dft = "!f() { GIT_EXTERNAL_DIFF=difft git diff \"$@\"; }; f"
+	dfts = "!f() { GIT_EXTERNAL_DIFF=difft git diff --staged \"$@\"; }; f"
+	# Inline diff (no side-by-side, good for narrow terminals)
+	di = -c delta.side-by-side=false diff
+	dis = -c delta.side-by-side=false diff --staged

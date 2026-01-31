@@ -1,6 +1,6 @@
 ---
 name: project
-version: 1.4.0
+version: 1.5.0
 description: |
   Initialize current directory with the global project process framework.
   Creates DATA_SOURCES.md, LEARNINGS.md, GLOSSARY.md, .claude/CLAUDE.md,
@@ -145,7 +145,9 @@ Every project has a research phase. Not every project has a deliverable.
 
 ## Architecture
 
-<!-- Key directories and their purposes -->
+- `scripts/` - Reusable analysis scripts (batch operations, single approval)
+- `reports/` - Analysis outputs (created on demand)
+- `data/` - Collected data files (created on demand)
 
 ## Conventions
 
@@ -163,6 +165,14 @@ Choose based on what makes retrieval easier.
 - **Identifiers**: Numbers are permanent, removed items get ~~strikethrough~~
 - **Plans**: `PLAN_<OBJECTIVE>.md`, multiple can coexist
 - **Commits**: Checkpoint at phase boundaries and before major changes
+
+### Script-Based Analysis
+
+When research requires many shell commands:
+1. Write scripts to `scripts/` - NOT individual commands
+2. Make scripts repeatable and idempotent
+3. One approval to run the script, not 100s of commands
+4. Output to `reports/` or `data/`
 ```
 
 ### Step 5: Final Setup
@@ -219,6 +229,81 @@ Created on-demand during project work:
 - Research phase: Understand constraints, prior art
 - Build phase: Write code, tests, docs
 
+## Public vs Private Projects
+
+**Every project is either public or private. This distinction is critical.**
+
+### Private Projects
+
+Private projects may contain privileged information:
+- PII (names, emails, user data)
+- IDs (internal identifiers, account numbers)
+- Passwords and credentials
+- Cryptographic secrets (keys, tokens)
+- Internal URLs, repo paths, tool names
+- Proprietary business logic
+
+**The sources of a private project may themselves be private** (e.g., a secret gist, internal wiki, private repo). Never expose these sources in any output that could become public.
+
+### Public Projects
+
+Public projects contain only information safe for external visibility:
+- Open source code
+- Public documentation
+- Generic examples
+- Anonymized data
+
+### Publishing Flow
+
+There may be a regular flow of sanitized data or code from private to public projects. This is always:
+1. **Explicitly set up** - never automatic
+2. **Sanitized** - all privileged information removed
+3. **Reviewed** - human approval before publishing
+
+### Export Tracking in project.md
+
+When a private project publishes to a public project, track it in `project.md`:
+
+```markdown
+## Exports
+
+**Visibility:** Private
+**Publishes to:** /path/to/public/project (or repo URL)
+
+### Whitelist (allowed to export)
+- `axioms/` - Formal specifications (sanitized)
+- `README.md` - Public documentation
+- `Makefile` - Build instructions
+
+### Blacklist (never export)
+- `data/` - Contains internal identifiers
+- `reports/` - Contains private analysis
+- `scripts/` - References internal paths
+- `DATA_SOURCES.md` - Lists private sources
+```
+
+Exports must be whitelisted. Common blacklist items:
+- `./data/` - Often contains raw, unsanitized data
+- `./reports/` - May contain internal analysis with private references
+- `./scripts/` - May hardcode internal paths or credentials
+- Project meta-files (DATA_SOURCES.md, LEARNINGS.md, project.md)
+
+### When Data Sources Are Private
+
+If you encounter a private project among your data sources:
+1. **Ask what to do** - don't assume
+2. **Never reference it in public outputs** - no paths, URLs, or identifiers
+3. **Anonymize any derived information** - change names, IDs, specifics
+4. **Document the boundary** - note in DATA_SOURCES.md that certain sources are private
+
+### Indicators of Private Projects
+
+- Located in private repos or internal systems
+- Contains `/Users/`, internal domains, or proprietary tool names
+- References specific people, customers, or accounts
+- Contains API keys, tokens, or credentials
+- Marked as confidential or internal
+
 ## Research Depth
 
 When spiking on research, clarify depth if unclear:
@@ -257,3 +342,120 @@ Feedback includes: corrections, additions, "you forgot X", "add Y", "fix Z". If 
 
 ### Catalogs
 Enumerable things get a catalog .md. Catalog is authoritative.
+
+### Script-Based Analysis (Research Projects)
+
+When research requires many shell commands (traversing repos, pattern matching, data collection):
+
+1. **Write scripts to `scripts/`** - NOT individual commands
+2. **Make scripts repeatable** - idempotent, re-runnable, self-contained
+3. **One approval** - run the whole script, not 100s of individual commands
+4. **Output to files** - results go to `reports/` or `data/`, not inline
+
+Individual command approval does not scale. Batch operations into scripts.
+
+### Goals and Topics Tracking
+
+The `project.md` file (if present) should maintain a running list of all:
+- Goals stated or implied throughout the project
+- Outcomes achieved or desired
+- Deliverables requested or produced
+- Topics raised or explored
+
+This list grows throughout the project - never remove items. Mark completed items with status. This creates a complete record of project scope evolution and prevents goals from being forgotten across sessions.
+
+### Visualization Rule: Dotfiles to SVG
+
+When creating Graphviz `.dot` files:
+1. **Always render to SVG** - dotfiles are source, SVGs are output
+2. **Add Makefile target** - every dotfile gets a corresponding `make` target
+3. **Output to same directory** - `foo.dot` → `foo.svg` in same location
+
+Example Makefile pattern:
+```makefile
+DOTS := $(wildcard axioms/visualizations/*.dot)
+SVGS := $(DOTS:.dot=.svg)
+
+.PHONY: viz
+viz: $(SVGS) ## Render all dotfiles to SVG
+
+%.svg: %.dot
+	dot -Tsvg $< -o $@
+```
+
+4. **Embed in README** - SVGs should be included in README.md with explanations:
+```markdown
+### Diagram Title
+
+![Description](path/to/diagram.svg)
+
+**What this shows**: Explanation of what the visualization communicates...
+```
+
+This ensures visualizations are always viewable without requiring graphviz installation, and that readers understand what they're looking at.
+
+### No Time-Based Critiques
+
+Time estimates are forbidden by global rules. Corollary: **critiques cannot be based on time comparisons.**
+
+Invalid critique patterns:
+- "This takes 40 hours but should take 8 hours" - you don't know either number
+- "Reduce scope to save time" - scope decisions are about value, not time
+- "Original: 32h, Recommended: 8h" - fabricated numbers dressed as analysis
+
+Valid critique patterns:
+- "This is over-engineered because X feature provides no value"
+- "Reduce scope because Y component solves a problem that doesn't exist"
+- "Simplify because Z approach requires maintaining code nobody will use"
+
+Critique based on **value and necessity**, not imagined effort comparisons.
+
+### Upstream/Downstream Project Graph
+
+Upstream projects (planning, design, meta-analysis) should maintain a visual graph showing:
+- Which data sources feed into the project
+- Which subprojects exist and their relationships
+- Which downstream projects receive outputs
+
+Place at the top of the project README as embedded SVG:
+
+```markdown
+# Project Name
+
+![Project graph](project_graph.svg)
+
+## Overview
+...
+```
+
+The graph should be Graphviz source in `project_graph.dot` with a Makefile target to render it. Update when:
+- New data sources are added
+- New subprojects emerge
+- New downstream consumers are identified
+
+This is meta-documentation that helps orient anyone entering the project.
+
+### Upstream/Downstream Agent Coordination
+
+When an upstream agent (working on higher-level planning or design) has knowledge of a downstream agent concerned with specific topic areas:
+
+1. **Read the downstream agent's work** - Before planning, review:
+   - The downstream project's goals and scope
+   - Existing approaches and implementations
+   - DATA_SOURCES.md for what they've already researched
+   - LEARNINGS.md for discoveries that inform upstream decisions
+
+2. **Coordinate, don't duplicate** - Upstream work should:
+   - Reference downstream approaches rather than reinvent
+   - Note dependencies on downstream deliverables
+   - Flag conflicts between upstream design and downstream implementation
+
+3. **Document the relationship** - In DATA_SOURCES.md:
+   ```markdown
+   ## Related Projects
+   - `/path/to/downstream/project` - Implementing X (downstream)
+   ```
+
+4. **Respect convergence** - If a downstream project started independently and later became relevant to upstream work, treat its existing approaches as constraints unless explicitly told to override.
+
+This ensures higher-level planning (upstream) incorporates ground-truth from implementation work (downstream), and that effort isn't wasted on incompatible approaches.

@@ -52,6 +52,7 @@ unlink_if_exists ~/.zprofile
 unlink_if_exists ~/.zshrc
 unlink_if_exists ~/.claude
 unlink_if_exists ~/.gitconfig
+unlink_if_exists ~/.gitignore_global
 unlink_if_exists ~/.ripgreprc
 unlink_if_exists ~/.tmux.conf
 unlink_if_exists ~/.config/starship.toml
@@ -93,6 +94,7 @@ link_if_missing .zprofile ~/.zprofile
 link_if_missing .zshrc ~/.zshrc
 link_if_missing .claude ~/.claude
 link_if_missing .gitconfig ~/.gitconfig
+link_if_missing .gitignore_global ~/.gitignore_global
 link_if_missing .ripgreprc ~/.ripgreprc
 link_if_missing .tmux.conf ~/.tmux.conf
 link_if_missing starship.toml ~/.config/starship.toml
