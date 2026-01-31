@@ -1739,8 +1739,9 @@ rm() {
 }
 
 # Auto-title terminal with current command/directory
-preexec() { print -Pn "\e]0;$1\a"; }
-precmd() { print -Pn "\e]0;%~\a"; }
+# NOTE: Terminal title is already handled by _set_terminal_title in precmd_functions (line 138)
+# and the main preexec/precmd functions. These duplicate definitions were overriding all
+# the sophisticated prompt functionality. Removed.
 
 # SSH key auto-add on first use
 ssh-add -l &>/dev/null || ssh-add --apple-use-keychain ~/.ssh/id_* 2>/dev/null

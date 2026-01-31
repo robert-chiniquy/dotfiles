@@ -175,6 +175,97 @@ Contents:
 - Expected output
 - Must be runnable by user
 
+## Git Commit Policy
+
+Project meta-documentation has different commit rules based on project type.
+
+### Shared Codebases (has git remote)
+
+These files must NEVER be committed:
+- `DATA_SOURCES.md`
+- `LEARNINGS.md`
+- `GLOSSARY.md`
+- `HUMAN_TODO.md`
+- `PLAN_*.md`
+- `.claude/plans/`
+
+Setup global gitignore to prevent accidents:
+
+```bash
+# Create global gitignore
+cat >> ~/.gitignore_global << 'EOF'
+# Project meta-documentation (local-only, never commit)
+PLAN_*.md
+DATA_SOURCES.md
+LEARNINGS.md
+GLOSSARY.md
+HUMAN_TODO.md
+.claude/plans/
+EOF
+
+# Configure git to use it
+git config --global core.excludesFile ~/.gitignore_global
+```
+
+When initializing in a shared codebase:
+1. Check for git remote: `git remote -v`
+2. If remote exists, add files to project's `.gitignore`
+3. Inform user: "These meta-documents are local-only and will not be committed"
+
+### Private Projects (no git remote)
+
+If a project has no git remote when started, meta-documentation CAN be committed.
+
+Check at init:
+```bash
+git remote -v  # Empty output = no remote
+```
+
+When no remote exists:
+- These files become part of the project
+- Commit them normally
+- If a remote is added later, decide then whether to keep or gitignore
+
+This allows personal/private projects to version-control their learnings.
+
+## Upstream/Downstream Projects
+
+Projects may have relationships across repos.
+
+### Upstream Projects
+
+Projects that provide designs, requirements, or goals to downstream projects.
+
+Visibility levels:
+- **Private**: Not shared with other humans (but may be shared with agents)
+- **Secret**: Not shared with other agents either (user mediates all information)
+
+Rules:
+- Upstream projects are sometimes secret or private
+- Never ask about upstream project contents if not provided
+- Designs flow downstream; the user mediates what information transfers
+- If upstream is secret, you receive only the outputs (goals, designs, specs)
+- Don't probe for details about secret upstream projects
+
+### Downstream Projects
+
+Projects that implement designs from upstream.
+
+Rules:
+- Wait for input from upstream before starting implementation
+- Goals are added to downstream project for execution
+- Downstream agent works from goals without needing upstream context
+- Document in DATA_SOURCES.md: "Design from upstream project (private)"
+
+### Information Flow
+
+```
+[Upstream Project] ---(user mediates)---> [Downstream Project]
+     (may be secret)                        (implements)
+```
+
+The user controls what crosses the boundary. Don't probe for upstream details.
+
 ## sources/ Directory
 
 Cache external artifacts locally for offline development and study.

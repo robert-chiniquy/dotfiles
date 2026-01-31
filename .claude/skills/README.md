@@ -165,7 +165,7 @@ Start with `terraform/SKILL.md`, references loaded on demand:
 ## Always Loaded
 
 - `default/dry_witted_engineering.md` - Default communication tone
-- `meta/project-index.md` - Project process (references all project-* files)
+- `meta/project-index.md` - Project process entry point (MUST read all 6 referenced files: artifacts, practices, organization, priorities, multisubproject, PROVERBS)
 - `meta/PROVERBS.md` - Guiding principles
 
 ## Proactive Triggers
