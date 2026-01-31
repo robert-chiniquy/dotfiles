@@ -9,6 +9,7 @@ This index references the split project process documentation. Read all referenc
 3. **project-priorities.md** - How to prioritize work and scope decisions
 4. **project-organization.md** - File organization and naming conventions
 5. **project-multisubproject.md** - Managing multi-subproject repositories
+6. **MULTI-AGENT-COORDINATION-AMONG-SUBPROJECTS.md** - Coordinating multiple agents via INBOX communication
 
 ## Also Required
 

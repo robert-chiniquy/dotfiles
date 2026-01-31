@@ -9,6 +9,7 @@ which -s brew 1>/dev/null 2>/dev/null && (
 export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
+export PATH="$HOME/Library/Python/3.9/bin:$PATH"
 
 # Rust/Cargo
 [[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"

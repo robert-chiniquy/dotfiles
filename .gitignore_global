@@ -1,0 +1,12 @@
+# Project meta-documentation (local-only, never commit)
+PLAN_*.md
+DATA_SOURCES.md
+LEARNINGS.md
+GLOSSARY.md
+HUMAN_TODO.md
+LOG.md
+WORK_SUMMARY*.md
+.claude/CLAUDE.md
+
+# Claude plans directory
+.claude/plans/
