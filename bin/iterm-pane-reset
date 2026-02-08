@@ -16,6 +16,7 @@ tell application \"iTerm2\"
             repeat with s in sessions of t
                 if unique ID of s is \"$SESSION_ID\" then
                     set background color of s to {0, 0, 0}
+                    set foreground color of s to {61680, 61680, 61680}
                     return
                 end if
             end repeat
