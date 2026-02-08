@@ -110,11 +110,22 @@ Every project MAY have an `INBOX/` directory at its root:
 ```
 project/
 ├── INBOX/
+│   ├── README.md  # MUST specify which agent reads from this INBOX
 │   ├── goal_001_axiomatize_connectors.md
 │   ├── goal_002_verify_okta_model.md
 │   ├── datasource_001_connector_catalog.md
 │   └── processed/
 │       └── goal_000_initial_setup.md
+```
+
+**INBOX README Requirement**: Each INBOX directory MUST have a README.md that specifies exactly one agent who reads from that INBOX. This prevents confusion when multiple agents operate in the same repository. Example:
+
+```markdown
+# INBOX
+
+**Reader:** VERIFY
+
+This INBOX is read by the VERIFY agent. Other agents should NOT process items here.
 ```
 
 ### Rules for Upstream Agents

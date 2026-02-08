@@ -1709,7 +1709,7 @@ export LESS="-R -F -X -i -J -W"
 __prune_typos() {
     [[ $? -eq 127 ]] || return
     fc -W
-    head -n -1 "$HISTFILE" > "$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE"
+    sed '$d' "$HISTFILE" >| "$HISTFILE.tmp" && command mv "$HISTFILE.tmp" "$HISTFILE"
     fc -R
 }
 precmd_functions+=(__prune_typos)

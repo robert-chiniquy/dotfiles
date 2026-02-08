@@ -235,6 +235,50 @@ Structure:
 
 Reference the project's STRATEGY.md (or equivalent) as the source of truth for overall progress. COORDINATOR maintains situational awareness so the user doesn't have to poll each agent individually.
 
+### Periodic Reminders to Agents
+
+Agents may lose context or forget protocols over long sessions. COORDINATOR should periodically broadcast reminders to all agent INBOXes:
+
+**When to send reminders:**
+- After context compactions (agents may have lost protocol memory)
+- When agents seem to be violating polling rules
+- At task completion boundaries (attach to new assignments)
+- If extended silence from an agent
+
+**Standard reminder content:**
+```markdown
+# Broadcast: Protocol Reminder
+
+**From:** COORDINATOR
+**Date:** YYYY-MM-DD
+
+## INBOX Polling Script
+
+Poll your INBOX with timeout:
+\`\`\`bash
+timeout 300 bash -c 'while true; do
+  if ls YOUR_INBOX/*.md 2>/dev/null | grep -v README; then
+    echo "New messages found"
+    break
+  fi
+  sleep 30
+done'
+\`\`\`
+
+## Poll or Pebble Rule
+
+When your INBOX is empty:
+1. **Poll** - Check for new messages
+2. **If nothing** - Do a **pebble** (small useful task)
+3. **Report progress** - Don't go silent
+
+Pebbles: run tests, clean up, update docs, review output, fill TODOs.
+
+**Idle agents should always be doing something.**
+```
+
+Copy this broadcast to each agent's territory INBOX (not the root INBOX).
+
 ## INBOX-Based Communication
 
 Every agent communicates via INBOX directories. This is append-only, asynchronous messaging.
@@ -382,6 +426,27 @@ Why you need it.
 4. **Request next assignment from COORDINATOR** - Don't just wait passively. File a request to COORDINATOR's INBOX asking for your next task. COORDINATOR may not know you're idle.
 5. Process your INBOX (move handled messages to `processed/`)
 
+### Pebbles Between Polls (aka "pop")
+
+**Shorthand: "pop" = poll or pebble.**
+
+**Don't just idle while waiting for COORDINATOR.** Look for small, self-contained tasks ("pebbles") you can complete between poll cycles:
+
+- Add tests for code you just wrote
+- Fix lint warnings in files you touched
+- Update documentation for recent changes
+- Clean up TODO comments you resolved
+- Add missing error messages
+- Improve variable names or code clarity
+
+**Requirements for pebbles:**
+1. Must be within your territory
+2. Must be completable in a few minutes
+3. Must not depend on COORDINATOR's response
+4. Must not block other agents
+
+This keeps you productive and improves code quality while waiting. Report pebble work in your next progress report.
+
 ### Waiting for COORDINATOR Response
 
 When you're blocked and need COORDINATOR's input, or when you're between assignments, use the wait script to poll your INBOX:
@@ -464,6 +529,35 @@ Every report MUST include:
 **Silence is not acceptable.** If COORDINATOR doesn't hear from you, it assumes something is wrong.
 
 ## COORDINATOR Operations
+
+### Autonomous Headcount Management
+
+**COORDINATOR decides how many agents are needed and requests them proactively.**
+
+This is COORDINATOR's job, not the user's:
+1. **Factor work into workstreams** - Identify independent parallel tracks
+2. **Assess agent needs** - How many agents would maximize throughput?
+3. **Check system resources** - `top -l 1 | head -10` to verify CPU headroom
+4. **Request agents as needed** - Don't wait for user to prompt
+
+**When to request more agents:**
+- Independent workstream has no agent assigned
+- Current agents are fully utilized on their tracks
+- CPU/memory headroom exists for more parallelism
+- Work is parallelizable (not sequential dependencies)
+
+**How to request:**
+```
+COORDINATOR: I need another agent for [workstream]. CPU shows headroom. Requesting EPSILON.
+```
+
+The user spawns the agent. COORDINATOR interviews and assigns.
+
+**When NOT to request:**
+- Current agents are underutilized or idle
+- Work has sequential dependencies (more agents won't help)
+- System resources are constrained
+- Coordination overhead would exceed benefit
 
 ### Assigning Work
 

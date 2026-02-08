@@ -112,13 +112,14 @@
       "Bash(docker ps:*)",
       "Bash(docker images:*)",
       "Bash(docker inspect:*)",
-			"Bash(head:*)",
+      "Bash(head:*)",
       "Bash(iterm-pane-purple)",
       "Bash(iterm-pane-reset)",
       "Bash(~/bin/iterm-pane-purple)",
       "Bash(~/bin/iterm-pane-reset)"
     ]
   },
+  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "/Users/rch/.claude/statusline-command.sh"

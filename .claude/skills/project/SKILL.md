@@ -253,6 +253,20 @@ Public projects contain only information safe for external visibility:
 - Generic examples
 - Anonymized data
 
+### Meta-file Commit Rules
+
+Which project meta-files can be committed depends on visibility:
+
+| File | Private Project | Public Project |
+|------|-----------------|----------------|
+| `DATA_SOURCES.md` | Never commit | Review carefully - may reference private paths |
+| `LEARNINGS.md` | Never commit | **May commit** - useful project knowledge |
+| `GLOSSARY.md` | Never commit | **May commit** - domain terminology |
+| `RESUME_CONTEXT.md` | Never commit | Never commit |
+| `.envrc` | Never commit | Never commit |
+
+For public projects, LEARNINGS.md and GLOSSARY.md provide valuable context for contributors. Only exclude them if they accidentally contain private information.
+
 ### Publishing Flow
 
 There may be a regular flow of sanitized data or code from private to public projects. This is always:

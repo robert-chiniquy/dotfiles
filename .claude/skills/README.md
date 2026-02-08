@@ -11,6 +11,7 @@ Skill files for Claude Code. Load selectively based on task.
 | "proto", "protobuf", "grpc" | `design/proto-overview.md` + relevant proto-* |
 | "design", "feature" | `design/systematic_feature_design.md` |
 | "critique", "review design" | `design/rigorous_critique.md` |
+| "pqthink", "pq review", "what would pq say" | `design/pqthink.md` |
 | "stakeholder", "consensus" | `design/socratic_discovery.md` |
 | "dx", "developer experience" | `design/complete_developer_experience.md` |
 | "docs", "documentation" | `documentation/doc-overview.md` + relevant doc-* |
@@ -29,6 +30,7 @@ Skill files for Claude Code. Load selectively based on task.
 | "qol", "quality of life" | `default/passive_qol.md` |
 | "pr status", "github" | `github/pr-status.md` |
 | "feature flags" | `engineering/check_feature_flag_conflicts.md` |
+| "casual", "slack tone" | `default/casual_slack_tone.md` |
 
 ## Structure
 
@@ -36,6 +38,7 @@ Skill files for Claude Code. Load selectively based on task.
 skills/
 ├── default/
 │   ├── dry_witted_engineering.md    # Default tone (always loaded)
+│   ├── casual_slack_tone.md         # Casual/chat tone (Slack, DMs)
 │   ├── passive_qol.md               # Proactive QoL improvements
 │   └── bar_chart_comparison.md
 ├── design/
@@ -43,6 +46,7 @@ skills/
 │   ├── socratic_discovery.md
 │   ├── rigorous_critique.md
 │   ├── complete_developer_experience.md
+│   ├── pqthink.md                   # PQ engineering lens
 │   ├── proto-overview.md            # Entry point
 │   ├── proto-schema.md
 │   ├── proto-architecture.md
@@ -176,9 +180,11 @@ Load these without being asked when context matches:
 |-----------|------|
 | Working in dotfiles, shell config, or system settings | `default/passive_qol.md` |
 | User mentions design critique or reviews a plan | `design/rigorous_critique.md` |
+| User asks "what would PQ think" or "pqthink" | `design/pqthink.md` |
 | Multi-repo exploration needed | Check `~/.claude/codebases.json` for repo paths |
 | Auditing for incomplete work | `codebase/incomplete_work_audit.md` |
 | Writing documentation for others | `documentation/doc-content.md` |
+| Drafting Slack messages or informal chat | `default/casual_slack_tone.md` |
 
 ## Usage
 
