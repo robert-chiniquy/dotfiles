@@ -31,6 +31,7 @@ Skill files for Claude Code. Load selectively based on task.
 | "pr status", "github" | `github/pr-status.md` |
 | "feature flags" | `engineering/check_feature_flag_conflicts.md` |
 | "casual", "slack tone" | `default/casual_slack_tone.md` |
+| "blog", "technical writing", "long-form" | `default/technical_writing_voice.md` |
 
 ## Structure
 
@@ -39,6 +40,7 @@ skills/
 ├── default/
 │   ├── dry_witted_engineering.md    # Default tone (always loaded)
 │   ├── casual_slack_tone.md         # Casual/chat tone (Slack, DMs)
+│   ├── technical_writing_voice.md   # Blog posts, deep dives, long-form
 │   ├── passive_qol.md               # Proactive QoL improvements
 │   └── bar_chart_comparison.md
 ├── design/
@@ -185,6 +187,7 @@ Load these without being asked when context matches:
 | Auditing for incomplete work | `codebase/incomplete_work_audit.md` |
 | Writing documentation for others | `documentation/doc-content.md` |
 | Drafting Slack messages or informal chat | `default/casual_slack_tone.md` |
+| Writing blog posts, deep dives, or long-form technical content | `default/technical_writing_voice.md` |
 
 ## Usage
 
