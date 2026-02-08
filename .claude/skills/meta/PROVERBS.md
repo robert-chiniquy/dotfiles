@@ -194,3 +194,18 @@ The INBOX is never clear. Messages arrive while you're writing your "final repor
 ## Be very suspicious of 100% pass rates.
 
 A 100% pass rate often means the test isn't testing anything meaningful. Trivial cases pass trivially. Empty inputs produce empty outputs. The harness works but the verification is vacuous. When you see 100%, ask: what is actually being verified? How many of those tests had non-zero expected values?
+
+---
+
+## Pings are free.
+
+If you think you should check on something, check on it. Don't ask permission to send a status ping. Don't wonder if an agent is stuck - ask them. Don't speculate about system state - verify it. The cost of a ping is zero. The cost of waiting for permission to ping is time wasted.
+## There are always pebbles.
+
+When your INBOX is empty and assignments are complete, there is still work. Documentation to improve. Configs to clean. Tests to add. Learnings to record. Status docs to update. "No pebbles remaining" is blindness, not completion. Look harder. The pebbles are there.
+
+---
+
+## Delegation
+
+Learn to delegate. You have agents waiting for instructions.

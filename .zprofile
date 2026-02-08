@@ -19,6 +19,9 @@ export STARSHIP_LOG=error
 
 export CLICOLOR=1
 
+# Claude Code experimental features
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+
 # Default editor (vim for quick edits, can override per-project)
 export EDITOR="vim"
 export VISUAL="vim"
