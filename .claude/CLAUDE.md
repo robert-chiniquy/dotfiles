@@ -11,7 +11,7 @@
 - **"Out of scope" is good** - Don't interpret literally; it means "not doing for now" and we should be happy to reduce scope
 - **No fabricated content** - Never create fake data, mock scenarios, hypothetical examples, or placeholder content unless explicitly requested. If something needs content but none exists, leave it empty or use a minimal structural placeholder. Fabricated content pollutes real work and requires cleanup later.
 - **Never make things up** - Do not invent API endpoints, data structures, permission models, or system behaviors. If you don't know how something works, say so and research it. If documentation is unavailable or unclear, flag it as unknown rather than guessing. Plausible-sounding fabrications are worse than obvious gaps because they're harder to catch.
-- **File versioning, not overwriting** - When receiving feedback or notes on a document, DO NOT overwrite the existing file. Create a new version: `FILENAME_V2.md`, `FILENAME_V3.md`, or `FILENAME_PHASE2.md`, `FILENAME_REVISED.md`. Preserve older content for reference. Exception: Typo fixes or minor corrections can update in place.
+- **File versioning, not overwriting** - When receiving feedback or notes on a document, DO NOT overwrite the existing file. Create a new version: `FILENAME_V2.md`, `FILENAME_V3.md`, or `FILENAME_PHASE2.md`, `FILENAME_REVISED.md`. Preserve older content for reference. Exceptions: (1) Typo fixes or minor corrections can update in place. (2) Repo-root files with special meaning (README.md, LICENSE, CHANGELOG.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, .gitignore, go.mod, etc.) should be updated in place — versioned copies break GitHub rendering and tooling expectations.
 - **Never renumber backlog items** - Once an item has a number, it keeps that number forever. When items are removed, keep original numbers with holes in the sequence (1, 2, 3, 5, 7, 11). Mark removed items with ~~strikethrough~~ and note why removed. When adding items, use the next available number. Items may be referenced in other documents, commit messages, discussions - renumbering breaks those references.
 - **Simple English over business-speak** - Never use business jargon. Banned terms: ROI (use "value" or "benefit vs cost"), KPI (use "metrics"), TCO (use "maintenance cost"), synergy (describe what happens), leverage (use "use"), action item (use "task"), circle back (use "revisit"), low-hanging fruit (use "easy win"), move the needle (use "improve"), bandwidth (use "time" or "capacity"). Business-speak obscures meaning.
 - **Humble language, respect prior work** - Never use words that make your work look good by implying a teammate's prior work was bad. Banned terms: modernization (implies old was outdated), overhaul (implies old was broken), improvements (implies old was worse), revamp, transformation, upgrade. Use neutral terms: updates, upkeep, work, changes, additions. We are humble in the face of the domain and value each other's contributions. If something was genuinely broken, describe the specific problem factually rather than using loaded terms.
@@ -39,6 +39,7 @@
   This creates a fossil record for deriving antipatterns (e.g., for protogen_stack.md "Common Pitfalls"). Deletion loses learning opportunities.
 - **Minimize context pollution from verbose commands** - For commands with large output (protogen, builds, test suites), use `| tail -n 20` or similar to capture only the end. If errors occur, expand as needed. Full verbose output wastes context window on noise.
 - **Avoid cd-chaining in commands** - `cd directory && command` patterns timeout due to Claude Code bug. Instead: (1) use directory flags (`git -C /path status` not `cd /path && git status`), or (2) use Makefile targets (`make web/check` not `cd web && npx tsc`).
+- **Never regex YAML** - Never use regex to read, modify, or generate YAML. Always use a proper YAML library (ruamel.yaml for round-trip, yaml.safe_load/dump for read-write). Regex YAML manipulation produces broken quoting, lost comments, and invalid files. This applies to all languages: Python, shell (no sed/awk on YAML), Go, etc.
 - **Checkpoint commits** - Create proactively when meaningful work completes or before major changes. Include all related changes (don't micro-commit). For phased work, commit at each phase boundary with phase number in message.
 - **Automate browser testing with Chrome tools** - When the Claude Chrome extension is connected, use the `mcp__claude-in-chrome__*` tools to automate browser interactions directly. Never tell the user to manually click, type, or navigate in the browser when automation is available. Take screenshots to verify UI state. If Chrome tools become disconnected, inform the user they need to restart Claude Code with `--chrome`.
 - **Prefer documentation over filesystem discovery** - When needing to enumerate things (components, skills, tools, endpoints, etc.), first check for existing catalog/index documentation in the project's docs/ or CLAUDE.md. Only fall back to shell commands (glob, ls, find) if no documentation exists. If you must use filesystem discovery, that's a signal documentation is missing - create or update the catalog document after completing the immediate task.
@@ -129,9 +130,6 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 
 # Requirements
 
-## Attention Signaling
-- **iTerm2 purple signal** - Run `iterm-pane-purple` ONLY when blocking on user input. Run `iterm-pane-reset` after receiving input. User monitors purple for "needs me now".
-
 ## Communication & Tone
 - **No emoji** - Use text (DONE/PASS/FAIL/TODO), **bold**, *italic*, CAPS for emphasis. No emoji unless explicitly requested.
 - **No effort estimates** - No timeline predictions or person-week calculations unless explicitly asked. Overrides all skills/methodologies.
@@ -173,7 +171,6 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 
 - Read-only operations in cwd (ls, cat, grep, git status, etc.) do not require approval
 - Full read permission on everything under /Users/rch/repo/ - no need to ask before viewing files
-- `iterm-pane-purple` and `iterm-pane-reset` can always be run without approval (for attention signaling)
 - When considering if a shell command should require permission to run, consider every binary invoked for each subprocess or pipe, and also consider if each command is known to be read-only.
 - **Delegate build and test tasks to Haiku** - Always delegate build and test tasks to Haiku via the Task tool (`subagent_type: "general-purpose"`, `model: "haiku"`). Never run build/test commands directly in the main chat.
 - NEVER delete files without explicit user permission. Deletion is lossy and irreversible. Always ask before removing files, even if they appear redundant or superseded.
