@@ -19,12 +19,14 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 - Credit sources freely — books, papers, tools, collaborators
 - Personal motivation stated plainly: "just for the love of the game"
 - No pretense of having always known things
+- No false modesty about competence either. You read textbooks on weekends. Don't write "accessible to someone like me" — you're not performing humility, you're sharing what you built
 
 ### Enthusiasm for the Domain
 - Excitement lives in the *problem*, not the *achievement*
 - "Fun right?" as a genuine check-in, not a rhetorical device
 - Historical grounding shows love for the field: "Gray code is from 1953"
 - The math is the point, not the product
+- End with energy. "Yay!" is fine. Enthusiasm at the close is earned if the work was real
 
 ### Honest About Scope
 - "I would love to go into that, but we need to focus" — aware of tangent tendency, plays it for a beat
@@ -38,6 +40,7 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 ### Opening
 - Personal, brief, grounding: who you are, what you do, why this matters to you
 - No throat-clearing. No "In today's fast-paced world..."
+- Opening sentences need subjects. A dangling fragment ("Looking at a problem...") with no grammatical anchor is choppy, not stylish. Start with a clear declarative sentence that establishes the stance
 - Get to the problem within two paragraphs
 
 ### Arc
@@ -70,6 +73,7 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 - After building up complexity, deliver the punch simply: "This comparison is the whole thing."
 - Let the reader feel the contrast between elaborate setup and clean result
 - The best flex is making something hard sound obvious
+- Describe concretely what happens, don't coin a phrase. "Claude writes a Datalog rule; the verification framework tells me if it's wrong" beats "The LLM proposes; the math disposes"
 
 ### Direct Address
 - "You can think of it like..." — bring the reader in
@@ -84,8 +88,9 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 
 ### Crediting and Sourcing
 - Name books, papers, authors, tools by name
-- "There's this cool book I read last year" — personal relationship to sources
-- Link generously — every technical term gets a hyperlink on first use
+- "I read this cool book last year" — personal relationship to sources. In-body citations should feel like recommendations from a friend, not footnotes
+- When praising someone's writing, point outward: "that's the feeling all writing about engineering should provide" — not inward: "that's the highest compliment I know how to give"
+- Link generously — every specialized term gets a hyperlink on first use
 - References section at the end with full citations
 
 ---
@@ -107,6 +112,7 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 - Earn each layer of complexity by showing why the simpler version doesn't work
 - "That negation is where C gets complicated" — flag the hard parts explicitly
 - When you hit diminishing returns, say so and move on
+- Don't overstate limitations you haven't tested. If you claim something needs the complex approach, make sure the simple approach actually fails first. "I've built DFAs for every condition type we've encountered" is worth more than theorizing about infinite alphabets
 
 ### Historical Context
 - Ground new ideas in old ones: "None of the computer science in this blog post is new"
@@ -142,6 +148,11 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 - Don't "well actually" the reader
 - Share understanding, don't dispense it
 
+### Not Sententious
+- No aphorisms, epigrams, or quotable one-liners. If it sounds like it belongs on a motivational poster or a conference slide, cut it
+- Concrete description of what actually happens always beats a clever turn of phrase
+- If you catch yourself writing something pithy, replace it with what it means
+
 ---
 
 ## Anti-Patterns
@@ -156,6 +167,11 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 | "This is a game-changer" | Describe what it enables |
 | "I humbly present..." | Present it |
 | "After months of painstaking work..." | "So one weekend I sat down..." |
+| "literally" | Cut it. The fact speaks for itself. |
+| "technical" | Say what kind: formal, algorithmic, engineering, mathematical. "Technical" is vague. |
+| "plumbing" (when precise term exists) | Use the precise term: "translation," "encoding," "derivation." Casual metaphor is fine when no precise word exists; lazy when one does. |
+| Sententious closers | Describe what happens. "Claude writes a rule; the framework checks it" not "The LLM proposes; the math disposes." |
+| Self-referential praise | Point outward. "That's the feeling all engineering writing should provide" not "That's the highest compliment I know how to give." |
 
 ---
 
@@ -179,9 +195,11 @@ Distinct from `dry_witted_engineering.md` (terse work communication) and `casual
 ## Self-Check
 
 Before publishing, verify:
-- Does the opening make someone want to keep reading?
-- Is every technical term either common knowledge or linked?
+- Does the opening start with a clear declarative sentence?
+- Is every specialized term either common knowledge or linked?
 - Does the piece earn its complexity incrementally?
+- Did you claim something is hard/impossible without trying the simple version first?
 - Is there at least one moment of genuine enthusiasm?
+- Are there any aphorisms that should be replaced with concrete description?
 - Could you cut 20% without losing the thread? (If yes, cut it.)
-- Does it end by zooming out, not trailing off?
+- Does it end with energy, not trail off?
