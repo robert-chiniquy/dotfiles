@@ -207,7 +207,7 @@ Created on-demand during project work:
 - `scripts/` - When scripts are written
 - `plans/` - When plans become numerous
 - `reports/` - When reports become numerous
-- `HUMAN_TODOS.md` - When blocking action occurs
+- `TODO.md` - When blocking action occurs
 - `PLAN_*.md` - When entering plan mode
 - `FAILURES.md` - When failures are documented
 - `DEMO.md` - When user-facing features complete

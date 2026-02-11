@@ -336,11 +336,11 @@ setopt no_clobber           # Don't overwrite files with > (use >| to force)
 # === Modern CLI Tools ===
 # eza (better ls)
 if command -v eza &>/dev/null; then
-  alias ls='eza --icons --color=always --group-directories-first'
-  alias ll='eza --icons --color=always --group-directories-first -l'
-  alias la='eza --icons --color=always --group-directories-first -la'
-  alias lt='eza --icons --color=always --tree --level=2'
-  alias lsg='eza --icons --color=always --group-directories-first --git -l'
+  alias ls='eza --icons --color=auto --group-directories-first'
+  alias ll='eza --icons --color=auto --group-directories-first -l'
+  alias la='eza --icons --color=auto --group-directories-first -la'
+  alias lt='eza --icons --color=auto --tree --level=2'
+  alias lsg='eza --icons --color=auto --group-directories-first --git -l'
   
   # Vaporwave colors for eza - retina-searing electric colors
   # 201=hot pink, 51=cyan, 221=gold, 171=light purple, 129=purple

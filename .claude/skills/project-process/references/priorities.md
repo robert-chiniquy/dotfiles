@@ -45,7 +45,7 @@ Signals to pause implementation:
 ## Maintain Momentum
 
 When work requires human action:
-1. Add to HUMAN_TODOS.md
+1. Add to TODO.md
 2. Continue with other available work:
    - Other tasks
    - Design docs
@@ -61,7 +61,7 @@ Rules:
 - Queue permissions for human review
 
 Anti-pattern: Stopping to ask "should I proceed?"
-Good pattern: "I've queued items in HUMAN_TODOS.md and continued with remaining tasks."
+Good pattern: "I've queued items in TODO.md and continued with remaining tasks."
 
 ## Context Compaction Recovery
 

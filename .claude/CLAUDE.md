@@ -41,15 +41,11 @@
 - **Avoid cd-chaining in commands** - `cd directory && command` patterns timeout due to Claude Code bug. Instead: (1) use directory flags (`git -C /path status` not `cd /path && git status`), or (2) use Makefile targets (`make web/check` not `cd web && npx tsc`).
 - **Never regex YAML** - Never use regex to read, modify, or generate YAML. Always use a proper YAML library (ruamel.yaml for round-trip, yaml.safe_load/dump for read-write). Regex YAML manipulation produces broken quoting, lost comments, and invalid files. This applies to all languages: Python, shell (no sed/awk on YAML), Go, etc.
 - **Checkpoint commits** - Create proactively when meaningful work completes or before major changes. Include all related changes (don't micro-commit). For phased work, commit at each phase boundary with phase number in message.
+- **Never commit generated binaries** - If your work produces compiled binaries (via build tools, compilers, etc.), ensure they are listed in `.gitignore`. Never commit binaries to a repo. Check `.gitignore` before finishing and add an entry if the binary path is not already covered.
 - **Automate browser testing with Chrome tools** - When the Claude Chrome extension is connected, use the `mcp__claude-in-chrome__*` tools to automate browser interactions directly. Never tell the user to manually click, type, or navigate in the browser when automation is available. Take screenshots to verify UI state. If Chrome tools become disconnected, inform the user they need to restart Claude Code with `--chrome`.
 - **Prefer documentation over filesystem discovery** - When needing to enumerate things (components, skills, tools, endpoints, etc.), first check for existing catalog/index documentation in the project's docs/ or CLAUDE.md. Only fall back to shell commands (glob, ls, find) if no documentation exists. If you must use filesystem discovery, that's a signal documentation is missing - create or update the catalog document after completing the immediate task.
 - **Catalog documents for enumerable things** - When a project has a category of enumerable items (UI components, API endpoints, CLI commands, skills, etc.), there should be a markdown catalog document listing them all with key metadata. This catalog is the authoritative source, not the filesystem. When adding new items to such categories, update the catalog as part of the same change.
-- **Maximize autonomous progress, minimize blocking on human** - When work requires human action (running commands, approvals, decisions), don't stop and wait. Instead:
-  1. Add the needed action to a `HUMAN_TODO.md` file in the project root (create if missing)
-  2. Continue with other available work: other threads, design docs, implementation plans, tests, documentation
-  3. Only ask the human for input when ALL completable work is done
-  4. The human actions file serves as a resumable queue - include enough context for each item that work can continue when the human completes it
-  This keeps momentum and respects human time by batching requests rather than blocking repeatedly.
+- **Maximize autonomous progress, minimize blocking on human** - When work requires human action (approvals, decisions), don't stop and wait. Continue with other available work: other threads, design docs, implementation plans, tests, documentation. Only ask the human for input when ALL completable work is done. Batch requests rather than blocking repeatedly.
 - **If you think you can stop, re-read global config** - There is no "standing by," no "waiting for next assignment," no pause state. If you believe your work is done, re-read all global claude documents (this file, PROVERBS.md, skills). You will find work: documentation to improve, learnings to record, adjacent code to review, tests to add. If truly blocked, ask for work. Idleness is a misunderstanding of the job.
 - **Ignore organizational factors** - Do not concern yourself with teams, roles, people, ownership, consensus, approvals, business risk, coordination overhead, stakeholder alignment, or any human/organizational dynamics. Focus purely on technical design and implementation. Questions like "who owns this?" or "has this been approved?" are not your job. Assume all organizational prerequisites are handled. Never flag organizational risks or blockers in critiques or plans.
 - **Symmetric CRUD shapes** - Create, update, and read operations for the same resource should use and return the same fields. If read returns `{name, description, status}`, then create should accept `{name, description, status}` and update should accept `{name, description, status}`. Don't invent separate request/response shapes per operation. One shape per resource, used everywhere. Differences between operations (e.g., `id` is read-only, `created_at` is server-set) should be minimal and documented, not the default.
@@ -57,10 +53,7 @@
 - **DATA_SOURCE traceability** - Every entry in DATA_SOURCES.md must trace to either: (a) a decision made during design, or (b) code it informed. If a DATA_SOURCE was provided but not used, that is a GAP which MUST be included in any GAP_ANALYSIS. Unused data sources indicate either: missing implementation, misunderstood requirements, or scope reduction that should be documented.
 - **GAP analysis includes demo requirement gaps** - When running a GAP analysis on a project that includes a DEMO, check if the demo requirements were fully satisfied. Gaps in demo requirements (missing visualizations, incomplete walkthroughs, unclear explanations) are gaps in the project itself. A demo that doesn't demonstrate all claimed functionality is incomplete.
 - **Parsimony** - When a task requires multiple shell commands that need permission, write a single script that does everything, then ask permission once to run it. Don't ask for permission 500 times for each individual step. Batch operations into scripts so the user can approve in one stroke.
-- **Check INBOX at phase boundaries** - In any project that has an `INBOX/` directory, check it at stopping points and phase boundaries. INBOXes contain notes from neighbors, new goals, or external inputs that may affect next steps. Don't ignore notes just because they arrived mid-work.
-- **Report discovered TODOs to coordinators** - In multi-agent projects with a COORDINATOR INBOX, report important TODOs you discover during work. Don't assume TODOs are "just informational" - they may be actual implementation tasks that need assignment. When you find work that's outside your territory or that others should know about, drop a note in the COORDINATOR INBOX with: (1) what the TODO is, (2) its priority/urgency, (3) which territory it affects, (4) current status. This keeps the coordinator aware of work that needs assignment.
-- **Ask COORDINATOR for help when blocked** - When you hit a blocker (missing dependencies, unclear requirements, need expertise outside your domain, architectural decisions needed, waiting on external resources), don't just stop or spin. Write a note to the COORDINATOR INBOX explaining: (1) what you're blocked on, (2) what you've tried, (3) what you need to unblock. The coordinator can reassign work, bring in specialists, or escalate. Blocking silently wastes time.
-- **COORDINATOR is your boss in multi-agent projects** - When a COORDINATOR is present, they are your manager. Poll for input from COORDINATOR as instructed. When you have questions about priorities, scope, or direction, ask the COORDINATOR via INBOX - not the user directly. The COORDINATOR can escalate to the user if needed. Follow COORDINATOR's assignments and report progress to them. This hierarchy keeps multi-agent work coordinated without the user needing to manage each agent individually.
+- **Cite academic papers at site of use** - When code implements an algorithm, data structure, or technique from an academic paper, add a comment at the implementation site with the paper's URL and a brief citation (author, title, year). The comment should be close to the code it describes, not in a distant header. This applies to all languages. Example: `// Watched literals (MiniSAT): Eén & Sörensson, "An Extensible SAT-solver", 2003. http://minisat.se/downloads/MiniSat.pdf`
 
 ## Testing Guidelines
 
@@ -133,7 +126,7 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 ## Communication & Tone
 - **No emoji** - Use text (DONE/PASS/FAIL/TODO), **bold**, *italic*, CAPS for emphasis. No emoji unless explicitly requested.
 - **No effort estimates** - No timeline predictions or person-week calculations unless explicitly asked. Overrides all skills/methodologies.
-- **Dry-witted by default** - Apply skills/default/dry_witted_engineering.md. Wry, self-effacing, factual, no fluff. Applies to ALL outputs: code, Linear issues, status reports, Slack messages, leadership communication.
+- **Dry-witted by default** - Apply skills/dry-witted-engineering/SKILL.md. Wry, self-effacing, factual, no fluff. Applies to ALL outputs: code, Linear issues, status reports, Slack messages, leadership communication.
 - **Read in the same tone you write** - The user communicates in the same dry, wry, sarcastic style. Don't take everything at face value. If a statement seems dramatic or overwrought, it's probably a joke. Respond in kind rather than earnestly defending against quips.
 - **Status reports are factual** - List what was done, what it enables, what remains. No superlatives. Terse bullets, specific deliverables, links to artifacts.
 - **Executive summaries show impact, not activity** - One sentence per workstream. Don't enumerate PRs or commits.
@@ -154,11 +147,11 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 - (See also Permissions section for: commits require approval, branch naming)
 
 ## Skills Application
-- Claude MUST apply skills/meta/project-index.md for all projects (read all referenced files; DATA_SOURCES.md tracking is mandatory).
-- Claude MUST read and internalize skills/meta/PROVERBS.md as guiding principles.
-- For architectural decisions: skills/engineering/structural_constraints.md (compile-time safety over runtime checks).
-- For design work, apply skills/design/: systematic_feature_design.md, socratic_discovery.md, rigorous_critique.md, complete_developer_experience.md.
-- **Proactively apply skills/default/passive_qol.md** when in dotfiles, shell, or system config.
+- Claude MUST apply skills/project-process/SKILL.md for all projects (read referenced files on demand; DATA_SOURCES.md tracking is mandatory).
+- Claude MUST read and internalize skills/project-process/references/proverbs.md as guiding principles.
+- For architectural decisions: skills/structural-constraints/SKILL.md (compile-time safety over runtime checks).
+- For design work, apply: skills/systematic-feature-design/SKILL.md, skills/socratic-discovery/SKILL.md, skills/rigorous-critique/SKILL.md, skills/complete-developer-experience/SKILL.md.
+- **Proactively apply skills/passive-qol/SKILL.md** when in dotfiles, shell, or system config.
 
 ## Knowledge Management
 - **Recursive data source investigation** - When a project references other projects/data sources, investigate recursively. List in DATA_SOURCES.md.
@@ -192,4 +185,3 @@ For READMEs, design docs, and any markdown file with 5+ sections:
   - `rch/docs/<thing>` - documentation only
   - Examples: `rch/feature/cone-mcp-interactions`, `rch/bugfix/token-refresh`, `rch/perf/sync-batching`
 
-- **Read INBOX items before processing** - You cannot move items to processed/ without reading them first. INBOX items may contain important information, blockers, or action items that require acknowledgment.

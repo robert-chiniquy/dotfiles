@@ -49,7 +49,7 @@ EXCLUDE_PATTERNS=(
   "DATA_SOURCES.md"
   "LEARNINGS.md"
   "GLOSSARY.md"
-  "HUMAN_TODO.md"
+  "TODO.md"
   "GAP_ANALYSIS.md"
   "PLAN_*.md"
   "REMAINING_TODOS.md"
@@ -68,7 +68,7 @@ Files modified but not staged or committed.
 
 ```bash
 # Exclude pattern for process artifacts
-EXCLUDE='project\.md\|DATA_SOURCES\.md\|LEARNINGS\.md\|GLOSSARY\.md\|HUMAN_TODO\.md\|GAP_ANALYSIS\.md\|PLAN_.*\.md\|REMAINING_TODOS\.md\|TODO_.*\.md\|CLAUDE\.md\|reports/'
+EXCLUDE='project\.md\|DATA_SOURCES\.md\|LEARNINGS\.md\|GLOSSARY\.md\|TODO\.md\|GAP_ANALYSIS\.md\|PLAN_.*\.md\|REMAINING_TODOS\.md\|TODO_.*\.md\|CLAUDE\.md\|reports/'
 
 # Check single repo (excluding process artifacts)
 git status --porcelain | grep -v "$EXCLUDE" | wc -l
@@ -148,7 +148,7 @@ done
 TARGET_DIR="${1:-.}"
 
 # Process artifacts to exclude (not shippable, just working docs)
-EXCLUDE_GREP='project\.md\|DATA_SOURCES\.md\|LEARNINGS\.md\|GLOSSARY\.md\|HUMAN_TODO\.md\|GAP_ANALYSIS\.md\|PLAN_.*\.md\|REMAINING_TODOS\.md\|TODO_.*\.md\|CLAUDE\.md\|reports/'
+EXCLUDE_GREP='project\.md\|DATA_SOURCES\.md\|LEARNINGS\.md\|GLOSSARY\.md\|TODO\.md\|GAP_ANALYSIS\.md\|PLAN_.*\.md\|REMAINING_TODOS\.md\|TODO_.*\.md\|CLAUDE\.md\|reports/'
 
 echo "=== Scanning $TARGET_DIR recursively for uncommitted work ==="
 echo
