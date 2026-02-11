@@ -267,7 +267,7 @@ The assignment defines:
 Before any phase complete:
 - [ ] DATA_SOURCES.md current
 - [ ] LEARNINGS.md captures discoveries
-- [ ] HUMAN_TODOS.md empty or truly blocked
+- [ ] TODO.md empty or truly blocked
 - [ ] Deprecated code in old/ with docs
 - [ ] Sensitive docs in private/
 - [ ] DEMO.md for user-facing features

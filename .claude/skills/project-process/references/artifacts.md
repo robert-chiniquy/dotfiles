@@ -48,32 +48,21 @@ Rules:
 - Append-only (never delete)
 - Include enough detail to reconstruct reasoning
 
-## HUMAN_TODOS.md
+## TODO.md
 
-Queue blocking actions instead of stopping.
+Track work items and blocking actions.
 
 ```markdown
-# Human Actions Needed
+# TODO
 
-## Pending
-
-### [2025-01-14] Run build command
-Context: Need to verify proto changes compile
-Command: `make protogen`
-Blocking: Implementation of match_baton_id
-After completion: Continue with controller changes
-
-## Completed
-
-### [2025-01-13] ~~Get API credentials~~
-Completed: 2025-01-14
-Result: Credentials added to .env
+- [ ] Run build command (`make protogen`) to verify proto changes
+- [ ] Get API credentials for .env
 ```
 
 Rules:
 - Add items immediately when blocked
 - Continue other work
-- Move completed to Completed section
+- Check off completed items
 - Only ask human when ALL work is blocked
 
 ## old/ Directory
@@ -185,7 +174,7 @@ These files must NEVER be committed:
 - `DATA_SOURCES.md`
 - `LEARNINGS.md`
 - `GLOSSARY.md`
-- `HUMAN_TODO.md`
+- `TODO.md`
 - `PLAN_*.md`
 - `.claude/plans/`
 
@@ -199,7 +188,7 @@ PLAN_*.md
 DATA_SOURCES.md
 LEARNINGS.md
 GLOSSARY.md
-HUMAN_TODO.md
+TODO.md
 .claude/plans/
 EOF
 

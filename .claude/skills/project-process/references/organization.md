@@ -34,7 +34,7 @@ project/
 Top-level files (keep at root):
 - CLAUDE.md, README.md, project.md
 - DATA_SOURCES.md, GLOSSARY.md, LEARNINGS.md
-- TODO.md, COMPLETED.md, HUMAN_TODOS.md
+- TODO.md, COMPLETED.md
 - DEMO.md
 
 Categorization:
