@@ -1,0 +1,22 @@
+[
+  {
+    "from": "formal-writer",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"4\",\"subject\":\"Write formal impl\",\"description\":\"Research formalco/terraform-provider-formal on GitHub, then write impls/formal/config.yaml, axioms.dl, README.md. Formal API: base_url https://api.formalcloud.net/v1, auth type bearer. Resources: datastore, policy, role, native_role_link, group. Read impls/tailscale/config.yaml for conventions.\",\"assignedBy\":\"formal-writer\",\"timestamp\":\"2026-03-02T02:46:44.065Z\"}",
+    "timestamp": "2026-03-02T02:46:44.065Z",
+    "color": "purple",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "All done and pushed. Shutting down.",
+    "summary": "Final shutdown",
+    "timestamp": "2026-03-02T02:56:21.897Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772420204557@formal-writer\",\"from\":\"team-lead\",\"reason\":\"Done.\",\"timestamp\":\"2026-03-02T02:56:44.557Z\"}",
+    "timestamp": "2026-03-02T02:56:44.557Z",
+    "read": true
+  }
+]

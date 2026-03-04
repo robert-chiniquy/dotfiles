@@ -1,0 +1,22 @@
+[
+  {
+    "from": "digicert-writer",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"6\",\"subject\":\"Write digicert impl\",\"description\":\"Research sapcc/go-certcentral on GitHub, then write impls/digicert/config.yaml, axioms.dl, README.md. DigiCert CertCentral API: base_url https://www.digicert.com/services/v2, auth type api_key header X-DC-DEVKEY. Resources: order, certificate, organization, domain, user. Operations: create_order, revoke_certificate. Read impls/tailscale/config.yaml for conventions.\",\"assignedBy\":\"digicert-writer\",\"timestamp\":\"2026-03-02T02:47:13.394Z\"}",
+    "timestamp": "2026-03-02T02:47:13.394Z",
+    "color": "pink",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "All done and pushed. Shutting down.",
+    "summary": "Final shutdown",
+    "timestamp": "2026-03-02T02:56:21.897Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772420205392@digicert-writer\",\"from\":\"team-lead\",\"reason\":\"Done.\",\"timestamp\":\"2026-03-02T02:56:45.392Z\"}",
+    "timestamp": "2026-03-02T02:56:45.392Z",
+    "read": true
+  }
+]

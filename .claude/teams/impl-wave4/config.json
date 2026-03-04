@@ -1,0 +1,33 @@
+{
+  "name": "impl-wave4",
+  "description": "Hand-author impls from terraform providers and Go clients",
+  "createdAt": 1772419557190,
+  "leadAgentId": "team-lead@impl-wave4",
+  "leadSessionId": "0e6444db-6853-4367-9abf-da60f7440fec",
+  "members": [
+    {
+      "agentId": "team-lead@impl-wave4",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6[1m]",
+      "joinedAt": 1772419557190,
+      "tmuxPaneId": "",
+      "cwd": "/Users/rch/repo/mcp-axiomatic",
+      "subscriptions": []
+    },
+    {
+      "agentId": "oci-writer@impl-wave4",
+      "name": "oci-writer",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "Read task #2. Write impls/oracle_cloud/config.yaml, axioms.dl, README.md for OCI. Focus on 5-6 core resources (compartment, instance, vcn, subnet, user, group). Read impls/vultr/config.yaml for cloud compute conventions. Mark task complete.",
+      "color": "green",
+      "planModeRequired": false,
+      "joinedAt": 1772419594038,
+      "tmuxPaneId": "in-process",
+      "cwd": "/Users/rch/repo/mcp-axiomatic",
+      "subscriptions": [],
+      "backendType": "in-process"
+    }
+  ]
+}

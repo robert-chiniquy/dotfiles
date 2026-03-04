@@ -1,7 +1,7 @@
 add_newline = false
 
 format = "$character$all"
-right_format = "$git_branch$git_status$rust${custom.tokei_rust}"
+right_format = "$git_branch$git_status$rust"
 
 [line_break]
 disabled = true
@@ -50,20 +50,6 @@ min_time = 10_000  # Show command duration over 10,000 milliseconds (=10 sec)
 format = "⏱️ [$duration]($style)"
 style = "blink yellow"
 
-[custom.git_diff_line_count]
-require_repo = true
-command = ''' git diff --shortstat | awk '{printf "+%s -%s", ($4 > 0 ? $4 : 0), ($6 > 0 ? $6 : 0)}' '''
-symbol = "🐝"
-when = ''' git status | grep -q modified '''
-style = "cyan"
-format = "$symbol [$output]($style) "
-
-[custom.tokei_rust]
-require_repo = true
-command = ''' tokei -t=Rust | awk '/^ Rust/{print $4;}' '''
-symbol = "🐚"
-when = ''' which tokei '''
-detect_files = ["Cargo.toml"]
-style = "cyan"
-format = "[$output ]($style)$symbol"
+# Removed: custom.git_diff_line_count (2 git commands per prompt, redundant with git_status !count)
+# Removed: custom.tokei_rust (runs tokei on every prompt in Rust repos)
 

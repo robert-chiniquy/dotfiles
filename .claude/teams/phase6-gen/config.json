@@ -1,0 +1,19 @@
+{
+  "name": "phase6-gen",
+  "description": "Phase 6: Mass-generate impls from OpenAPI specs",
+  "createdAt": 1770953877547,
+  "leadAgentId": "team-lead@phase6-gen",
+  "leadSessionId": "ec25d0f3-5212-47e4-971f-2ea90de47dc2",
+  "members": [
+    {
+      "agentId": "team-lead@phase6-gen",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1770953877547,
+      "tmuxPaneId": "",
+      "cwd": "/Users/rch/repo/mcp-axiomatic",
+      "subscriptions": []
+    }
+  ]
+}

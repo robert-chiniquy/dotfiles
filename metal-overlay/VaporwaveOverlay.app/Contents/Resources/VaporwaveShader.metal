@@ -87,19 +87,19 @@ float detectPurple(float3 color) {
     float g = color.g;
     float b = color.b;
 
-    // Core requirement: green must be significantly lower than red AND blue
+    // Core requirement: green must be lower than red AND blue
     float greenDeficit = min(r, b) - g;
-    if (greenDeficit < 0.1) return 0.0;  // Not purple if green isn't low enough
+    if (greenDeficit < 0.05) return 0.0;  // Looser threshold
 
     // Both red and blue must be present
-    if (r < 0.25 || b < 0.25) return 0.0;
+    if (r < 0.15 || b < 0.15) return 0.0;  // Lower floor
 
-    // Green must be noticeably lower than the average of red and blue
+    // Green must be lower than the average of red and blue
     float rbAvg = (r + b) * 0.5;
-    if (g > rbAvg * 0.7) return 0.0;  // Too much green
+    if (g > rbAvg * 0.8) return 0.0;  // More permissive
 
-    // Purpleness based on how much green deficit there is
-    float purpleness = greenDeficit * (r + b) * 2.0;
+    // Purpleness based on how much green deficit there is — boosted
+    float purpleness = greenDeficit * (r + b) * 3.5;
 
     return clamp(purpleness, 0.0, 1.0);
 }
@@ -130,7 +130,7 @@ fragment float4 vaporwave_fragment(
     ) * float2(flipX, flipY);
     coord = rotatedCoord;
 
-    float phase = time * 0.000001;  // 30x slower ray animation
+    float phase = time * 0.0001;  // Fast ray animation for per-window mode
 
     // Quick access colors
     float3 deepPurple = float3(0.4, 0.1, 0.6);
@@ -139,21 +139,19 @@ fragment float4 vaporwave_fragment(
     // Gradual ray appearance - each ray fades in over time
     // rayTime in seconds (time is in milliseconds)
     float rayTime = time * 0.001;
-    float rayInterval = 4.0;  // 4 seconds between each ray appearing (slower)
+    float rayInterval = 0.3;  // 0.3 seconds between each ray appearing
 
-    // Ray width grows over time: starts small, grows to 10x over 30 minutes
-    float widthScale = 0.3 + min(rayTime / 185.0, 9.7);  // 0.3 to 10.0 over 1800 sec
+    // Ray width grows over time: starts small, grows to 10x over 30 seconds
+    float widthScale = 0.3 + min(rayTime / 3.0, 9.7);  // Full width in 3 sec
 
-    // Ray intensity grows over time: starts at 0, hits 100% at 5 minutes
-    // But DELAYED - rays start fading in after purple effect is established
-    float rayDelay = 15.0;  // Rays start 15 seconds after purple
+    // Ray intensity grows over time: starts at 0, hits 100% at 2 seconds
+    float rayDelay = 0.5;  // Rays start 0.5 seconds after overlay appears
     float rayIntensityTime = max(0.0, rayTime - rayDelay);
-    float intensityScale = min(rayIntensityTime / 285.0, 1.0);  // 0.0 to 1.0 over 285 sec (after delay)
+    float intensityScale = min(rayIntensityTime / 2.0, 1.0);  // Full intensity in 2 sec
 
-    // Purple effect fades in BEFORE rays, fades out AFTER
-    float purpleFadeIn = min(rayTime / 10.0, 1.0);  // Purple at 100% by 10 seconds
-    float purpleFadeOut = 1.0 - smoothstep(1700.0, 1800.0, rayTime);  // Fade out last 100 sec
-    float purpleTimeScale = purpleFadeIn * purpleFadeOut;
+    // Purple effect fades in fast
+    float purpleFadeIn = min(rayTime / 1.0, 1.0);  // Purple at 100% by 1 second
+    float purpleTimeScale = purpleFadeIn;
 
     // Curved rays from 3 ASYMMETRIC sources - 10 total (CPU optimized)
     float rays = 0.0;
@@ -203,44 +201,82 @@ fragment float4 vaporwave_fragment(
         // Combine local and neighbor detection
         purpleActive = max(localPurple, neighborPurple * 0.9);
 
-        // Higher threshold - only trigger on definite purple
-        purpleActive = smoothstep(0.25, 0.5, purpleActive);
+        // Lower threshold - trigger on near-purple too
+        purpleActive = smoothstep(0.1, 0.3, purpleActive);
 
-        // DRIP DOWN effect - purple bleeds downward with glitchy echo
-        float dripSpeed = 0.0002;
-        float dripOffset = time * dripSpeed;
-        float dripY = uv.y + dripOffset;
+        // Dampen feedback oscillation — cap self-amplification
+        purpleActive = min(purpleActive, 0.7);
 
-        // Multiple drip waves at different frequencies for glitch effect
-        float dripWave1 = sin(dripY * 12.0 + uv.x * 3.0) * 0.5 + 0.5;
-        float dripWave2 = sin(dripY * 7.0 + uv.x * 5.0 + 1.5) * 0.5 + 0.5;
-        float dripWave3 = sin(dripY * 19.0 + uv.x * 2.0 + 0.7) * 0.5 + 0.5;
+        // Sample purple from ABOVE — wobbly organic drip paths
+        // Each sample point follows a sine-warped path upward, so the drip
+        // meanders like running liquid, not a straight column
+        float dripT = time * 0.0003;
+        float step1 = texelSize.y * 25.0;
+        float purpleAbove = 0.0;
+        // 4 samples at increasing distances above, each with unique wobble
+        float d1 = step1;
+        float d2 = step1 * 3.0;
+        float d3 = step1 * 7.0;
+        float d4 = step1 * 14.0;
+        // Wobble: x offset is sin of (y + time), different freq per sample
+        // Creates organic meandering paths that change slowly over time
+        float w1 = sin(texUV.y * 15.0 + dripT + 0.0) * texelSize.x * 12.0;
+        float w2 = sin(texUV.y * 11.0 + dripT * 1.3 + 2.0) * texelSize.x * 20.0;
+        float w3 = sin(texUV.y * 7.0 + dripT * 0.7 + 4.5) * texelSize.x * 30.0;
+        float w4 = sin(texUV.y * 5.0 + dripT * 1.1 + 1.2) * texelSize.x * 45.0;
+        float pA1 = detectPurple(windowTex.sample(texSampler, float2(texUV.x + w1, max(texUV.y - d1, 0.0))).rgb);
+        float pA2 = detectPurple(windowTex.sample(texSampler, float2(texUV.x + w2, max(texUV.y - d2, 0.0))).rgb);
+        float pA3 = detectPurple(windowTex.sample(texSampler, float2(texUV.x + w3, max(texUV.y - d3, 0.0))).rgb);
+        float pA4 = detectPurple(windowTex.sample(texSampler, float2(texUV.x + w4, max(texUV.y - d4, 0.0))).rgb);
+        // Closer samples stronger, far samples fade — drip thins as it falls
+        purpleAbove = pA1 * 0.9 + pA2 * 0.65 + pA3 * 0.4 + pA4 * 0.2;
+        purpleAbove = smoothstep(0.15, 0.5, purpleAbove) * 0.7;
+        // Drip follows ray paths — brighter near rays, invisible far from them
+        purpleAbove *= (0.2 + rays * 2.5);
+        purpleActive = max(purpleActive, purpleAbove);
 
-        // Glitch hash for randomized drip breaks
-        float glitchHash = hash(float2(floor(uv.x * 50.0), floor(dripY * 30.0)));
-        float glitchBreak = step(0.7, glitchHash);
-
-        // Drip strength increases toward bottom (gravity effect)
-        float dripStrength = (1.0 - uv.y) * 0.6;
-
-        // Combine waves for organic drip pattern
-        float combinedDrip = (dripWave1 * 0.5 + dripWave2 * 0.3 + dripWave3 * 0.2) * dripStrength;
-        combinedDrip *= (1.0 - glitchBreak * 0.6);
-
-        // Echo effect - purple trails behind and below (reduced)
-        float echo1 = purpleActive * combinedDrip * 0.5;
-        float echo2 = purpleActive * sin(dripY * 25.0 + uv.x * 8.0) * 0.2 * dripStrength;
-
-        purpleActive = purpleActive + echo1 + echo2;
-        purpleActive = clamp(purpleActive, 0.0, 1.0);
-
-        // Apply purple timing (fades in before rays, out after)
+        // Apply purple timing
         purpleActive *= purpleTimeScale;
     }
 
+    // === DRIP DOWN EFFECT - flows downward from purple sources ===
+    float dripSpeed = 0.015;
+    float dripFlow = time * dripSpeed;  // Moves downward (subtract from y)
+    float dripY = uv.y - dripFlow;  // Negative = pattern moves down screen
+
+    // Vertical column structure — each x position is a drip channel
+    float columnHash = hash(float2(floor(uv.x * 40.0), 0.0));
+    float columnActive = step(0.5, columnHash);  // ~50% of columns drip
+
+    // Drip waves biased downward — asymmetric sawtooth-ish shapes
+    float dripWave1 = pow(fract(dripY * 8.0 + uv.x * 1.5), 2.0);  // Sharp top, soft tail
+    float dripWave2 = pow(fract(dripY * 5.0 + uv.x * 2.5 + 0.3), 2.5);
+    float dripWave3 = pow(fract(dripY * 13.0 + uv.x * 0.8 + 0.7), 1.8);
+
+    // Glitch hash for randomized drip breaks
+    float glitchHash = hash(float2(floor(uv.x * 50.0), floor(dripY * 30.0)));
+    float glitchBreak = step(0.7, glitchHash);
+
+    // Drip strength increases toward bottom (gravity acceleration)
+    float gravity = uv.y * uv.y;  // Quadratic — accelerates as it falls
+    float dripStrength = gravity * 0.9 * columnActive;
+
+    // Combine waves for organic drip pattern
+    float combinedDrip = (dripWave1 * 0.5 + dripWave2 * 0.3 + dripWave3 * 0.2) * dripStrength;
+    combinedDrip *= (1.0 - glitchBreak * 0.6);
+
+    // Drip hard near purple
+    float dripPurple = purpleActive * combinedDrip * 3.0;
+    float dripEcho = purpleActive * sin(dripY * 25.0 + uv.x * 8.0) * 0.8 * dripStrength;
+    // Extra heavy drip streaks in active columns
+    float dripHeavy = purpleActive * pow(fract(dripY * 3.0 + columnHash), 3.0) * columnActive * 2.0 * gravity;
+
+    float totalDrip = dripPurple + dripEcho + dripHeavy;
+    purpleActive = clamp(purpleActive + totalDrip, 0.0, 1.0);
+
     // === MOIRE SCANLINE EFFECT ===
     // 5 layers at prime frequencies - interference creates moire
-    float glitchTime = floor(time * 0.00001);
+    float glitchTime = floor(time * 0.001);
 
     // Five scanline grids at prime frequencies
     float scan1 = floor(uv.y * 1997.0);
@@ -274,22 +310,21 @@ fragment float4 vaporwave_fragment(
                            step(glitchThreshold, rd2) * presentD2 * 0.15;
 
     // Purple scanline glitch with gentle pulse (cheap - one sin)
-    float glitchPulse = 0.8 + 0.2 * sin(time * 0.000003);  // Slow subtle pulse
+    float glitchPulse = 0.8 + 0.2 * sin(time * 0.0001);
     float3 glitchColor = neonPurple * glitchStrength * (0.1 + purpleActive * 0.5) * glitchPulse;
 
     // === PALETTE ROTATION WITH INTERPOLATION (from original shader) ===
 
     // Randomize stripe width using slow-changing hash - narrower bands
-    float stripeHash = fract(sin(floor(time * 0.000001) * 12.9898) * 43758.5453);  // 50x slower change
+    float stripeHash = fract(sin(floor(time * 0.0001) * 12.9898) * 43758.5453);
     float stripeWidthMult = 1.5 + stripeHash * 2.5;  // Higher = narrower bands
 
     // Wave distortion for organic movement - glacially slow
-    float waveDistortion = sin(uv.x * 6.28318 + time * 0.00000005) * 0.08 +
-                           cos(uv.y * 4.71239 + time * 0.00000008) * 0.05;
+    float waveDistortion = sin(uv.x * 6.28318 + time * 0.00005) * 0.08 +
+                           cos(uv.y * 4.71239 + time * 0.00008) * 0.05;
 
-    // Spatial phase - color varies across screen + glacially slow time rotation
-    // Start offset at 1.5 (between gold and cyan, far from purple at 6-7)
-    float spatialPhase = (uv.x + uv.y * 0.7 + waveDistortion) * stripeWidthMult + time * 0.00000002 + 1.5;
+    // Spatial phase - color varies across screen + time rotation
+    float spatialPhase = (uv.x + uv.y * 0.7 + waveDistortion) * stripeWidthMult + time * 0.000003 + 1.5;
     float continuousIndex = fmod(spatialPhase, 8.0);
     int colorIndex = int(floor(continuousIndex));
     float colorBlend = fract(continuousIndex);
@@ -314,7 +349,7 @@ fragment float4 vaporwave_fragment(
 
     // Pulse during transitions - INTENSE luminosity
     if (isTransitioning > 0.5) {
-        float pulsePhase = time * 0.0000002;  // 100x slower
+        float pulsePhase = time * 0.000008;
         float spatialOffset = (uv.x * 2.0 + uv.y * 3.0) * 6.28318;
         float pulse = sin(pulsePhase * 6.28318 + spatialOffset) * 0.5 + 0.5;
         pulse = pulse * pulse * pulse;  // Sharpen
@@ -323,7 +358,7 @@ fragment float4 vaporwave_fragment(
     }
 
     // Global luminosity pulse (always active, not just during transitions)
-    float globalPulse = sin(time * 0.0000003 + uv.y * 4.0) * 0.5 + 0.5;
+    float globalPulse = sin(time * 0.00001 + uv.y * 4.0) * 0.5 + 0.5;
     globalPulse = globalPulse * globalPulse;
     rayColor *= (1.0 + globalPulse * 0.4);
 
@@ -331,10 +366,10 @@ fragment float4 vaporwave_fragment(
     rayColor = mix(rayColor, neonPurple, purpleActive * 0.3);
 
     // Purple reactive aura - moderate glow when purple detected
-    float auraPhase = time * 0.0000004 + uv.y * 2.0;
+    float auraPhase = time * 0.0001 + uv.y * 2.0;
     float aura = sin(auraPhase) * 0.5 + 0.5;
     aura = aura * aura;
-    float3 purpleAura = deepPurple * aura * purpleActive * 0.8;  // Reduced aura
+    float3 purpleAura = deepPurple * aura * purpleActive * 1.5;  // Strong aura
 
     // Base tint - subtle purple
     float3 baseTint = float3(0.06, 0.02, 0.10);
@@ -346,7 +381,7 @@ fragment float4 vaporwave_fragment(
     finalColor *= 0.4 + (1.0 - uv.y) * 0.6;
 
     // Alpha - visible but not overwhelming
-    float alpha = (0.25 + rays * 0.4 + purpleActive * 0.3) * opacity;
+    float alpha = (0.4 + rays * 0.5 + purpleActive * 0.4) * opacity;
 
     return float4(finalColor, alpha);
 }

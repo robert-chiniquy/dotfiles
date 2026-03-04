@@ -1,0 +1,19 @@
+{
+  "name": "comparison-sweep-5abc",
+  "description": "Implement items 5a, 5b, 5c for comparison sweep",
+  "createdAt": 1771007865163,
+  "leadAgentId": "team-lead@comparison-sweep-5abc",
+  "leadSessionId": "9ddd0c72-8209-47a7-ab36-9a24b47ef341",
+  "members": [
+    {
+      "agentId": "team-lead@comparison-sweep-5abc",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1771007865163,
+      "tmuxPaneId": "",
+      "cwd": "/Users/rch/repo/baton-axiomatic",
+      "subscriptions": []
+    }
+  ]
+}
