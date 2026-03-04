@@ -1,0 +1,22 @@
+[
+  {
+    "from": "mode-writer",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"8\",\"subject\":\"Write mode impl\",\"description\":\"Research dwallace0723/pymode on GitHub, then write impls/mode/config.yaml, axioms.dl, README.md. Mode Analytics API: base_url https://app.mode.com/api, auth type basic (token:password). Resources: account, report, query, collection, space. Read impls/tailscale/config.yaml for conventions.\",\"assignedBy\":\"mode-writer\",\"timestamp\":\"2026-03-02T02:47:03.167Z\"}",
+    "timestamp": "2026-03-02T02:47:03.171Z",
+    "color": "red",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "All done and pushed. Shutting down.",
+    "summary": "Final shutdown",
+    "timestamp": "2026-03-02T02:56:21.898Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772420206773@mode-writer\",\"from\":\"team-lead\",\"reason\":\"Done.\",\"timestamp\":\"2026-03-02T02:56:46.773Z\"}",
+    "timestamp": "2026-03-02T02:56:46.773Z",
+    "read": true
+  }
+]

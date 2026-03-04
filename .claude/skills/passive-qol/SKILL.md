@@ -52,12 +52,16 @@ The user has a vaporwave aesthetic. Suggestions should:
 ## User's Existing Setup
 
 Reference these before suggesting:
-- **Window management**: yabai + skhd (vim-style, bsp tiling, focus follows mouse)
+- **Window management**: PaperWM.spoon (Hammerspoon-based tiling WM, scrollable columns)
+- **Window dimming**: HazeOver (dims unfocused windows)
+- **Visual overlay**: VaporwaveOverlay.app (Metal shader on unfocused windows, auto-managed by battery state)
 - **Shell**: zsh with starship prompt, vaporwave colors throughout
-- **Status bar**: sketchybar with occult/esoteric items
+- **Status bar**: sketchybar (translucent, vaporwave colors, occult items + cpu/load/meeting)
 - **Widgets**: Ubersicht (I Ching, grimoire, pomodoro)
-- **Automation**: Hammerspoon, Karabiner-Elements
-- **Terminal**: iTerm2, Ghostty
+- **Automation**: Hammerspoon (PaperWM, alerts, wallpaper rotation, caffeine, pomodoro, vw auto-management)
+- **Terminal**: iTerm2 (primary, one window per agent), Ghostty (yazi auto-start)
+- **History**: atuin + fzf for search UI
+- **Replaced**: yabai, skhd (dead bindings, stopped) — PaperWM replaces the whole stack
 
 ## Good Suggestion Examples
 
