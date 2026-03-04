@@ -1,7 +1,7 @@
 . ~/.zprofile
 
 # Silence direnv (must be before hook)
-export DIRENV_LOG_FORMAT=
+export DIRENV_LOG_FORMAT=$'\e[38;5;243mdirenv: %s\e[0m'
 
 # Source secrets (tokens, API keys - not in git)
 [[ -f ~/.secrets ]] && source ~/.secrets
@@ -126,10 +126,13 @@ fi
 # === Starship prompt (must be in .zshrc, not .zprofile - needs zle) ===
 eval "$(starship init zsh)"
 
-# === Terminal title: dir + git branch ===
+# === Terminal title: last 2 dirs + git branch ===
+# Caches git state to avoid redundant git rev-parse calls
 _set_terminal_title() {
-  local title="${PWD/#$HOME/~}"
-  if git rev-parse --git-dir &>/dev/null 2>&1; then
+  local dir="${PWD/#$HOME/~}"
+  local title="${${dir%/*}:t}/${dir:t}"
+  [[ "$dir" == "~" || "$dir" == "/" ]] && title="$dir"
+  if [[ -n "$_git_dir" ]]; then
     local branch=$(git branch --show-current 2>/dev/null)
     [[ -n "$branch" ]] && title="$title [$branch]"
   fi
@@ -137,73 +140,47 @@ _set_terminal_title() {
 }
 precmd_functions+=(_set_terminal_title)
 
-# === Background git fetch on repo entry ===
-_auto_git_fetch() {
-  if git rev-parse --git-dir &>/dev/null 2>&1; then
-    local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
-    local fetch_marker="$git_root/.git/FETCH_HEAD"
-    # Only fetch if FETCH_HEAD is older than 10 minutes
-    if [[ ! -f "$fetch_marker" ]] || [[ $(find "$fetch_marker" -mmin +10 2>/dev/null) ]]; then
-      (git fetch --quiet --prune &) 2>/dev/null
-    fi
+# === Unified git context on directory entry ===
+# Single git rev-parse, all info gathered in one pass
+_git_dir=""
+_git_chpwd() {
+  _git_dir=$(git rev-parse --git-dir 2>/dev/null) || { _git_dir=""; return; }
+  local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+
+  # Background fetch (throttled to every 10 min)
+  local fetch_marker="$git_root/.git/FETCH_HEAD"
+  if [[ ! -f "$fetch_marker" ]] || [[ $(find "$fetch_marker" -mmin +10 2>/dev/null) ]]; then
+    (git fetch --quiet --prune &) 2>/dev/null
   fi
-}
-chpwd_functions+=(_auto_git_fetch)
 
-# === Show uncommitted changes age on repo entry ===
-_show_uncommitted_age() {
-  git rev-parse --git-dir &>/dev/null 2>&1 || return
-  local changed_files=$(git status --porcelain 2>/dev/null | head -1)
-  [[ -z "$changed_files" ]] && return
-  # Get oldest modified tracked file's age
-  local oldest_mtime=$(git status --porcelain 2>/dev/null | awk '{print $2}' | head -20 | xargs -I{} stat -f %m {} 2>/dev/null | sort -n | head -1)
-  [[ -z "$oldest_mtime" ]] && return
-  local now=$(date +%s)
-  local age=$((now - oldest_mtime))
-  local age_str
-  if (( age < 3600 )); then
-    age_str="$((age / 60))m ago"
-  elif (( age < 86400 )); then
-    age_str="$((age / 3600))h ago"
-  else
-    age_str="$((age / 86400))d ago"
-  fi
-  print -P "%F{243}uncommitted changes from $age_str%f"
-}
-chpwd_functions+=(_show_uncommitted_age)
-
-# === Show ahead/behind remote on repo entry ===
-_show_ahead_behind() {
-  git rev-parse --git-dir &>/dev/null 2>&1 || return
-  local upstream=$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null) || return
-  local ahead=$(git rev-list --count @{upstream}..HEAD 2>/dev/null)
-  local behind=$(git rev-list --count HEAD..@{upstream} 2>/dev/null)
-  local output=""
-  (( ahead > 0 )) && output="$ahead ahead"
-  (( behind > 0 )) && output="${output:+$output, }$behind behind"
-  [[ -n "$output" ]] && print -P "%F{243}$output $upstream%f"
-}
-chpwd_functions+=(_show_ahead_behind)
-
-# === Show last commit age on repo entry ===
-_show_last_commit_age() {
-  git rev-parse --git-dir &>/dev/null 2>&1 || return
-  local age=$(git log -1 --format=%cr 2>/dev/null)
-  [[ -n "$age" ]] && print -P "%F{243}last commit $age%f"
-}
-chpwd_functions+=(_show_last_commit_age)
-
-# === Show branch age on repo entry ===
-_show_branch_age() {
-  git rev-parse --git-dir &>/dev/null 2>&1 || return
+  # Gather info in one shot
   local branch=$(git branch --show-current 2>/dev/null)
-  [[ -z "$branch" || "$branch" == "main" || "$branch" == "master" ]] && return
-  # Find merge-base with main or master
-  local base=$(git merge-base main HEAD 2>/dev/null || git merge-base master HEAD 2>/dev/null) || return
-  local age=$(git log -1 --format=%cr "$base" 2>/dev/null)
-  [[ -n "$age" ]] && print -P "%F{243}branch started $age%f"
+  local commit_age=$(git log -1 --format=%cr 2>/dev/null)
+  local ahead=0 behind=0
+  if git rev-parse --abbrev-ref @{upstream} &>/dev/null; then
+    ahead=$(git rev-list --count @{upstream}..HEAD 2>/dev/null)
+    behind=$(git rev-list --count HEAD..@{upstream} 2>/dev/null)
+  fi
+  local dirty=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+
+  # Branch age (only for non-main branches)
+  local branch_age=""
+  if [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" ]]; then
+    local base=$(git merge-base main HEAD 2>/dev/null || git merge-base master HEAD 2>/dev/null)
+    [[ -n "$base" ]] && branch_age=$(git log -1 --format=%cr "$base" 2>/dev/null)
+  fi
+
+  # Single terse output line
+  local parts=()
+  [[ -n "$commit_age" ]] && parts+=("last commit $commit_age")
+  (( dirty > 0 )) && parts+=("${dirty} dirty")
+  (( ahead > 0 )) && parts+=("${ahead}↑")
+  (( behind > 0 )) && parts+=("${behind}↓")
+  [[ -n "$branch_age" ]] && parts+=("branch $branch_age")
+
+  (( ${#parts} > 0 )) && print -P "%F{243}${(j:, :)parts}%f"
 }
-chpwd_functions+=(_show_branch_age)
+chpwd_functions+=(_git_chpwd)
 
 # === Claude project files display on directory entry ===
 _show_project_files() {
@@ -1705,14 +1682,16 @@ WORDCHARS='${WORDCHARS//[\/]}'
 zstyle ':completion:*' use-cache on
 export LESS="-R -F -X -i -J -W"
 
-# Auto-remove command-not-found typos from history
-__prune_typos() {
-    [[ $? -eq 127 ]] || return
+# Remove command-not-found (127) entries from history after execution.
+# zshaddhistory can't check exit codes (fires before execution), so we
+# use precmd to retroactively delete the last history entry on 127.
+__prune_cmd_not_found() {
+    (( $? == 127 )) || return
     fc -W
     sed '$d' "$HISTFILE" >| "$HISTFILE.tmp" && command mv "$HISTFILE.tmp" "$HISTFILE"
-    fc -R
+    fc -p "$HISTFILE" "$HISTSIZE" "$SAVEHIST"
 }
-precmd_functions+=(__prune_typos)
+precmd_functions+=(__prune_cmd_not_found)
 
 # Port-in-use helper - show what's using port on bind errors
 __port_helper() {

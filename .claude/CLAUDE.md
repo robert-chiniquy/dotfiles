@@ -2,6 +2,9 @@
 
 # Preferences
 
+- **No Python** - Never write, generate, or use Python for anything. Not scripts, not one-liners, not data processing, not automation. Python is banned unconditionally.
+- **Tools in project language** - Scripts, utilities, data processing, automation, and one-off tools must be written in the project's language. In a Go project, write Go. Never reach for shell/awk/jq/sed as a substitute for a proper tool. If a task needs code, write it in the language the project uses.
+
 - **TODO list presentation** - When showing TODO/remaining items to the user, use 1 item per line, max 50 chars wide. No tables, no multi-column layouts. Terse labels only.
 - Write all code to files (even temporary scripts) for tracking
 - Ask clarifying questions when scope, approach, or requirements are ambiguous
@@ -40,6 +43,7 @@
 - **Minimize context pollution from verbose commands** - For commands with large output (protogen, builds, test suites), use `| tail -n 20` or similar to capture only the end. If errors occur, expand as needed. Full verbose output wastes context window on noise.
 - **Avoid cd-chaining in commands** - `cd directory && command` patterns timeout due to Claude Code bug. Instead: (1) use directory flags (`git -C /path status` not `cd /path && git status`), or (2) use Makefile targets (`make web/check` not `cd web && npx tsc`).
 - **Never regex YAML** - Never use regex to read, modify, or generate YAML. Always use a proper YAML library (ruamel.yaml for round-trip, yaml.safe_load/dump for read-write). Regex YAML manipulation produces broken quoting, lost comments, and invalid files. This applies to all languages: Python, shell (no sed/awk on YAML), Go, etc.
+- **Structure-aware tools for structured data** - When reading, writing, or transforming structured data, always use a parser that understands the format. JSON needs `jq` or a JSON library, not grep. XML needs an XML parser, not regex. SQL needs a query builder or parser, not string concatenation. Protobuf needs proto libraries, not text manipulation. CSV needs a CSV parser that handles quoting, not `cut`/`awk`. The structure IS the data — tools that ignore structure will silently corrupt it. This generalizes the "never regex YAML" rule to all structured formats.
 - **Checkpoint commits** - Create proactively when meaningful work completes or before major changes. Include all related changes (don't micro-commit). For phased work, commit at each phase boundary with phase number in message.
 - **Never commit generated binaries** - If your work produces compiled binaries (via build tools, compilers, etc.), ensure they are listed in `.gitignore`. Never commit binaries to a repo. Check `.gitignore` before finishing and add an entry if the binary path is not already covered.
 - **Automate browser testing with Chrome tools** - When the Claude Chrome extension is connected, use the `mcp__claude-in-chrome__*` tools to automate browser interactions directly. Never tell the user to manually click, type, or navigate in the browser when automation is available. Take screenshots to verify UI state. If Chrome tools become disconnected, inform the user they need to restart Claude Code with `--chrome`.
@@ -69,6 +73,8 @@ Write tests that catch real bugs, not tests that merely exercise code paths:
 - **Test boundaries, not glue** - Focus tests on: input validation, edge cases, error handling, state transitions, integration points. Skip testing: simple delegation, trivial getters/setters, framework behavior.
 - **Name tests by what breaks** - Test names should describe the failure scenario: `TestRejectsEmptyInput`, `TestHandlesTimeoutGracefully`, not `TestProcessInput` or `TestHappyPath`.
 - **Bug reports require both fix and test** - When a bug or regression is reported, the fix must include a regression test that would have caught it. A bug report should always result in: (1) a fix, and (2) a test proving the fix works and preventing recurrence. Fixes without tests are incomplete.
+- **Never weaken a test to hide a bug** - The purpose of testing is to find bugs. If a test fails, fix the code, not the test. Never simplify assertions, loosen tolerances, remove cases, or reduce coverage to make a failing test pass. A test that once caught a real problem and was weakened to stop catching it is worse than no test at all -- it provides false confidence.
+- **Never write throwaway debug tests** - When investigating a bug, write the debug/investigation test as a proper regression test from the start. Name it descriptively, assert the correct behavior, and commit it. Tests are monotonically increasing: every investigation that reveals a bug boundary becomes a permanent test protecting against recurrence. "Debug test -> delete" wastes the discovery. "Debug test -> regression test" compounds value.
 
 ## Reading Unstructured Notes
 
@@ -133,9 +139,11 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 - **"Make me look good" = accuracy** - Ensure nothing omitted, frame in context, clear structure. NOT superlatives or promotion.
 - **No titles in configs** - Never reference CEO, CTO, etc. in technical configuration files.
 - **Banned phrases in writing** - Never use "key insight" in any output. The author is a hacker, not an academic. Prefer showing why something matters over labeling it as important.
+- **PR descriptions for own repos** - When creating PRs against repos the user created, use casual-slack-tone: conversational, first-person, correct punctuation and capitalization but informal register. Explain what was there before, what changed, why. No corporate PR-speak. For PRs against other people's repos, use standard dry-witted-engineering tone.
 
 ## Code Verification
 - **Verify, don't assume** - Never assume terms mean what you expect - verify against source. Never cite line numbers without current-session verification. Never describe API behavior from memory - read implementation. Never fabricate exit codes, version numbers, or technical contracts. Implementation is ground truth.
+- **We do not grep code** - Never use grep/rg to understand or navigate code. Use the dedicated tools (Read, Glob, Grep tool) or read the files directly. Don't shell out to grep as a substitute for reading and understanding code.
 
 ## Information Security
 - **Never copy verbatim** - When given private/proprietary inputs (internal docs, tickets, Slack), always rephrase. Names especially should never be propagated.
@@ -147,11 +155,13 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 - (See also Permissions section for: commits require approval, branch naming)
 
 ## Skills Application
-- Claude MUST apply skills/project-process/SKILL.md for all projects (read referenced files on demand; DATA_SOURCES.md tracking is mandatory).
+- **Catalog**: See `~/.claude/CATALOG.md` for the full skill index with categories.
+- **Always active**: skills/project-process/SKILL.md (all projects), skills/dry-witted-engineering/SKILL.md (all output), skills/passive-qol/SKILL.md (dotfiles/shell/system work).
 - Claude MUST read and internalize skills/project-process/references/proverbs.md as guiding principles.
-- For architectural decisions: skills/structural-constraints/SKILL.md (compile-time safety over runtime checks).
-- For design work, apply: skills/systematic-feature-design/SKILL.md, skills/socratic-discovery/SKILL.md, skills/rigorous-critique/SKILL.md, skills/complete-developer-experience/SKILL.md.
-- **Proactively apply skills/passive-qol/SKILL.md** when in dotfiles, shell, or system config.
+- **git workflows**: Before creating PRs, run skills/git-final-pass. Use skills/git-create-pr for the full PR workflow. Use skills/git-reset-workspace for cleanup.
+- **Design work**: skills/systematic-feature-design, skills/socratic-discovery, skills/rigorous-critique, skills/complete-developer-experience.
+- **Architecture**: skills/structural-constraints (compile-time safety over runtime checks).
+- **Every skill with a Common Mistakes section**: read it before doing work in that domain. Mistakes are encoded from real review feedback — they're the highest-value content.
 
 ## Knowledge Management
 - **Recursive data source investigation** - When a project references other projects/data sources, investigate recursively. List in DATA_SOURCES.md.
@@ -165,7 +175,10 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 - Read-only operations in cwd (ls, cat, grep, git status, etc.) do not require approval
 - Full read permission on everything under /Users/rch/repo/ - no need to ask before viewing files
 - When considering if a shell command should require permission to run, consider every binary invoked for each subprocess or pipe, and also consider if each command is known to be read-only.
-- **Delegate build and test tasks to Haiku** - Always delegate build and test tasks to Haiku via the Task tool (`subagent_type: "general-purpose"`, `model: "haiku"`). Never run build/test commands directly in the main chat.
+- **Delegate build, test, and git tasks to Haiku** - Always delegate build, test, and git commands to Haiku via the Task tool (`subagent_type: "general-purpose"`, `model: "haiku"`). Never run build/test/git commands directly in the main chat. This includes `go build`, `go test`, `make`, `git add`, `git commit`, `git status`, `git diff`, `git log`, and any other build/test/git operations. If tests fail under Haiku, retry once in Opus (`model: "sonnet"` or default) to diagnose — but prefer Haiku for the first pass. The only exception is if the user explicitly instructs otherwise.
+- **Never use Haiku for tests expected to fail** - When running tests to diagnose a bug, verify a failure mode, or confirm a regression, always use Opus (default model). Haiku misinterprets failures, fabricates explanations, and obscures the actual error. Haiku is only appropriate for tests expected to pass (green-path verification).
+- **Never delegate git push to Haiku** - `git push` must always run in the main chat (Opus), never via a Haiku subagent. Haiku will fabricate code changes to satisfy pre-push hooks rather than report failures. Push from main context only.
+- **Haiku must never change code** - Every time a task is delegated to Haiku, the prompt MUST explicitly instruct it to NEVER change code and ONLY perform the specific activity requested (build, test, git operation). Haiku will proactively "fix" code if not told otherwise, fabricating changes that look plausible but break things. Always include "Do NOT modify any files" or equivalent in the Haiku prompt.
 - NEVER delete files without explicit user permission. Deletion is lossy and irreversible. Always ask before removing files, even if they appear redundant or superseded.
 - **Sanitization is deletion** - Modifying file content to remove or replace information (e.g., replacing paths, removing names, redacting data) is a form of deletion. Always ask before sanitizing files, even when a report recommends it. Reports identify what COULD be done; user approval determines what WILL be done.
 - **Be responsible when killing processes** - Before killing a process on a port, first identify what process it is (using `lsof -i :PORT` or similar). Only kill if it's clearly a stale/orphaned process from this project. If it's an unknown process or belongs to another project, ask the user before killing.

@@ -1,0 +1,22 @@
+[
+  {
+    "from": "rippling-writer",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"7\",\"subject\":\"Write rippling impl\",\"description\":\"Research stellaraf/go-rippling on GitHub, then write impls/rippling/config.yaml, axioms.dl, README.md. Rippling API: base_url https://api.rippling.com/platform/api, auth type bearer. Resources: employee, company, group, department, work_location. Read impls/tailscale/config.yaml for conventions.\",\"assignedBy\":\"rippling-writer\",\"timestamp\":\"2026-03-02T02:47:04.184Z\"}",
+    "timestamp": "2026-03-02T02:47:04.184Z",
+    "color": "cyan",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "All done and pushed. Shutting down.",
+    "summary": "Final shutdown",
+    "timestamp": "2026-03-02T02:56:21.898Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772420205979@rippling-writer\",\"from\":\"team-lead\",\"reason\":\"Done.\",\"timestamp\":\"2026-03-02T02:56:45.979Z\"}",
+    "timestamp": "2026-03-02T02:56:45.979Z",
+    "read": true
+  }
+]

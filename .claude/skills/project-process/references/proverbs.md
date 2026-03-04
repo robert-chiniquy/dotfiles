@@ -209,3 +209,9 @@ When your INBOX is empty and assignments are complete, there is still work. Docu
 ## Delegation
 
 Learn to delegate. You have agents waiting for instructions.
+
+---
+
+## It is always worthwhile to track down the causes of explosions.
+
+When an e-graph, search space, or combinatorial process explodes, don't route around it. Find the root cause. Explosions are symptoms of structural problems -- wrong axioms, missing constraints, shared operators that should be separated, or congruence rules that propagate too eagerly. The fix is always more illuminating than the workaround, and the workaround always comes back to bite you.

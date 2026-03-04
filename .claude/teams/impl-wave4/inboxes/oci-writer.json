@@ -1,0 +1,28 @@
+[
+  {
+    "from": "oci-writer",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"2\",\"subject\":\"Write oracle_cloud impl\",\"description\":\"Research oracle/oci-go-sdk on GitHub (focus on identity and compute packages), then write impls/oracle_cloud/config.yaml, axioms.dl, README.md. OCI API: base_url https://INSTANCE, auth type api_key (OCI uses request signing, model as api_key). Focus on core resources: compartment, instance, vcn, subnet, user, group. Read impls/vultr/config.yaml for cloud compute conventions.\",\"assignedBy\":\"oci-writer\",\"timestamp\":\"2026-03-02T02:47:18.199Z\"}",
+    "timestamp": "2026-03-02T02:47:18.199Z",
+    "color": "green",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "All done and pushed. Shutting down.",
+    "summary": "Final shutdown",
+    "timestamp": "2026-03-02T02:56:21.896Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772420203295@oci-writer\",\"from\":\"team-lead\",\"reason\":\"Done.\",\"timestamp\":\"2026-03-02T02:56:43.295Z\"}",
+    "timestamp": "2026-03-02T02:56:43.295Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772428408800@oci-writer\",\"from\":\"team-lead\",\"reason\":\"Shut down now.\",\"timestamp\":\"2026-03-02T05:13:28.800Z\"}",
+    "timestamp": "2026-03-02T05:13:28.800Z",
+    "read": false
+  }
+]

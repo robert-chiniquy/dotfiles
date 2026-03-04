@@ -1,0 +1,22 @@
+[
+  {
+    "from": "openvpn-writer",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"1\",\"subject\":\"Write openvpn impl\",\"description\":\"Research OpenVPN/cloudconnexa-go-client on GitHub, then write impls/openvpn/config.yaml, axioms.dl, README.md. CloudConnexa API: base_url https://INSTANCE/api/beta, auth type bearer (OAuth2). Resources: network, connector, user, user_group, host, dns_record. Read impls/tailscale/config.yaml for VPN/network conventions.\",\"assignedBy\":\"openvpn-writer\",\"timestamp\":\"2026-03-02T02:46:43.896Z\"}",
+    "timestamp": "2026-03-02T02:46:43.896Z",
+    "color": "blue",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "All done and pushed. Shutting down.",
+    "summary": "Final shutdown",
+    "timestamp": "2026-03-02T02:56:21.504Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772420202689@openvpn-writer\",\"from\":\"team-lead\",\"reason\":\"Done.\",\"timestamp\":\"2026-03-02T02:56:42.689Z\"}",
+    "timestamp": "2026-03-02T02:56:42.689Z",
+    "read": true
+  }
+]

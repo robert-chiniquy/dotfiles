@@ -1,0 +1,22 @@
+[
+  {
+    "from": "retool-writer",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"3\",\"subject\":\"Write retool impl\",\"description\":\"Research tryretool/terraform-provider-retool on GitHub, then write impls/retool/config.yaml, axioms.dl, README.md. Retool API: base_url https://INSTANCE/api, auth type bearer. Resources: folder, app, space, group, permission. Read impls/tailscale/config.yaml for conventions.\",\"assignedBy\":\"retool-writer\",\"timestamp\":\"2026-03-02T02:47:00.673Z\"}",
+    "timestamp": "2026-03-02T02:47:00.673Z",
+    "color": "yellow",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "All done and pushed. Shutting down.",
+    "summary": "Final shutdown",
+    "timestamp": "2026-03-02T02:56:21.896Z",
+    "read": true
+  },
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"shutdown_request\",\"requestId\":\"shutdown-1772420204143@retool-writer\",\"from\":\"team-lead\",\"reason\":\"Done.\",\"timestamp\":\"2026-03-02T02:56:44.143Z\"}",
+    "timestamp": "2026-03-02T02:56:44.143Z",
+    "read": true
+  }
+]

@@ -178,7 +178,7 @@ class ShaderRenderer: NSObject, MTKViewDelegate {
     func updateOpacity() {
         guard let window = overlayWindow else { return }
         // At 30 FPS: 0.001 per frame = 1000 frames = ~33 seconds to full opacity
-        let fadeInSpeed: Float = isFullscreenCapture ? 0.001 : 0.008
+        let fadeInSpeed: Float = isFullscreenCapture ? 0.001 : 0.08
         let fadeOutSpeed: Float = 0.05
 
         if window.currentOpacity < window.targetOpacity {
@@ -344,7 +344,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         updateOverlays()
 
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             self?.updateOverlays()
         }
 
@@ -475,25 +475,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func appDidActivate(_ notification: Notification) {
         debugLog("App activated - updating overlays")
-        startTransition()
-
-        // Reset animation time on all overlays so rays start fresh
-        let now = CFAbsoluteTimeGetCurrent()
-        for (_, overlay) in overlayWindows {
-            overlay.renderer?.animationStartTime = now
-        }
-
-        // Fade out ALL overlays immediately - updateOverlays will revive the correct ones
-        // This prevents the focused window from ever having an overlay during transition
-        for (_, overlay) in overlayWindows {
-            overlay.targetOpacity = 0.0
-            overlay.isFadingOut = true
-        }
-
-        // Short delay, then full update (which will revive non-focused window overlays)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.updateOverlays()
-        }
+        // No transition state — just update immediately
+        // updateOverlays will fade out the focused window's overlay
+        // and keep/create overlays for unfocused windows
+        updateOverlays()
     }
 
     func getWindowList() -> [WindowInfo] {
@@ -549,6 +534,80 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func getFrontmostPID() -> pid_t {
         return NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+    }
+
+    func getFocusedWindowID() -> CGWindowID? {
+        let frontPID = getFrontmostPID()
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return nil
+        }
+        guard let primaryScreen = NSScreen.screens.first else { return nil }
+        let primaryHeight = primaryScreen.frame.height
+
+        // Use mouse position to determine which screen the user is on
+        // This disambiguates same-app windows across displays
+        let mouseLocation = NSEvent.mouseLocation  // Cocoa coords (origin bottom-left)
+
+        // Find which screen the mouse is on
+        var mouseScreenFrame: CGRect? = nil
+        for screen in NSScreen.screens {
+            if screen.frame.contains(mouseLocation) {
+                mouseScreenFrame = screen.frame
+                break
+            }
+        }
+
+        // First pass: find frontmost app window on the mouse's screen (z-order)
+        for windowDict in windowList {
+            guard let ownerPID = windowDict[kCGWindowOwnerPID as String] as? pid_t,
+                  let windowID = windowDict[kCGWindowNumber as String] as? CGWindowID,
+                  let boundsDict = windowDict[kCGWindowBounds as String] as? [String: CGFloat] else {
+                continue
+            }
+            if ownerPID != frontPID { continue }
+            let layer = windowDict[kCGWindowLayer as String] as? Int ?? 0
+            if layer != 0 { continue }
+            let ownerName = windowDict[kCGWindowOwnerName as String] as? String ?? ""
+            if excludedApps.contains(ownerName) { continue }
+            if ownerName == "vaporwave-overlay" { continue }
+            let w = boundsDict["Width"] ?? 0
+            let h = boundsDict["Height"] ?? 0
+            if w <= 100 || h <= 100 { continue }
+
+            // Check if this window is on the same screen as the mouse
+            if let msf = mouseScreenFrame {
+                let x = boundsDict["X"] ?? 0
+                let y = boundsDict["Y"] ?? 0
+                // Convert CG coords (origin top-left) to Cocoa (origin bottom-left)
+                let cocoaY = primaryHeight - y - h
+                let windowCenter = CGPoint(x: x + w / 2, y: cocoaY + h / 2)
+                if msf.contains(windowCenter) {
+                    return windowID
+                }
+            }
+        }
+
+        // Fallback: first big window in z-order regardless of screen
+        for windowDict in windowList {
+            guard let ownerPID = windowDict[kCGWindowOwnerPID as String] as? pid_t,
+                  let windowID = windowDict[kCGWindowNumber as String] as? CGWindowID,
+                  let boundsDict = windowDict[kCGWindowBounds as String] as? [String: CGFloat] else {
+                continue
+            }
+            if ownerPID != frontPID { continue }
+            let layer = windowDict[kCGWindowLayer as String] as? Int ?? 0
+            if layer != 0 { continue }
+            let ownerName = windowDict[kCGWindowOwnerName as String] as? String ?? ""
+            if excludedApps.contains(ownerName) { continue }
+            if ownerName == "vaporwave-overlay" { continue }
+            let w = boundsDict["Width"] ?? 0
+            let h = boundsDict["Height"] ?? 0
+            if w > 100 && h > 100 {
+                return windowID
+            }
+        }
+        return nil
     }
 
     func getActiveScreenIndex() -> Int? {
@@ -625,27 +684,63 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard !NSScreen.screens.isEmpty else { return }
 
         let frontPID = getFrontmostPID()
-        let activeScreenIndex = getActiveScreenIndex()  // Screen with focused window
         let windows = getWindowList()
+        let focusedWindowID = getFocusedWindowID()
 
-        debugLog("Active screen: \(activeScreenIndex ?? -1), frontPID: \(frontPID)")
+        // Find focused window's frame to use as exclusion zone
+        var focusedFrame: CGRect? = nil
+        for win in windows {
+            if let fwID = focusedWindowID, win.id == fwID {
+                focusedFrame = win.frame
+                break
+            }
+        }
+
+        debugLog("focusedWindow: \(focusedWindowID ?? 0), frontPID: \(frontPID), focusedFrame: \(focusedFrame?.debugDescription ?? "nil")")
 
         var targetIDs: Set<CGWindowID> = []
         var windowFrames: [CGWindowID: CGRect] = [:]
 
-        for win in windows {
-            // Skip windows from the frontmost app (by PID)
-            if win.ownerPID == frontPID { continue }
-            // CRITICAL: Skip ALL windows on the active screen (where user is focused)
-            if let activeIdx = activeScreenIndex,
-               let winScreenIdx = getScreenIndexForWindow(win.frame),
-               winScreenIdx == activeIdx {
-                continue
+        // No focused window = fullscreen app, don't overlay anything
+        if focusedWindowID == nil || focusedFrame == nil {
+            // Fade out existing overlays
+            for (_, overlay) in overlayWindows {
+                overlay.targetOpacity = 0.0
+                overlay.isFadingOut = true
             }
+            return
+        }
+
+        for win in windows {
+            // Skip the focused window itself
+            if let fwID = focusedWindowID, win.id == fwID { continue }
             if win.frame.width <= 0 || win.frame.height <= 0 { continue }
             if win.frame.origin.x.isNaN || win.frame.origin.y.isNaN { continue }
+
+            // Clip overlay frame to exclude the focused window's area
+            // Only show overlay on the portion that doesn't overlap the focused window
+            var frame = win.frame
+            if let ff = focusedFrame, frame.intersects(ff) {
+                // Unfocused window is partially behind focused window
+                // Show overlay only on the visible strip (left or right peek)
+                if frame.minX < ff.minX {
+                    // Peeks out on the left
+                    frame = CGRect(x: frame.minX, y: frame.minY,
+                                   width: ff.minX - frame.minX, height: frame.height)
+                } else if frame.maxX > ff.maxX {
+                    // Peeks out on the right
+                    frame = CGRect(x: ff.maxX, y: frame.minY,
+                                   width: frame.maxX - ff.maxX, height: frame.height)
+                } else {
+                    // Completely behind focused window — skip
+                    continue
+                }
+                // Skip if clipped region is too narrow
+                if frame.width < 20 { continue }
+            }
+
             targetIDs.insert(win.id)
-            windowFrames[win.id] = win.frame
+            windowFrames[win.id] = frame
         }
 
         let currentIDs = Set(overlayWindows.keys)
@@ -662,11 +757,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Immediately remove overlay from focused window
+        if let fwID = focusedWindowID, let overlay = overlayWindows[fwID] {
+            overlay.cleanup()
+            overlay.orderOut(nil)
+            overlayWindows.removeValue(forKey: fwID)
+        }
+
         for windowID in toRemove {
             if let overlay = overlayWindows[windowID] {
-                // Start fade out instead of immediate removal
-                overlay.targetOpacity = 0.0
-                overlay.isFadingOut = true
+                // Instant removal — no fade, just gone
+                overlay.cleanup()
+                overlay.orderOut(nil)
+                overlayWindows.removeValue(forKey: windowID)
             }
         }
 
@@ -686,19 +789,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Limit overlays for debugging
-        // IMPORTANT: Don't create new overlays during transitions to avoid flashing
         var created = 0
-        if !isInTransition {
-            for windowID in toAdd {
-                if created >= 10 { break }
-                guard let frame = windowFrames[windowID] else { continue }
+        for windowID in toAdd {
+            if created >= 10 { break }
+            guard let frame = windowFrames[windowID] else { continue }
                 createOverlay(windowID: windowID, frame: frame, device: resources.device)
                 created += 1
             }
-        }
 
-        debugLog("Overlays: \(overlayWindows.count), removed: \(toRemove.count), added: \(created), updated: \(toUpdate.count), inTransition: \(isInTransition), activeScreen: \(activeScreenIndex ?? -1)")
+        debugLog("Overlays: \(overlayWindows.count), removed: \(toRemove.count), added: \(created), updated: \(toUpdate.count), focused: \(focusedWindowID ?? 0)")
     }
 
     func createOverlay(windowID: CGWindowID, frame: CGRect, device: MTLDevice) {
@@ -713,7 +812,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mtkView.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         mtkView.colorPixelFormat = .bgra8Unorm
         mtkView.framebufferOnly = true
-        mtkView.preferredFramesPerSecond = 5
+        mtkView.preferredFramesPerSecond = 15
         mtkView.autoresizingMask = [.width, .height]
 
         // Configure the CAMetalLayer for transparency

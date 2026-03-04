@@ -21,6 +21,151 @@ hs.alert.defaultStyle.textColor = {red = 0.36, green = 0.93, blue = 1, alpha = 1
 hs.alert.defaultStyle.textFont = ".AppleSystemUIFont"
 hs.alert.defaultStyle.textSize = 16
 hs.alert.defaultStyle.radius = 10
+hs.alert.defaultStyle.fadeInDuration = 0.1
+hs.alert.defaultStyle.fadeOutDuration = 0.3
+hs.alert.defaultStyle.atScreenEdge = 0
+hs.alert.defaultStyle.strokeWidth = 0
+
+-- All alerts auto-dismiss in 1.5s
+local _origAlert = hs.alert.show
+hs.alert.show = function(msg, style, screen, duration)
+    return _origAlert(msg, style, screen, duration or 1.5)
+end
+
+-- PaperWM tiling window manager
+PaperWM = hs.loadSpoon("PaperWM")
+PaperWM.window_gap = 8
+PaperWM.external_bar = {top = 80}
+PaperWM.swipe_fingers = 4
+PaperWM.center_mouse = false
+
+-- Exclude non-tiling apps from PaperWM
+PaperWM.window_filter:rejectApp("System Settings")
+PaperWM.window_filter:rejectApp("System Preferences")
+PaperWM.window_filter:rejectApp("Archive Utility")
+PaperWM.window_filter:rejectApp("Calculator")
+PaperWM.window_filter:rejectApp("Finder")
+
+PaperWM:bindHotkeys({
+    -- Focus navigation: cmd+ctrl + arrows
+    focus_left  = {{"cmd", "ctrl"}, "left"},
+    focus_right = {{"cmd", "ctrl"}, "right"},
+    focus_up    = {{"cmd", "ctrl"}, "up"},
+    focus_down  = {{"cmd", "ctrl"}, "down"},
+
+    -- Swap windows: cmd+ctrl+shift + arrows
+    swap_left  = {{"cmd", "ctrl", "shift"}, "left"},
+    swap_right = {{"cmd", "ctrl", "shift"}, "right"},
+    swap_up    = {{"cmd", "ctrl", "shift"}, "up"},
+    swap_down  = {{"cmd", "ctrl", "shift"}, "down"},
+
+    -- Sizing: center, full width, cycle width
+    center_window = {{"cmd", "ctrl"}, "c"},
+    full_width    = {{"cmd", "ctrl"}, "m"},
+    cycle_width   = {{"cmd", "ctrl"}, "="},
+
+    -- Column stacking: slurp into left column / barf out to own column
+    slurp_in = {{"cmd", "ctrl"}, "i"},
+    barf_out = {{"cmd", "ctrl"}, "o"},
+
+    -- Retile all windows (fix dragging mess)
+    refresh_windows = {{"cmd", "ctrl"}, "-"},
+
+    -- Float toggle
+    toggle_floating = {{"cmd", "ctrl"}, "t"},
+
+    -- Switch spaces: cmd+ctrl + 1-9
+    switch_space_1 = {{"cmd", "ctrl"}, "1"},
+    switch_space_2 = {{"cmd", "ctrl"}, "2"},
+    switch_space_3 = {{"cmd", "ctrl"}, "3"},
+    switch_space_4 = {{"cmd", "ctrl"}, "4"},
+    switch_space_5 = {{"cmd", "ctrl"}, "5"},
+    switch_space_6 = {{"cmd", "ctrl"}, "6"},
+    switch_space_7 = {{"cmd", "ctrl"}, "7"},
+    switch_space_8 = {{"cmd", "ctrl"}, "8"},
+    switch_space_9 = {{"cmd", "ctrl"}, "9"},
+
+    -- Move window to space: cmd+ctrl+shift + 1-9
+    move_window_1 = {{"cmd", "ctrl", "shift"}, "1"},
+    move_window_2 = {{"cmd", "ctrl", "shift"}, "2"},
+    move_window_3 = {{"cmd", "ctrl", "shift"}, "3"},
+    move_window_4 = {{"cmd", "ctrl", "shift"}, "4"},
+    move_window_5 = {{"cmd", "ctrl", "shift"}, "5"},
+    move_window_6 = {{"cmd", "ctrl", "shift"}, "6"},
+    move_window_7 = {{"cmd", "ctrl", "shift"}, "7"},
+    move_window_8 = {{"cmd", "ctrl", "shift"}, "8"},
+    move_window_9 = {{"cmd", "ctrl", "shift"}, "9"},
+})
+PaperWM:start()
+
+
+-- Auto-slurp: new windows from the same app get stacked into one column
+-- Waits 2s after startup to avoid slurping everything on reload
+local autoSlurpReady = false
+hs.timer.doAfter(2, function() autoSlurpReady = true end)
+
+local autoSlurpWatcher = hs.window.filter.new():setDefaultFilter()
+autoSlurpWatcher:subscribe(hs.window.filter.windowVisible, function(newWin)
+    if not autoSlurpReady then return end
+    if not newWin or not newWin:isStandard() then return end
+    local newApp = newWin:application()
+    if not newApp then return end
+    local newAppName = newApp:name()
+
+    -- Skip apps that PaperWM doesn't tile
+    local skipApps = {
+        ["System Settings"] = true, ["System Preferences"] = true,
+        ["Archive Utility"] = true, ["Calculator"] = true, ["Finder"] = true,
+    }
+    if skipApps[newAppName] then return end
+
+    -- Wait for PaperWM to tile the new window into its own column
+    hs.timer.doAfter(0.6, function()
+        local newIndex = PaperWM.state.windowIndex(newWin)
+        if not newIndex then return end
+
+        -- Find the column containing a same-app window
+        local columns = PaperWM.state.windowList(newIndex.space)
+        if not columns then return end
+
+        local targetCol = nil
+        for col = 1, #columns do
+            if col ~= newIndex.col then
+                local column = columns[col]
+                for row = 1, #column do
+                    local existingWin = column[row]
+                    local existingApp = existingWin and existingWin:application()
+                    if existingApp and existingApp:name() == newAppName then
+                        targetCol = col
+                        break
+                    end
+                end
+                if targetCol then break end
+            end
+        end
+
+        if not targetCol then return end
+
+        -- Re-fetch index (may have shifted)
+        newIndex = PaperWM.state.windowIndex(newWin)
+        if not newIndex then return end
+
+        -- Move: remove from current column, append to target column
+        local srcColumn = PaperWM.state.windowList(newIndex.space, newIndex.col)
+        local dstColumn = PaperWM.state.windowList(newIndex.space, targetCol)
+        if not srcColumn or not dstColumn then return end
+
+        -- Remove from source
+        local removed = table.remove(srcColumn, newIndex.row)
+        if not removed then return end
+
+        -- Append to target
+        table.insert(dstColumn, removed)
+
+        -- Re-tile the space
+        PaperWM:tileSpace(newIndex.space)
+    end)
+end)
 
 -- Apps to exclude from focus follows mouse
 excludedApps = {
@@ -68,9 +213,12 @@ local function focusWindowUnderMouse()
     end
 end
 
--- Debounced focus - only change focus if mouse stays over window for a bit
+-- Debounced focus - only change focus if mouse stays over window for 0.3s
+-- Timer runs at 0.15s intervals; debounce counts actual elapsed ticks
+local FFM_INTERVAL = 0.5
+local FFM_DWELL = 0.3
 lastMouseWindow = nil
-mouseHoverTime = 0
+mouseHoverTicks = 0
 
 local function focusWithDebounce()
     local mousePos = hs.mouse.absolutePosition()
@@ -88,24 +236,25 @@ local function focusWithDebounce()
     end
 
     if windowUnderMouse == lastMouseWindow then
-        mouseHoverTime = mouseHoverTime + 0.1
+        mouseHoverTicks = mouseHoverTicks + 1
     else
         lastMouseWindow = windowUnderMouse
-        mouseHoverTime = 0
+        mouseHoverTicks = 0
     end
 
-    -- Only call focus after hovering 0.3 seconds
-    if mouseHoverTime >= 0.3 then
+    -- Focus after dwelling FFM_DWELL seconds (ticks * interval)
+    if mouseHoverTicks * FFM_INTERVAL >= FFM_DWELL then
         focusWindowUnderMouse()
-        mouseHoverTime = 0
+        mouseHoverTicks = 0
     end
 end
 
-focusFollowsMouse = hs.timer.new(1, focusWithDebounce)
-focusFollowsMouse:start()
+focusFollowsMouse = hs.timer.new(FFM_INTERVAL, focusWithDebounce)
+-- FFM disabled by default — fights PaperWM's tiling/scrolling
+-- Toggle with cmd+ctrl+f if you want it back per-session
 
 -- Toggle focus follows mouse (cmd+ctrl+f)
-focusFollowsMouseEnabled = true
+focusFollowsMouseEnabled = false
 hs.hotkey.bind({"cmd", "ctrl"}, "f", function()
     focusFollowsMouseEnabled = not focusFollowsMouseEnabled
     if focusFollowsMouseEnabled then
@@ -117,45 +266,11 @@ hs.hotkey.bind({"cmd", "ctrl"}, "f", function()
     end
 end)
 
--- Window snapping (backup hotkeys, skhd handles most)
--- cmd+ctrl+left = left half
-hs.hotkey.bind({"cmd", "ctrl"}, "left", function()
-    local win = hs.window.focusedWindow()
-    if win then
-        local screen = win:screen():frame()
-        win:setFrame({x=screen.x, y=screen.y, w=screen.w/2, h=screen.h})
-    end
-end)
+-- Window snapping removed — PaperWM handles tiling
 
--- cmd+ctrl+right = right half
-hs.hotkey.bind({"cmd", "ctrl"}, "right", function()
-    local win = hs.window.focusedWindow()
-    if win then
-        local screen = win:screen():frame()
-        win:setFrame({x=screen.x+screen.w/2, y=screen.y, w=screen.w/2, h=screen.h})
-    end
-end)
-
--- cmd+ctrl+up = maximize
-hs.hotkey.bind({"cmd", "ctrl"}, "up", function()
-    local win = hs.window.focusedWindow()
-    if win then win:maximize() end
-end)
-
--- cmd+ctrl+down = center at 80%
-hs.hotkey.bind({"cmd", "ctrl"}, "down", function()
-    local win = hs.window.focusedWindow()
-    if win then
-        local screen = win:screen():frame()
-        local w = screen.w * 0.8
-        local h = screen.h * 0.8
-        win:setFrame({x=screen.x+(screen.w-w)/2, y=screen.y+(screen.h-h)/2, w=w, h=h})
-    end
-end)
-
--- Caffeine (prevent sleep toggle) - cmd+ctrl+c
+-- Caffeine (prevent sleep toggle) - cmd+ctrl+shift+c (moved from cmd+ctrl+c for PaperWM)
 caffeineEnabled = false
-hs.hotkey.bind({"cmd", "ctrl"}, "c", function()
+hs.hotkey.bind({"cmd", "ctrl", "shift"}, "c", function()
     caffeineEnabled = not caffeineEnabled
     if caffeineEnabled then
         hs.caffeinate.set("displayIdle", true)
@@ -185,12 +300,13 @@ end
 wifiWatcher = hs.wifi.watcher.new(wifiChanged)
 wifiWatcher:start()
 
--- Wallpaper rotation (cmd+ctrl+w to rotate)
+-- Wallpaper rotation (auto-rotate hourly + cmd+ctrl+w to manual rotate)
 wallpaperDir = os.getenv("HOME") .. "/Pictures/Wallpapers"
-hs.hotkey.bind({"cmd", "ctrl"}, "w", function()
+
+local function rotateWallpaper()
     local files = {}
-    local iter, dir_obj = hs.fs.dir(wallpaperDir)
-    if iter then
+    local ok, iter, dir_obj = pcall(hs.fs.dir, wallpaperDir)
+    if ok and iter then
         for file in iter, dir_obj do
             if file:match("%.png$") or file:match("%.jpg$") or file:match("%.jpeg$") then
                 table.insert(files, wallpaperDir .. "/" .. file)
@@ -201,12 +317,23 @@ hs.hotkey.bind({"cmd", "ctrl"}, "w", function()
             for _, screen in ipairs(hs.screen.allScreens()) do
                 screen:desktopImageURL("file://" .. randomWallpaper)
             end
-            hs.alert.show("Wallpaper changed")
-        else
-            hs.alert.show("No wallpapers in ~/Pictures/Wallpapers")
+            return true
         end
+    end
+    return false
+end
+
+-- Auto-rotate every hour
+wallpaperTimer = hs.timer.new(600, rotateWallpaper)
+wallpaperTimer:start()
+rotateWallpaper()
+
+-- Manual rotate still available
+hs.hotkey.bind({"cmd", "ctrl"}, "w", function()
+    if rotateWallpaper() then
+        hs.alert.show("Wallpaper changed")
     else
-        hs.alert.show("Create ~/Pictures/Wallpapers folder")
+        hs.alert.show("No wallpapers in ~/Pictures/Wallpapers")
     end
 end)
 
@@ -215,108 +342,7 @@ hs.hotkey.bind({"cmd", "ctrl"}, "r", function()
     hs.reload()
 end)
 
--- Floating CPU meter (desktop widget, behind windows)
-cpuCanvas = hs.canvas.new({x = 20, y = 110, w = 200, h = 120})
-cpuCanvas:level(hs.canvas.windowLevels.desktopIcon)
-cpuCanvas:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
-
--- Background
-cpuCanvas[1] = {
-    type = "rectangle",
-    action = "fill",
-    fillColor = {red = 0.04, green = 0.04, blue = 0.07, alpha = 0.85},
-    roundedRectRadii = {xRadius = 8, yRadius = 8}
-}
-
--- Border
-cpuCanvas[2] = {
-    type = "rectangle",
-    action = "stroke",
-    strokeColor = {red = 0.67, green = 0, blue = 0.97, alpha = 0.8},
-    strokeWidth = 2,
-    roundedRectRadii = {xRadius = 8, yRadius = 8}
-}
-
--- Title
-cpuCanvas[3] = {
-    type = "text",
-    text = "CPU",
-    textColor = {red = 0.36, green = 0.93, blue = 1, alpha = 1},
-    textFont = "Menlo",
-    textSize = 12,
-    frame = {x = 10, y = 8, w = 180, h = 20}
-}
-
--- CPU percentage text
-cpuCanvas[4] = {
-    type = "text",
-    text = "0%",
-    textColor = {red = 1, green = 0, blue = 0.97, alpha = 1},
-    textFont = "Menlo",
-    textSize = 28,
-    frame = {x = 10, y = 30, w = 180, h = 40}
-}
-
--- Bar background
-cpuCanvas[5] = {
-    type = "rectangle",
-    action = "fill",
-    fillColor = {red = 0.2, green = 0.2, blue = 0.25, alpha = 1},
-    frame = {x = 10, y = 80, w = 180, h = 12},
-    roundedRectRadii = {xRadius = 4, yRadius = 4}
-}
-
--- Bar fill
-cpuCanvas[6] = {
-    type = "rectangle",
-    action = "fill",
-    fillColor = {red = 1, green = 0, blue = 0.97, alpha = 1},
-    frame = {x = 10, y = 80, w = 0, h = 12},
-    roundedRectRadii = {xRadius = 4, yRadius = 4}
-}
-
--- Load average text
-cpuCanvas[7] = {
-    type = "text",
-    text = "load: ...",
-    textColor = {red = 0.98, green = 0.72, blue = 0.15, alpha = 1},
-    textFont = "Menlo",
-    textSize = 10,
-    frame = {x = 10, y = 100, w = 180, h = 16}
-}
-
-cpuCanvas:show()
-
--- Update CPU meter
-local function updateCpuMeter()
-    local cpu = hs.host.cpuUsage()
-    local total = cpu.overall.active
-    local pct = math.floor(total)
-
-    -- Update percentage text
-    cpuCanvas[4].text = pct .. "%"
-
-    -- Update bar width (max 180)
-    local barWidth = math.floor(180 * total / 100)
-    cpuCanvas[6].frame = {x = 10, y = 80, w = barWidth, h = 12}
-
-    -- Color gradient based on usage
-    if total < 50 then
-        cpuCanvas[6].fillColor = {red = 0.36, green = 0.93, blue = 1, alpha = 1}  -- cyan
-    elseif total < 80 then
-        cpuCanvas[6].fillColor = {red = 0.98, green = 0.72, blue = 0.15, alpha = 1}  -- gold
-    else
-        cpuCanvas[6].fillColor = {red = 1, green = 0, blue = 0.97, alpha = 1}  -- pink
-    end
-
-    -- Load average
-    local loadavg = hs.execute("sysctl -n vm.loadavg | awk '{print $2, $3, $4}'")
-    cpuCanvas[7].text = "load: " .. loadavg:gsub("\n", "")
-end
-
-cpuMeterTimer = hs.timer.new(10, updateCpuMeter)
-cpuMeterTimer:start()
-updateCpuMeter()
+-- CPU meter moved to Sketchybar (right side: cpu + load items)
 
 -- Vaporwave overlay - use 'vw' shell alias instead (Hammerspoon integration was unreliable)
 -- vw alias: pkill -9 -f vaporwave-overlay 2>/dev/null && echo Off || (~/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay --fullscreen & echo On)
@@ -480,5 +506,63 @@ hs.urlevent.bind("finder", function(eventName, params)
         hs.execute("/Applications/Ghostty.app/Contents/MacOS/ghostty --working-directory=" .. path .. " &")
     end
 end)
+
+-- Spotify media key control
+mediaKeyWatcher = hs.eventtap.new({hs.eventtap.event.types.systemDefined}, function(event)
+    local data = event:systemKey()
+    if data and data.down then
+        if data.key == "PLAY" then
+            hs.spotify.playpause()
+            return true
+        elseif data.key == "PREVIOUS" then
+            hs.spotify.previous()
+            return true
+        elseif data.key == "NEXT" then
+            hs.spotify.next()
+            return true
+        end
+    end
+    return false
+end)
+mediaKeyWatcher:start()
+
+-- Auto-manage vaporwave overlay based on power state
+-- Runs when plugged in + battery > 50%, stops otherwise
+-- Uses globals to prevent GC, checks process existence before starting
+
+local function vwIsRunning()
+    local output = hs.execute("pgrep -f vaporwave-overlay", true)
+    return output ~= nil and output ~= ""
+end
+
+local function vwShouldRun()
+    local battery = hs.battery.percentage()
+    local charging = hs.battery.isCharging() or hs.battery.isCharged()
+    return charging and battery > 50
+end
+
+VW_TASK = nil  -- global to prevent GC
+local function vwUpdate()
+    local running = vwIsRunning()
+    local shouldRun = vwShouldRun()
+    if shouldRun and not running then
+        VW_TASK = hs.task.new(
+            os.getenv("HOME") .. "/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay",
+            function() VW_TASK = nil end
+        )
+        VW_TASK:start()
+    elseif not shouldRun and running then
+        if VW_TASK then VW_TASK:terminate() end
+        hs.execute("pkill -9 -f vaporwave-overlay", true)
+        VW_TASK = nil
+    end
+end
+
+-- Check on power state changes
+vwBatteryWatcher = hs.battery.watcher.new(vwUpdate)
+vwBatteryWatcher:start()
+
+-- Initial check (deferred so hs.task is ready)
+hs.timer.doAfter(3, vwUpdate)
 
 hs.alert.show("Hammerspoon loaded")
