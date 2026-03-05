@@ -49,7 +49,6 @@ Authoritative index of all Claude Code skills. Grouped by category prefix.
 |-------|-----------|------|-------------|
 | project-process | no | **yes** | Global process framework — artifacts, practices, priorities |
 | project | /project | no | Initialize directory with project framework |
-| multi-agent-coordination | no | context | INBOX-based multi-agent coordination |
 | documentation | no | context | Documentation methodology and patterns |
 
 ## env-* : Environment & Setup

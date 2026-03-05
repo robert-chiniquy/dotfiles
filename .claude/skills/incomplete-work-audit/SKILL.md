@@ -1,5 +1,6 @@
 ---
 name: incomplete-work-audit
+disable-model-invocation: true
 description: |
   Systematically locate, analyze, and resolve incomplete work markers in a
   codebase. Use when user asks to find TODOs, show unfinished work, audit

@@ -23,3 +23,13 @@ id_rsa*
 
 */target/*
 
+
+# Compiled binaries
+bin/fclones
+bin/vaporwave-overlay
+bin/wallpapper
+metal-overlay/vaporwave-overlay
+metal-overlay/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay
+bin/gistcopy
+bin/squire
+.claude/backups/

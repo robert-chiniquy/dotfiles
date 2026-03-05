@@ -139,7 +139,7 @@ fragment float4 vaporwave_fragment(
     // Gradual ray appearance - each ray fades in over time
     // rayTime in seconds (time is in milliseconds)
     float rayTime = time * 0.001;
-    float rayInterval = 0.3;  // 0.3 seconds between each ray appearing
+    float rayInterval = 2.4;  // 2.4 seconds between each ray appearing
 
     // Ray width grows over time: starts small, grows to 10x over 30 seconds
     float widthScale = 0.3 + min(rayTime / 3.0, 9.7);  // Full width in 3 sec

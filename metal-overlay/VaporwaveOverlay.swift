@@ -178,7 +178,7 @@ class ShaderRenderer: NSObject, MTKViewDelegate {
     func updateOpacity() {
         guard let window = overlayWindow else { return }
         // At 30 FPS: 0.001 per frame = 1000 frames = ~33 seconds to full opacity
-        let fadeInSpeed: Float = isFullscreenCapture ? 0.001 : 0.08
+        let fadeInSpeed: Float = isFullscreenCapture ? 0.001 : 0.027
         let fadeOutSpeed: Float = 0.05
 
         if window.currentOpacity < window.targetOpacity {
@@ -538,57 +538,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func getFocusedWindowID() -> CGWindowID? {
         let frontPID = getFrontmostPID()
-        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
-            return nil
-        }
-        guard let primaryScreen = NSScreen.screens.first else { return nil }
-        let primaryHeight = primaryScreen.frame.height
 
-        // Use mouse position to determine which screen the user is on
-        // This disambiguates same-app windows across displays
-        let mouseLocation = NSEvent.mouseLocation  // Cocoa coords (origin bottom-left)
+        // Use Accessibility API to get the actual focused window
+        // This works correctly with keyboard-driven focus changes (PaperWM)
+        let appRef = AXUIElementCreateApplication(frontPID)
+        var focusedWindowRef: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &focusedWindowRef)
 
-        // Find which screen the mouse is on
-        var mouseScreenFrame: CGRect? = nil
-        for screen in NSScreen.screens {
-            if screen.frame.contains(mouseLocation) {
-                mouseScreenFrame = screen.frame
-                break
-            }
-        }
+        if result == .success, let windowRef = focusedWindowRef {
+            var positionValue: CFTypeRef?
+            var sizeValue: CFTypeRef?
+            AXUIElementCopyAttributeValue(windowRef as! AXUIElement, kAXPositionAttribute as CFString, &positionValue)
+            AXUIElementCopyAttributeValue(windowRef as! AXUIElement, kAXSizeAttribute as CFString, &sizeValue)
 
-        // First pass: find frontmost app window on the mouse's screen (z-order)
-        for windowDict in windowList {
-            guard let ownerPID = windowDict[kCGWindowOwnerPID as String] as? pid_t,
-                  let windowID = windowDict[kCGWindowNumber as String] as? CGWindowID,
-                  let boundsDict = windowDict[kCGWindowBounds as String] as? [String: CGFloat] else {
-                continue
-            }
-            if ownerPID != frontPID { continue }
-            let layer = windowDict[kCGWindowLayer as String] as? Int ?? 0
-            if layer != 0 { continue }
-            let ownerName = windowDict[kCGWindowOwnerName as String] as? String ?? ""
-            if excludedApps.contains(ownerName) { continue }
-            if ownerName == "vaporwave-overlay" { continue }
-            let w = boundsDict["Width"] ?? 0
-            let h = boundsDict["Height"] ?? 0
-            if w <= 100 || h <= 100 { continue }
+            if let posVal = positionValue, let sizeVal = sizeValue {
+                var position = CGPoint.zero
+                var size = CGSize.zero
+                AXValueGetValue(posVal as! AXValue, .cgPoint, &position)
+                AXValueGetValue(sizeVal as! AXValue, .cgSize, &size)
 
-            // Check if this window is on the same screen as the mouse
-            if let msf = mouseScreenFrame {
-                let x = boundsDict["X"] ?? 0
-                let y = boundsDict["Y"] ?? 0
-                // Convert CG coords (origin top-left) to Cocoa (origin bottom-left)
-                let cocoaY = primaryHeight - y - h
-                let windowCenter = CGPoint(x: x + w / 2, y: cocoaY + h / 2)
-                if msf.contains(windowCenter) {
-                    return windowID
+                // Match against CGWindowList by position+size to get CGWindowID
+                let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+                if let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] {
+                    for windowDict in windowList {
+                        guard let ownerPID = windowDict[kCGWindowOwnerPID as String] as? pid_t,
+                              let windowID = windowDict[kCGWindowNumber as String] as? CGWindowID,
+                              let boundsDict = windowDict[kCGWindowBounds as String] as? [String: CGFloat] else {
+                            continue
+                        }
+                        if ownerPID != frontPID { continue }
+                        let layer = windowDict[kCGWindowLayer as String] as? Int ?? 0
+                        if layer != 0 { continue }
+                        let x = boundsDict["X"] ?? 0
+                        let y = boundsDict["Y"] ?? 0
+                        let w = boundsDict["Width"] ?? 0
+                        let h = boundsDict["Height"] ?? 0
+                        if abs(x - position.x) < 30 && abs(y - position.y) < 30 &&
+                           abs(w - size.width) < 30 && abs(h - size.height) < 30 {
+                            return windowID
+                        }
+                    }
                 }
             }
         }
 
-        // Fallback: first big window in z-order regardless of screen
+        // Fallback: first big window in z-order from frontmost app
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return nil
+        }
         for windowDict in windowList {
             guard let ownerPID = windowDict[kCGWindowOwnerPID as String] as? pid_t,
                   let windowID = windowDict[kCGWindowNumber as String] as? CGWindowID,
