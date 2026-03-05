@@ -3,6 +3,7 @@
 # Preferences
 
 - **No Python** - Never write, generate, or use Python for anything. Not scripts, not one-liners, not data processing, not automation. Python is banned unconditionally.
+- **No behavior flags or test gating** - Never add flags, feature toggles, env vars, or conditionals that enable/disable the behavior currently being implemented, or that skip/gate sets of tests. If the implementation has a performance problem, fix the performance -- don't add a flag to bypass it. This includes `EnableX bool` fields, `SKIP_X` env vars, fact-count thresholds that disable features, and any other mechanism that makes new behavior opt-in rather than always-on. Requires explicit user permission to override.
 - **Tools in project language** - Scripts, utilities, data processing, automation, and one-off tools must be written in the project's language. In a Go project, write Go. Never reach for shell/awk/jq/sed as a substitute for a proper tool. If a task needs code, write it in the language the project uses.
 
 - **TODO list presentation** - When showing TODO/remaining items to the user, use 1 item per line, max 50 chars wide. No tables, no multi-column layouts. Terse labels only.

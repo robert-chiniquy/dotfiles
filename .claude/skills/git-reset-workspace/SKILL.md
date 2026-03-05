@@ -1,5 +1,6 @@
 ---
 name: git-reset-workspace
+disable-model-invocation: true
 description: |
   Multi-phase workspace cleanup. Stops background agents, inventories
   uncommitted work, switches to main, prunes stale branches, cleans

@@ -1,6 +1,7 @@
 ---
 name: project
 version: 1.5.0
+disable-model-invocation: true
 description: |
   Initialize current directory with the global project process framework.
   Creates DATA_SOURCES.md, LEARNINGS.md, GLOSSARY.md, .claude/CLAUDE.md,
