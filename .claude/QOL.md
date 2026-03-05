@@ -254,3 +254,47 @@ git config --global init.defaultBranch main
 defaults write com.apple.finder NSWindowResizeTime -float 0.001
 ```
 Finder windows open instantly.
+
+## 2026-03-04: PaperWM tiling window manager
+Replaced skhd/yabai with PaperWM.spoon (Hammerspoon). Scrollable horizontal columns.
+`defaults write com.apple.spaces spans-displays -bool false` for separate Spaces per display.
+`PaperWM.external_bar = {top = 80}` for Sketchybar clearance.
+
+## 2026-03-04: FFM disabled by default
+Focus-follows-mouse fights PaperWM's tiling model. Disabled on startup, toggle with cmd+ctrl+f.
+
+## 2026-03-04: FFM polling interval 500ms
+Reduced from 150ms. Same perceived responsiveness, less CPU.
+
+## 2026-03-04: Starship custom modules removed
+Removed custom.git_diff_line_count (2 git commands per prompt) and custom.tokei_rust (runs tokei per prompt). Built-in git_status already shows modified count.
+
+## 2026-03-04: Consolidated chpwd git functions
+Replaced 5 separate chpwd functions (each calling git rev-parse) with one `_git_chpwd` that calls git once and prints a single terse line.
+
+## 2026-03-04: Hammerspoon alerts auto-dismiss 1.5s
+Fade in 0.1s, out 0.3s, dismiss at 1.5s instead of default. Overridden globally.
+
+## 2026-03-04: CPU meter moved to Sketchybar
+Removed Hammerspoon canvas widget (10s polling + shell exec). CPU and load now in Sketchybar right side. CPU plugin uses `ps -A -o %cpu` instead of expensive `top -l 1`.
+
+## 2026-03-04: Meeting countdown in Sketchybar
+Right side, updates 60s, color-coded by urgency (pink/gold/cyan/grey).
+
+## 2026-03-04: HazeOver installed
+System-wide dim for unfocused windows. Replaces non-functional hs.window.setAlpha approach.
+
+## 2026-03-04: Sketchybar translucent
+Background alpha 30%, blur 10, pink border, shadow on. Reads through HazeOver dimming.
+
+## 2026-03-04: Wallpaper auto-rotate every 10 minutes
+Hammerspoon timer, plus manual cmd+ctrl+w still works. pcall guard for missing directory.
+
+## 2026-03-04: VaporwaveOverlay per-window mode
+Changed from --fullscreen to per-window overlay on unfocused windows only. Focused window stays clean. Uses Accessibility API for focus detection. Auto-managed by battery state (plugged in + >50%).
+
+## 2026-03-04: 4-finger trackpad swipe for PaperWM
+`defaults write com.apple.AppleMultitouchTrackpad TrackpadFourFingerHorizSwipeGesture -int 0` to free gesture from macOS Spaces. PaperWM.swipe_fingers = 4.
+
+## 2026-03-04: direnv log format restored
+Changed from silent to grey text showing load/unload and exported variable names.

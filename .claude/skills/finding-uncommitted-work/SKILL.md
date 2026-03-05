@@ -1,5 +1,6 @@
 ---
 name: finding-uncommitted-work
+disable-model-invocation: true
 description: |
   Systematic scan for work-in-progress across repositories. Use at end of
   day/week, before context switches, when resuming after a break, or before

@@ -1,0 +1,15 @@
+#!/bin/zsh
+# CKO Hackathon Demo - toggle launcher
+APP="$HOME/Applications/CKODemo.app"
+if pgrep -x cko-demo > /dev/null 2>&1; then
+    pkill -x cko-demo
+    echo "CKO Demo stopped"
+else
+    if [ -d "$APP" ]; then
+        open -a "$APP"
+        echo "CKO Demo launched"
+    else
+        echo "Not installed. Run: make deploy"
+        exit 1
+    fi
+fi

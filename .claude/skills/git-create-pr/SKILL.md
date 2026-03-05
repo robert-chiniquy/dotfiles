@@ -1,5 +1,6 @@
 ---
 name: git-create-pr
+disable-model-invocation: true
 description: |
   Safe git-to-PR workflow. Classifies changes, stages by explicit filename,
   runs final-pass checks, commits with approval, pushes, creates PR via gh.

@@ -1,5 +1,6 @@
 ---
 name: git-final-pass
+disable-model-invocation: true
 description: |
   Pre-PR quality checklist encoding recurring review feedback. Run before
   creating a PR to catch common mistakes. Covers: error handling, naming,

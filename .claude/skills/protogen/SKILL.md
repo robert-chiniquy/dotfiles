@@ -1,5 +1,6 @@
 ---
 name: protogen
+disable-model-invocation: true
 description: |
   Protobuf and gRPC architecture patterns for the protogen stack. Use when
   user mentions "proto", "protobuf", "grpc", "codegen", or works with .proto
