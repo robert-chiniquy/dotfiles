@@ -1,27 +1,40 @@
 ---
 name: structural-constraints
 description: |
-  Guide architectural decisions toward compile-time safety and structural
-  guarantees over runtime checks. Use when designing new subsystems,
-  reviewing architectural decisions, or choosing between runtime and
-  compile-time enforcement. Not for quick scripts or prototypes.
+  Guide architecture toward compile-time safety over runtime checks. Use when
+  designing subsystems, reviewing architecture, or choosing between runtime
+  and compile-time enforcement. Covers type systems, enums, interfaces.
 ---
 
 # Structural Constraints
 
-The best engineering makes mistakes structurally impossible rather than relying on developer discipline.
+Push decisions to compile time. Every runtime check is a bug waiting for the case you forgot.
 
-Patterns: Scoped context propagation (explicit over globals), dangerous operations named explicitly (WithDangerousCrossTenant), single source of truth via code generation, fail-closed by default, interface segregation for minimal authority.
+## Checklist
 
-Checklist: Can this mistake be caught at compile time? Can this constraint be enforced by the query/ORM layer? Is the unsafe path obviously named? Does the error path deny by default? Is there a single source of truth?
+When designing or reviewing:
+
+- [ ] Can this `if` be an enum/sum type?
+- [ ] Can this string be a typed constant?
+- [ ] Can this map lookup be a struct field?
+- [ ] Can this nil check be eliminated by construction?
+- [ ] Does this interface have exactly one implementation? (Smell.)
+- [ ] Can the type system prevent invalid states?
+
+## Patterns
+
+* **Enum over string.** `Status` enum, not `status string`. The compiler catches typos.
+* **Constructor validation.** Parse, don't validate. `NewEmail(s)` returns `(Email, error)`, not `string`.
+* **Required fields via types.** `Config{Required: X}` not `Config{Optional: &X}`.
+* **State machines via types.** `Draft -> Published -> Archived`, not `status = "published"`.
 
 ## Common Mistakes
 
-1. **Validating at the wrong layer** — validation in the handler that should be in the type system. If a value can't be negative, use `uint`, don't check `if x < 0`.
-2. **Stringly-typed APIs** — passing `string` where an enum or distinct type would make invalid states unrepresentable. `status string` vs `Status enum`.
-3. **Runtime permission checks that could be compile-time** — if an operation is only valid for admins, make admin a separate type with a method, not a runtime `if user.IsAdmin()` gate.
-4. **Optional fields that aren't optional** — a field required by every caller but typed as optional because one constructor doesn't set it. Fix the constructor.
-5. **Global state disguised as context** — stuffing values into `context.Context` and hoping callers extract them. Use explicit function parameters.
-6. **Fail-open error handling** — `if err != nil { log.Warn(err) }` then proceeding. Default must be deny/fail, not continue.
-7. **Defensive copies instead of immutable types** — copying a struct to prevent mutation when the real fix is making the struct's fields unexported.
-8. **Generating code then editing it** — the generated code is the source of truth. If you need to change it, change the generator input.
+1. Wrapping everything in interfaces "for testing" — if there's one impl, use the concrete type
+2. Using `map[string]interface{}` when a struct would work — you lose all compile-time checking
+3. Adding runtime validation for invariants the type system could enforce
+4. Creating "stringly typed" APIs where enums would prevent invalid states
+5. Using `interface{}` / `any` to avoid thinking about the actual type
+6. Feature flags as strings instead of typed constants
+7. Optional fields that are always present in practice — make them required
+8. Using error returns for conditions that should be structurally impossible

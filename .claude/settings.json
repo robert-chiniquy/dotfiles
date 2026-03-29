@@ -1,4 +1,8 @@
 {
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": ["Working"]
+  },
   "permissions": {
     "allow": [
       "WebSearch",
@@ -125,6 +129,15 @@
           {
             "type": "command",
             "command": "/Users/rch/.claude/hooks/block-cd.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.claude/hooks/rtk-rewrite.sh"
           }
         ]
       }

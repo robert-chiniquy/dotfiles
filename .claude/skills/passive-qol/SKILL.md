@@ -1,122 +1,50 @@
 ---
 name: passive-qol
 description: |
-  Proactive quality-of-life suggestions for computing environment. Use when
-  working in dotfiles, shell config, system configuration, or when user
-  mentions friction, annoyance, or inefficiency in their setup.
+  Proactive quality-of-life for the computing environment. Activates when
+  working in dotfiles, shell config, system settings, or when the user
+  mentions friction or inefficiency. Suggests only passive, automatic changes.
 ---
 
-# Passive QoL Improvements
+# Passive QoL
 
-This skill enables Claude to proactively surface quality-of-life improvements for the user's computing environment.
-
-## When to Apply
-
-Proactively suggest improvements when:
-- Working in dotfiles, shell config, or system configuration
-- The user mentions friction, annoyance, or inefficiency
-- You notice something could be better during normal work
-- A session has natural pauses or transitions
-
-**Before suggesting any shell changes:** Always read ~/.zshrc first to:
-1. Avoid conflicts (e.g., don't define `rm()` if `alias rm` exists)
-2. Avoid suggesting things already implemented
-3. Understand the user's existing patterns and preferences
+Surface improvements that require zero ongoing effort from the user.
 
 ## Constraints
 
 Suggestions MUST be:
-- **Passive** - No new keystrokes to learn, no new commands to remember, no aliases
-- **Automatic** - Works without user intervention once set up
-- **Invisible** - Doesn't add UI clutter or notifications unless critical
-- **One-time setup** - Configure once, benefit forever
+* Passive — no new keystrokes, commands, or aliases
+* Automatic — works without intervention once configured
+* Invisible — no UI clutter unless critical
+* One-time — configure once, benefit forever
 
-Suggestions MUST NOT:
-- Require learning new workflows
-- Add shortcuts, aliases, or keybindings
-- Require ongoing maintenance
-- Add visible widgets, menu bar items, or notifications
-- Be productivity theater (timers, trackers, GTD systems)
-- Be corporate/enterprise tooling
-- Be niche single-purpose apps
-- Use significant CPU or I/O (no polling loops, heavy background processes, or frequent disk writes)
+Suggestions MUST NOT be:
+* New apps (unless replacing something broken)
+* Shortcuts, aliases, or keybindings
+* Widgets, menu bar items, or notifications
+* Productivity theater (timers, trackers, GTD)
+* CPU/IO heavy (no polling loops, frequent disk writes)
 
-## Aesthetic Compatibility
+## Before Suggesting
 
-The user has a vaporwave aesthetic. Suggestions should:
-- Use the color palette: hot pink (#ff0099), cyan (#5cecff), magenta (#ff00f8), gold (#fbb725), purple (#aa00e8)
-- Prefer dark backgrounds
-- Avoid cutesy or corporate visual design
-- Respect minimalism - no unnecessary visual elements
-
-## User's Existing Setup
-
-Reference these before suggesting:
-- **Window management**: PaperWM.spoon (Hammerspoon-based tiling WM, scrollable columns)
-- **Window dimming**: HazeOver (dims unfocused windows)
-- **Visual overlay**: VaporwaveOverlay.app (Metal shader on unfocused windows, auto-managed by battery state)
-- **Shell**: zsh with starship prompt, vaporwave colors throughout
-- **Status bar**: sketchybar (translucent, vaporwave colors, occult items + cpu/load/meeting)
-- **Widgets**: Ubersicht (I Ching, grimoire, pomodoro)
-- **Automation**: Hammerspoon (PaperWM, alerts, wallpaper rotation, caffeine, pomodoro, vw auto-management)
-- **Terminal**: iTerm2 (primary, one window per agent), Ghostty (yazi auto-start)
-- **History**: atuin + fzf for search UI
-- **Replaced**: yabai, skhd (dead bindings, stopped) — PaperWM replaces the whole stack
-
-## Good Suggestion Examples
-
-- macOS defaults that improve behavior (like `defaults write ...`)
-- System settings that reduce friction
-- Automatic cleanup scripts (run via launchd, no user action)
-- Performance tweaks
-- Better default behaviors for apps already in use
-- Privacy/security hardening that doesn't add friction
-- Faster animations or no animations
-- Auto-dark mode, auto-night shift
-- Disk cleanup automation
-- Git config improvements
-- Shell performance optimizations
-
-## Bad Suggestion Examples
-
-- New apps to install (unless replacing something worse)
-- Keyboard shortcuts
-- Aliases
-- Menu bar items
-- Notification systems
-- Productivity apps
-- Time tracking
-- Todo lists
-- Any "system" that requires buy-in
+Read `~/.claude/QOL.md` first. Never suggest anything in the Rejects list.
+Read `~/.zshrc` to avoid conflicts with existing setup.
 
 ## Format
 
-When suggesting, be brief:
+One suggestion at a time:
 ```
 Passive QoL: [one-line description]
 [single command or short explanation]
 ```
 
-Only suggest one thing at a time. Don't overwhelm.
-
 ## Documentation
 
-Every QoL change applied MUST be documented in `~/.claude/QOL.md`. Format:
-
+Every change applied MUST be logged in `~/.claude/QOL.md`:
 ```markdown
 ## YYYY-MM-DD: [description]
 [command or change]
-[brief explanation of benefit]
+[brief benefit]
 ```
 
-This creates a record of all passive improvements for reproducibility on new machines.
-
-## Rejections
-
-When a suggestion is declined, add it to the `# Rejects` section in `~/.claude/QOL.md`. Format:
-
-```markdown
-- [description] - [reason if given]
-```
-
-**NEVER suggest anything in the Rejects list.** Always read QOL.md before making suggestions.
+Declined suggestions go in the `# Rejects` section.

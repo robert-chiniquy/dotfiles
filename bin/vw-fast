@@ -1,0 +1,5 @@
+#!/bin/bash
+# Fullscreen vaporwave blast — instant on, 45 seconds, all screens
+# Usage: vw-fast
+pkill -9 -f vaporwave-overlay 2>/dev/null
+~/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay --fullscreen --instant --duration 45 1>/dev/null 2>/dev/null &
