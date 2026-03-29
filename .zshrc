@@ -1147,6 +1147,10 @@ fi
 chpwd() {
   emulate -L zsh
 
+
+  # Show fully qualified path
+  print -P "%F{243}${PWD}%f"
+
   # Persist last directory for new tabs/sessions
   [[ -n "$__LAST_DIR_FILE" ]] && print -r -- "$PWD" >| "$__LAST_DIR_FILE" 2>/dev/null
   

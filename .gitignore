@@ -33,3 +33,6 @@ metal-overlay/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay
 bin/gistcopy
 bin/squire
 .claude/backups/
+.claude/sessions/
+.claude/settings.json.bak
+.claude/mcp-needs-auth-cache.json

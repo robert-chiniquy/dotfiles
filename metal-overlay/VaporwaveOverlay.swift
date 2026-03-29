@@ -6,6 +6,13 @@ import Cocoa
 
 // Global flag for fullscreen mode
 var fullscreenMode = CommandLine.arguments.contains("--fullscreen")
+var instantMode = CommandLine.arguments.contains("--instant")
+var durationSeconds: Double = {
+    if let idx = CommandLine.arguments.firstIndex(of: "--duration"), idx + 1 < CommandLine.arguments.count {
+        return Double(CommandLine.arguments[idx + 1]) ?? 0
+    }
+    return 0
+}()
 import Metal
 import MetalKit
 import QuartzCore
@@ -178,7 +185,7 @@ class ShaderRenderer: NSObject, MTKViewDelegate {
     func updateOpacity() {
         guard let window = overlayWindow else { return }
         // At 30 FPS: 0.001 per frame = 1000 frames = ~33 seconds to full opacity
-        let fadeInSpeed: Float = isFullscreenCapture ? 0.001 : 0.027
+        let fadeInSpeed: Float = isFullscreenCapture ? 0.001 : 0.014
         let fadeOutSpeed: Float = 0.05
 
         if window.currentOpacity < window.targetOpacity {
@@ -295,7 +302,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var isReconfiguring = false
     var isInTransition = false  // Brief cooldown during focus/space changes
     var lastTransitionTime: CFAbsoluteTime = 0
-
+    var lastActiveScreen: Int? = nil
     let excludedApps = Set(["SystemUIServer", "Window Server", "Dock", "Spotlight", "Control Center", "Notification Center"])
 
     // Apps to NEVER overlay (user blacklist) - add app names here
@@ -398,11 +405,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.mtkView = mtkView
             window.renderer = renderer
             renderer.overlayWindow = window
-            renderer.opacity = 0.0  // Start invisible
+            renderer.opacity = instantMode ? 1.0 : 0.0
             renderer.isFullscreenCapture = true  // Enable screen capture
             renderer.screenIndex = index  // Capture this screen
             window.targetOpacity = 1.0  // Fade in to full
-            window.currentOpacity = 0.0  // Start at 0 for fade-in
+            window.currentOpacity = instantMode ? 1.0 : 0.0
 
             contentView.addSubview(mtkView)
             window.setFrame(frame, display: true)
@@ -421,7 +428,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         print("Fullscreen overlays active on \(NSScreen.screens.count) screens")
-    }
+
+        // Auto-exit after duration if specified
+        if durationSeconds > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + durationSeconds) {
+                NSApp.terminate(nil)
+            }
+        }    }
 
     @objc func fullscreenScreenDidChange(_ notification: Notification) {
         print("Screen changed - stopping fullscreen overlays")
@@ -458,29 +471,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func spaceDidChange(_ notification: Notification) {
-        debugLog("Space changed - fading out all overlays")
-        startTransition()
+        debugLog("Space changed - destroying all overlays")
 
-        // Immediately fade out all overlays when space changes
+        // Nuke everything — space change invalidates all window positions
         for (_, overlay) in overlayWindows {
-            overlay.targetOpacity = 0.0
-            overlay.isFadingOut = true
+            overlay.cleanup()
+            overlay.orderOut(nil)
         }
+        overlayWindows.removeAll()
 
-        // Short delay to let system settle, then update
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+        // Rebuild after system settles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.updateOverlays()
         }
     }
 
     @objc func appDidActivate(_ notification: Notification) {
-        debugLog("App activated - updating overlays")
-        // No transition state — just update immediately
-        // updateOverlays will fade out the focused window's overlay
-        // and keep/create overlays for unfocused windows
-        updateOverlays()
-    }
+        debugLog("App activated - destroying all overlays for clean rebuild")
 
+        // Nuke everything — display/app switch invalidates overlay layout
+        for (_, overlay) in overlayWindows {
+            overlay.cleanup()
+            overlay.orderOut(nil)
+        }
+        overlayWindows.removeAll()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.updateOverlays()
+        }
+    }
     func getWindowList() -> [WindowInfo] {
         var windows: [WindowInfo] = []
 
@@ -652,12 +671,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func getScreenIndexForWindow(_ windowFrame: CGRect) -> Int? {
         let screens = NSScreen.screens
+        guard let primaryScreen = screens.first else { return nil }
+        let primaryHeight = primaryScreen.frame.height + primaryScreen.frame.origin.y
+
+        // Try Cocoa coordinates first (from getWindowList)
         let windowCenter = CGPoint(x: windowFrame.midX, y: windowFrame.midY)
         for (index, screen) in screens.enumerated() {
             if screen.frame.contains(windowCenter) {
                 return index
             }
         }
+
+        // Try converting from CG coordinates (from AX API: origin top-left)
+        let cocoaY = primaryHeight - windowFrame.midY
+        let convertedCenter = CGPoint(x: windowFrame.midX, y: cocoaY)
+        for (index, screen) in screens.enumerated() {
+            if screen.frame.contains(convertedCenter) {
+                return index
+            }
+        }
+
         return nil
     }
 
@@ -701,7 +734,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // No focused window = fullscreen app, don't overlay anything
         if focusedWindowID == nil || focusedFrame == nil {
-            // Fade out existing overlays
             for (_, overlay) in overlayWindows {
                 overlay.targetOpacity = 0.0
                 overlay.isFadingOut = true
@@ -709,31 +741,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Determine which screen the focused window is on
+        let activeScreenIndex = getScreenIndexForWindow(focusedFrame!)
+        let screens = NSScreen.screens
+
+        // Screen changed — nuke all overlays for clean rebuild
+        if activeScreenIndex != lastActiveScreen {
+            debugLog("Active screen changed from \(lastActiveScreen ?? -1) to \(activeScreenIndex ?? -1) — rebuilding")
+            for (_, overlay) in overlayWindows {
+                overlay.cleanup()
+                overlay.orderOut(nil)
+            }
+            overlayWindows.removeAll()
+            lastActiveScreen = activeScreenIndex
+        }
+        // Per-window overlays ONLY for windows on the active screen
         for win in windows {
-            // Skip the focused window itself
             if let fwID = focusedWindowID, win.id == fwID { continue }
             if win.frame.width <= 0 || win.frame.height <= 0 { continue }
             if win.frame.origin.x.isNaN || win.frame.origin.y.isNaN { continue }
 
+            // Skip windows not on the active screen
+            if let activeIdx = activeScreenIndex,
+               let winScreenIdx = getScreenIndexForWindow(win.frame),
+               winScreenIdx != activeIdx {
+                continue
+            }
+
             // Clip overlay frame to exclude the focused window's area
-            // Only show overlay on the portion that doesn't overlap the focused window
             var frame = win.frame
             if let ff = focusedFrame, frame.intersects(ff) {
-                // Unfocused window is partially behind focused window
-                // Show overlay only on the visible strip (left or right peek)
                 if frame.minX < ff.minX {
-                    // Peeks out on the left
                     frame = CGRect(x: frame.minX, y: frame.minY,
                                    width: ff.minX - frame.minX, height: frame.height)
                 } else if frame.maxX > ff.maxX {
-                    // Peeks out on the right
                     frame = CGRect(x: ff.maxX, y: frame.minY,
                                    width: frame.maxX - ff.maxX, height: frame.height)
                 } else {
-                    // Completely behind focused window — skip
                     continue
                 }
-                // Skip if clipped region is too narrow
                 if frame.width < 20 { continue }
             }
 
@@ -741,21 +787,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             windowFrames[win.id] = frame
         }
 
-        let currentIDs = Set(overlayWindows.keys)
-        let activeIDs = Set(overlayWindows.filter { !$0.value.isFadingOut }.keys)
-        let toRemove = activeIDs.subtracting(targetIDs)
-        let toAdd = targetIDs.subtracting(currentIDs)  // Only add if not present at all
-        let toUpdate = targetIDs.intersection(activeIDs)
-
-        // Revive fading-out windows that should be visible again
-        for windowID in targetIDs.intersection(currentIDs.subtracting(activeIDs)) {
-            if let overlay = overlayWindows[windowID] {
-                overlay.targetOpacity = 1.0
-                overlay.isFadingOut = false
-            }
+        // Fullscreen overlays for inactive screens (one per screen, cheap)
+        let SCREEN_OVERLAY_BASE: CGWindowID = 900000
+        for (index, screen) in screens.enumerated() {
+            if index == activeScreenIndex { continue }
+            let fakeID = SCREEN_OVERLAY_BASE + CGWindowID(index)
+            targetIDs.insert(fakeID)
+            windowFrames[fakeID] = screen.frame
         }
 
-        // Immediately remove overlay from focused window
+        // Incremental update with forced re-clip
+        let currentIDs = Set(overlayWindows.keys)
+        let toRemove = currentIDs.subtracting(targetIDs)
+        let toAdd = targetIDs.subtracting(currentIDs)
+        let toUpdate = targetIDs.intersection(currentIDs)
+
+        // Remove overlay from focused window immediately
         if let fwID = focusedWindowID, let overlay = overlayWindows[fwID] {
             overlay.cleanup()
             overlay.orderOut(nil)
@@ -764,26 +811,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         for windowID in toRemove {
             if let overlay = overlayWindows[windowID] {
-                // Instant removal — no fade, just gone
                 overlay.cleanup()
                 overlay.orderOut(nil)
                 overlayWindows.removeValue(forKey: windowID)
             }
         }
 
-        // Remove fully faded overlays
-        let fadedOut = overlayWindows.filter { $0.value.isFadingOut && $0.value.currentOpacity < 0.01 }
-        for (windowID, overlay) in fadedOut {
-            overlayWindows.removeValue(forKey: windowID)
-            overlay.cleanup()
-            overlay.orderOut(nil)
-        }
-
+        // Always update frame on existing overlays (clipping zone may have changed)
         for windowID in toUpdate {
             if let overlay = overlayWindows[windowID],
-               let frame = windowFrames[windowID],
-               overlay.frame != frame {
+               let frame = windowFrames[windowID] {
                 overlay.setFrame(frame, display: false)
+                overlay.targetOpacity = 1.0
+                overlay.isFadingOut = false
             }
         }
 
@@ -791,11 +831,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for windowID in toAdd {
             if created >= 10 { break }
             guard let frame = windowFrames[windowID] else { continue }
-                createOverlay(windowID: windowID, frame: frame, device: resources.device)
-                created += 1
-            }
+            createOverlay(windowID: windowID, frame: frame, device: resources.device)
+            created += 1
+        }
 
-        debugLog("Overlays: \(overlayWindows.count), removed: \(toRemove.count), added: \(created), updated: \(toUpdate.count), focused: \(focusedWindowID ?? 0)")
+        let fadedOut = overlayWindows.filter { $0.value.isFadingOut && $0.value.currentOpacity < 0.01 }
+        for (windowID, overlay) in fadedOut {
+            overlayWindows.removeValue(forKey: windowID)
+            overlay.cleanup()
+            overlay.orderOut(nil)
+        }
+
+        debugLog("Overlays: \(overlayWindows.count), removed: \(toRemove.count), added: \(created), updated: \(toUpdate.count), focused: \(focusedWindowID ?? 0), activeScreen: \(activeScreenIndex ?? -1)")
     }
 
     func createOverlay(windowID: CGWindowID, frame: CGRect, device: MTLDevice) {
@@ -813,7 +860,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mtkView.preferredFramesPerSecond = 15
         mtkView.autoresizingMask = [.width, .height]
 
-        // Configure the CAMetalLayer for transparency
         if let metalLayer = mtkView.layer as? CAMetalLayer {
             metalLayer.isOpaque = false
             metalLayer.backgroundColor = CGColor.clear
@@ -829,7 +875,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.mtkView = mtkView
         window.renderer = renderer
         renderer.overlayWindow = window
-        renderer.opacity = 0.0  // Start transparent for fade-in
+        renderer.opacity = 0.0
         window.targetOpacity = 1.0
 
         contentView.addSubview(mtkView)

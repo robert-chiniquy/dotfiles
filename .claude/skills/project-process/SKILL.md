@@ -1,25 +1,31 @@
 ---
 name: project-process
 description: |
-  Global project process framework covering artifacts, practices, priorities,
-  organization, and multi-subproject management. Use for all projects --
-  defines mandatory files (DATA_SOURCES.md, LEARNINGS.md, etc.), practices
-  (file versioning, stable identifiers, checkpoints), priority ordering,
-  and directory conventions. Always apply this skill.
+  Project framework defining mandatory artifacts, practices, and organization.
+  Always active. Defines DATA_SOURCES.md, LEARNINGS.md, GLOSSARY.md, and
+  other project files. Read references/ for details on each topic.
 ---
 
 # Project Process
 
-The global project process framework. All projects follow these conventions.
+Hub skill. Read `references/index.md` for the full reference map.
 
-## Reference Files
+## Mandatory Artifacts
 
-Load these on demand based on the specific topic:
+Every project must have: DATA_SOURCES.md, LEARNINGS.md, .claude/CLAUDE.md.
+Recommended: GLOSSARY.md, FAILURES.md, REMAINING_TODOS.md, PROJECT.md.
 
-- **references/index.md** - Index of all project process documentation
-- **references/artifacts.md** - Mandatory project files and their purposes
-- **references/practices.md** - Day-to-day practices and conventions
-- **references/priorities.md** - Work ordering and momentum rules
-- **references/organization.md** - Directory structure and build conventions
-- **references/multisubproject.md** - Multi-subproject repository management
-- **references/proverbs.md** - Guiding principles for all work
+## Proverbs
+
+Read `references/proverbs.md` as guiding principles for all work.
+
+## References
+
+| File | Topic |
+|------|-------|
+| `references/artifacts.md` | What each file contains and when to create it |
+| `references/practices.md` | File versioning, stable IDs, self-check list |
+| `references/priorities.md` | How to sequence work |
+| `references/organization.md` | Directory structure conventions |
+| `references/multisubproject.md` | Multi-subproject repo patterns |
+| `references/proverbs.md` | Accumulated wisdom |

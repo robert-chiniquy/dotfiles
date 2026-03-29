@@ -1,30 +1,26 @@
 ---
 name: documentation
 description: |
-  Comprehensive documentation methodology covering process, content patterns,
-  templates, verification, organization, and specialized techniques. Use when
-  writing documentation, planning doc structure, reviewing docs for quality,
-  merging documentation from multiple sources, or applying specialized
-  documentation approaches like RAP or tone matrixing.
+  Documentation methodology: process, content patterns, templates, verification,
+  organization, and merging. Use when writing docs, planning doc structure,
+  reviewing docs for quality, or merging documentation across sources.
 ---
 
-# Documentation Skills
+# Documentation
 
-Methodology and patterns for writing, organizing, and maintaining documentation.
+Hub skill. Reference files cover the full methodology:
 
-## Reference Files
-
-Load these on demand based on the specific topic:
-
-- **references/overview.md** - Documentation philosophy and principles
-- **references/process.md** - Step-by-step documentation workflow
-- **references/content.md** - Content patterns and writing guidelines
-- **references/templates.md** - Reusable document templates
-- **references/verify.md** - Documentation quality verification
-- **references/learnings.md** - Lessons learned about documentation
-- **references/organization.md** - Information architecture and structure
-- **references/merging.md** - Merging documentation from multiple sources
-- **references/layered.md** - Layered documentation strategy (separate concerns)
-- **references/marketing-lens.md** - Applying marketing perspective to docs
-- **references/rap.md** - Retrieval Augmented Prompt documentation for LLMs
-- **references/tone-matrixing.md** - Analyzing and matching tone across documents
+| File | Topic |
+|------|-------|
+| `references/overview.md` | Documentation principles and approach |
+| `references/process.md` | Writing process: plan, draft, verify |
+| `references/content.md` | Content patterns and anti-patterns |
+| `references/templates.md` | Document templates by type |
+| `references/verify.md` | Verification checklist |
+| `references/organization.md` | File naming, structure, navigation |
+| `references/merging.md` | Combining docs from multiple sources |
+| `references/layered.md` | Progressive disclosure in docs |
+| `references/tone-matrixing.md` | Adjusting tone for audience |
+| `references/marketing-lens.md` | When docs need to communicate value |
+| `references/learnings.md` | What we've learned about writing docs |
+| `references/rap.md` | Read-Assess-Plan method |
