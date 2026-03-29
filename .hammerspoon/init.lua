@@ -301,7 +301,7 @@ wifiWatcher = hs.wifi.watcher.new(wifiChanged)
 wifiWatcher:start()
 
 -- Wallpaper rotation (auto-rotate hourly + cmd+ctrl+w to manual rotate)
-wallpaperDir = os.getenv("HOME") .. "/Pictures/Wallpapers"
+wallpaperDir = os.getenv("HOME") .. "/Pictures/dynamic-wallpaper"
 
 local function rotateWallpaper()
     local files = {}
@@ -333,7 +333,7 @@ hs.hotkey.bind({"cmd", "ctrl"}, "w", function()
     if rotateWallpaper() then
         hs.alert.show("Wallpaper changed")
     else
-        hs.alert.show("No wallpapers in ~/Pictures/Wallpapers")
+        hs.alert.show("No wallpapers in ~/Pictures/dynamic-wallpaper")
     end
 end)
 
@@ -530,39 +530,6 @@ mediaKeyWatcher:start()
 -- Runs when plugged in + battery > 50%, stops otherwise
 -- Uses globals to prevent GC, checks process existence before starting
 
-local function vwIsRunning()
-    local output = hs.execute("pgrep -f vaporwave-overlay", true)
-    return output ~= nil and output ~= ""
-end
-
-local function vwShouldRun()
-    local battery = hs.battery.percentage()
-    local charging = hs.battery.isCharging() or hs.battery.isCharged()
-    return charging and battery > 50
-end
-
-VW_TASK = nil  -- global to prevent GC
-local function vwUpdate()
-    local running = vwIsRunning()
-    local shouldRun = vwShouldRun()
-    if shouldRun and not running then
-        VW_TASK = hs.task.new(
-            os.getenv("HOME") .. "/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay",
-            function() VW_TASK = nil end
-        )
-        VW_TASK:start()
-    elseif not shouldRun and running then
-        if VW_TASK then VW_TASK:terminate() end
-        hs.execute("pkill -9 -f vaporwave-overlay", true)
-        VW_TASK = nil
-    end
-end
-
--- Check on power state changes
-vwBatteryWatcher = hs.battery.watcher.new(vwUpdate)
-vwBatteryWatcher:start()
-
--- Initial check (deferred so hs.task is ready)
-hs.timer.doAfter(3, vwUpdate)
-
+-- VW overlay managed via LaunchAgent and `vw` CLI, not Hammerspoon
+-- Auto-start removed: hs.task.new triggers macOS permission dialogs on every launch
 hs.alert.show("Hammerspoon loaded")

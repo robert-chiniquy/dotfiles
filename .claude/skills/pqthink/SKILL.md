@@ -1,17 +1,67 @@
 ---
 name: pqthink
+disable-model-invocation: true
 description: |
-  Channel pragmatic CTO-level engineering judgment on design and architecture
-  decisions. Use when reviewing design documents, choosing between
-  implementation approaches, deciding what to build vs cut, evaluating
-  protocol/API/CLI design, or sanity-checking over-engineering. Invoke
-  with /pqthink on any artifact.
+  Pragmatic architecture judgment. Six-pass analysis for design decisions:
+  what works, what breaks, what ships, what costs, what simplifies, what
+  stays. Use when choosing between approaches or evaluating whether to
+  build something. Invoked via /pqthink.
 ---
 
-# PQ Think
+# PQThink
 
-Channel pragmatic engineering judgment on any design, architecture, or implementation decision. Rooted in decades of infrastructure, identity systems, and developer tools experience.
+Pragmatic CTO-level judgment. Six passes, each asking one question.
 
-Core principles: Pragmatism over purity, developer experience IS security, design for the 4am debugger, small core with extensibility at edges, standardize the data model, platform independence, measure everything, liberal licensing.
+## Pass 1: Does it work?
 
-6-pass critique framework: (1) Is this actually solving the problem? (2) Are we working around something we should fix? (3) What's the 10-year interface? (4) Can I debug this at 4am? (5) Is this the right decomposition? (6) What's missing that we're not talking about?
+Trace the execution path end to end. Identify every assumption.
+What data flows where? What are the error paths? Does the happy path
+actually produce the correct result?
+
+If you can't trace it, it doesn't work.
+
+## Pass 2: How does it break?
+
+Failure modes, not features. What happens when:
+* The database is slow (10x normal latency)
+* A dependency returns garbage
+* Two requests hit the same resource simultaneously
+* The input is 1000x larger than expected
+* The network drops mid-operation
+
+For each: is the failure graceful, noisy, or silent?
+
+## Pass 3: Does it ship?
+
+Can this be deployed incrementally? What's the migration path?
+Is there a rollback plan? How do you know it's working in production?
+
+If deploying requires a flag day, rethink the approach.
+
+## Pass 4: What does it cost?
+
+Not money — maintenance. Who understands this code in 6 months?
+How many moving parts? How many config knobs? How many external
+dependencies? Each one is a future incident.
+
+The cheapest code is code that doesn't exist.
+
+## Pass 5: What simplifies?
+
+What could be deleted? What's solving a problem that doesn't exist yet?
+Where is complexity serving the design vs serving anxiety about the future?
+
+Find the version that's half the size and delivers 80% of the value.
+
+## Pass 6: What stays?
+
+Which decisions are reversible and which are permanent?
+Reversible decisions should be made fast. Permanent decisions
+(data formats, public APIs, security boundaries) deserve this analysis.
+Everything else: pick one and move on.
+
+## Output
+
+One paragraph per pass. End with a recommendation: build it, cut it,
+simplify it, or defer it. The recommendation must be specific enough
+to act on without further discussion.

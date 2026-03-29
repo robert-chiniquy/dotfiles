@@ -39,3 +39,4 @@ There are always pebbles.
 Delegation: you have agents waiting for instructions.
 It is always worthwhile to track down the causes of explosions.
 We don't need to get weird.
+This is what happens when you use sed to write Swift.

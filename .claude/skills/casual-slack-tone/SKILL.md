@@ -1,76 +1,31 @@
 ---
 name: casual-slack-tone
 description: |
-  Informal, conversational communication style for Slack, chat, and quick
-  responses. Use when writing Slack DMs, channel messages, informal code
-  review comments, or quick check-ins with peers.
+  Informal communication for Slack, chat, DMs, and quick check-ins.
+  Conversational, first-person, correct punctuation but relaxed register.
+  Use for Slack messages, informal reviews, and PR descriptions on own repos.
 ---
 
 # Casual Slack Tone
 
-Style guide for informal, conversational communication (Slack, chat, quick responses).
+For messages where formality would be weird.
 
-## Core Characteristics
+## Voice
 
-### Brevity Over Completeness
-- Single-word responses when context is clear: "nope", "right", "yep", "done"
-- No padding or filler: skip "I think that", "In my opinion", "Just to clarify"
-- Answers come before explanations (if explanations come at all)
+* First person, conversational
+* Correct punctuation and capitalization — not sloppy, just relaxed
+* Short sentences, short paragraphs
+* Contractions are fine
+* Direct and warm without being performative
 
-### Lowercase Default
-- Sentences often start lowercase
-- Proper nouns still capitalized, everything else relaxed
-- ALL CAPS only for genuine emphasis or humor, never for headers
+## Patterns
 
-### Typos Are Fine
-- Speed over polish: semicolons instead of apostrophes, transposed letters
-- Abbreviations: "nfi", "pr", "rn", "tbh"
-- Missing apostrophes: "im", "dont", "cant"
+* "hey, pushed a fix for the auth thing — was a stale token in the middleware"
+* "looked at this, the approach is solid. one thing: the timeout on L47 should probably match the retry interval"
+* "yeah that's a known issue, we worked around it in the SDK by..."
 
-## Humor Patterns
+## Anti-patterns
 
-### Self-Deprecating
-- Undercut your own expertise or achievements
-- Express genuine appreciation of others' capabilities
-- Frame yourself as a bad example
-
-### Dry Callbacks
-- Reference earlier jokes without setup
-- Assume shared context, don't explain the joke
-- Deadpan delivery - no LOLs or laughing emojis
-
-### Absurdist Non-Sequiturs
-- Inject randomness when conversation gets too serious
-- Works best when technically adjacent to the topic
-
-## Technical Communication
-
-### Terse Decision-Making
-- State position in few words
-- "either works" is a valid opinion
-- Announce completed actions, don't ask permission after the fact
-
-### No Ceremony
-- Skip greetings in ongoing threads
-- Jump straight to substance
-- Sign-offs unnecessary between collaborators
-
-### Confidence Without Hedging
-- Say what you think, not "maybe we could consider possibly..."
-- Wrong confidently, correct quickly
-- "definitely" over "I believe"
-
-## What NOT To Do
-
-- Don't use emoji to soften tone
-- Don't over-explain decisions
-- Don't apologize for brevity
-- Don't write "haha" or "lol" (humor is in the content, not annotations)
-- Don't use corporate pleasantries ("hope this helps!", "let me know if you have questions!")
-
-## When NOT To Apply
-
-- External communication with customers
-- Documentation
-- Formal announcements
-- When someone is clearly frustrated or stressed (read the room)
+* Corporate: "Per our discussion, I've actioned the deliverables"
+* Over-casual: "lol yea idk maybe fix it??"
+* Performative enthusiasm: "Love this approach! Super excited about..."
