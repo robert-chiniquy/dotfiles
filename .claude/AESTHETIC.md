@@ -14,17 +14,17 @@
 
 ## Color Palette
 
-| Role | Hex | When to use |
-|------|-----|-------------|
-| Background | `#000000` | Always |
-| Foreground | `#f0f0f0` | Default text |
-| Primary accent | `#ff00f8` | Active/selected/important, cursor |
-| Secondary accent | `#5cecff` | Links, functions, info |
-| Tertiary accent | `#fbb725` | Warnings, strings, paths |
-| Muted | `#aa00e8` | Inactive, line numbers, secondary |
-| Success | `#58e8a3` | Added, passing, good |
-| Error | `#ff6b9d` | Removed, failing, bad |
-| Selection | `#4e4e8f` | Highlighted regions |
+| Role | Hex | Swatch | When to use |
+|------|-----|--------|-------------|
+| Background | `#000000` | ![#000000](https://img.shields.io/badge/%23000000-%23000000?style=flat-square) | Always |
+| Foreground | `#f0f0f0` | ![#f0f0f0](https://img.shields.io/badge/%23f0f0f0-%23f0f0f0?style=flat-square) | Default text |
+| Primary accent | `#ff00f8` | ![#ff00f8](https://img.shields.io/badge/%23ff00f8-%23ff00f8?style=flat-square) | Active/selected/important, cursor |
+| Secondary accent | `#5cecff` | ![#5cecff](https://img.shields.io/badge/%235cecff-%235cecff?style=flat-square) | Links, functions, info |
+| Tertiary accent | `#fbb725` | ![#fbb725](https://img.shields.io/badge/%23fbb725-%23fbb725?style=flat-square) | Warnings, strings, paths |
+| Muted | `#aa00e8` | ![#aa00e8](https://img.shields.io/badge/%23aa00e8-%23aa00e8?style=flat-square) | Inactive, line numbers, secondary |
+| Success | `#58e8a3` | ![#58e8a3](https://img.shields.io/badge/%2358e8a3-%2358e8a3?style=flat-square) | Added, passing, good |
+| Error | `#ff6b9d` | ![#ff6b9d](https://img.shields.io/badge/%23ff6b9d-%23ff6b9d?style=flat-square) | Removed, failing, bad |
+| Selection | `#4e4e8f` | ![#4e4e8f](https://img.shields.io/badge/%234e4e8f-%234e4e8f?style=flat-square) | Highlighted regions |
 
 ## Typography
 
