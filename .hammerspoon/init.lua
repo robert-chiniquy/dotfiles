@@ -281,24 +281,6 @@ hs.hotkey.bind({"cmd", "ctrl", "shift"}, "c", function()
     end
 end)
 
--- WiFi watcher
-wifiWatcher = nil
-lastSSID = hs.wifi.currentNetwork()
-
-local function wifiChanged()
-    local newSSID = hs.wifi.currentNetwork()
-    if newSSID ~= lastSSID then
-        if newSSID then
-            hs.alert.show("WiFi: " .. newSSID)
-        else
-            hs.alert.show("WiFi: Disconnected")
-        end
-        lastSSID = newSSID
-    end
-end
-
-wifiWatcher = hs.wifi.watcher.new(wifiChanged)
-wifiWatcher:start()
 
 -- Wallpaper rotation (auto-rotate hourly + cmd+ctrl+w to manual rotate)
 wallpaperDir = os.getenv("HOME") .. "/Pictures/dynamic-wallpaper"
@@ -308,7 +290,7 @@ local function rotateWallpaper()
     local ok, iter, dir_obj = pcall(hs.fs.dir, wallpaperDir)
     if ok and iter then
         for file in iter, dir_obj do
-            if file:match("%.png$") or file:match("%.jpg$") or file:match("%.jpeg$") then
+            if file:match("%.png$") or file:match("%.jpg$") or file:match("%.jpeg$") or file:match("%.heic$") then
                 table.insert(files, wallpaperDir .. "/" .. file)
             end
         end
@@ -324,7 +306,7 @@ local function rotateWallpaper()
 end
 
 -- Auto-rotate every hour
-wallpaperTimer = hs.timer.new(600, rotateWallpaper)
+wallpaperTimer = hs.timer.new(30, rotateWallpaper)
 wallpaperTimer:start()
 rotateWallpaper()
 

@@ -189,69 +189,18 @@ _show_project_files() {
     FAILURES.md DEMO.md REMAINING_TODOS.md PROJECT.md GLOSSARY.md
   )
   local found=()
-  local f lines w=$COLUMNS
 
-  # Check for project files
   for f in "${project_files[@]}"; do
-    [[ -f "$f" ]] && found+=("$f")
+    [[ -f "$f" ]] && found+=("${f%.md}")
   done
-
-  # Also check for PLAN_*.md files
   for f in PLAN_*.md(N); do
-    [[ -f "$f" ]] && found+=("$f")
+    [[ -f "$f" ]] && found+=("${f%.md}")
   done
 
-  # If no project files, skip
   (( ${#found} == 0 )) && return
 
-  # Narrow terminal: compact single-line summary
-  if (( w < 50 )); then
-    print -P "%F{201}${#found} project files%f"
-    return
-  fi
-
-  # Medium terminal: filename with line count (one per line)
-  if (( w < 80 )); then
-    for f in "${found[@]}"; do
-      lines=$(wc -l < "$f" | tr -d ' ')
-      print -P "%F{51}${f%.md}%f%F{243}:${lines}%f"
-    done
-    return
-  fi
-
-  # Wide terminal: full display
-  print -P "%F{201}project:%f"
-  for f in "${found[@]}"; do
-    lines=$(wc -l < "$f" | tr -d ' ')
-    if git rev-parse --git-dir &>/dev/null 2>&1; then
-      local stat=$(git diff --shortstat "$f" 2>/dev/null | awk '{printf "+%d/-%d", $4, $6}')
-      [[ -n "$stat" && "$stat" != "+0/-0" ]] && stat="%F{221}$stat%f" || stat=""
-      print -P "  %F{51}$f%f %F{243}${lines}L%f $stat"
-    else
-      print -P "  %F{51}$f%f %F{243}${lines}L%f"
-    fi
-  done
-
-  # Parse DATA_SOURCES.md for local paths in same directory
-  if [[ -f "DATA_SOURCES.md" ]]; then
-    local sources=()
-    while IFS= read -r line; do
-      # Match lines like "- `./file.md`" or "- ./file.md" or "- file.md -"
-      if [[ "$line" =~ ^-[[:space:]]+\`?\.?/?([^/\`[:space:]]+\.(md|txt|go|rs|py|ts|js))\`? ]]; then
-        local src="${match[1]}"
-        [[ -f "$src" && ! " ${found[*]} " =~ " $src " ]] && sources+=("$src")
-      fi
-    done < DATA_SOURCES.md
-
-    if (( ${#sources} > 0 )); then
-      print -P "%F{201}sources:%f"
-      for f in "${sources[@]:0:5}"; do  # Limit to 5
-        lines=$(wc -l < "$f" | tr -d ' ')
-        print -P "  %F{221}$f%f %F{243}${lines}L%f"
-      done
-      (( ${#sources} > 5 )) && print -P "  %F{243}... +$((${#sources} - 5)) more%f"
-    fi
-  fi
+  # Single line, just names
+  print -P "%F{201}project:%f %F{51}${(j: :)found}%f"
 }
 chpwd_functions+=(_show_project_files)
 
@@ -1696,13 +1645,6 @@ __prune_cmd_not_found() {
     fc -p "$HISTFILE" "$HISTSIZE" "$SAVEHIST"
 }
 precmd_functions+=(__prune_cmd_not_found)
-
-# Port-in-use helper - show what's using port on bind errors
-__port_helper() {
-    [[ $? -ne 0 ]] && fc -ln -1 | grep -q "address.*in use\|EADDRINUSE" && \
-        lsof -i -P | grep LISTEN
-}
-precmd_functions+=(__port_helper)
 
 # Show git diff stat when entering dirty repo
 __git_dirty_reminder() {
