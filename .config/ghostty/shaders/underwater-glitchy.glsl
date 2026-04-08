@@ -26,16 +26,16 @@
 // ---- Underwater controls ----
 #define TARGET_COLOR vec3(0.0, 0.0, 0.0) // #000000 pure black
 #define COLOR_TOLERANCE 0.15            // tolerance around TARGET_COLOR (increased from 0.03)
-#define UNDERWATER_RAY_STRENGTH 0.75  // Strength of rays added to background (was 0.65)
+#define UNDERWATER_RAY_STRENGTH 0.75
 #define FORCE_BACKGROUND_BLACK 1      // 1: force background pixels to pure black
 // Higher = fewer rays / blacker baseline
-#define UNDERWATER_RAY_CUTOFF 0.85  // Cutoff threshold - higher = thinner rays (was 0.75)
+#define UNDERWATER_RAY_CUTOFF 0.55
 // Ray origin + motion tuning
 #define UNDERWATER_SPEED_SCALE 0.00002375 // -50% (was 0.0000475)
 #define GRECAS_SPEED_SCALE 0.0000125      // -50% (was 0.000025)
 #define SHARED_SPEED_VARIANCE 0.1         // +/- 10% random variance shared by rays and grecas
 // Number of ray sources (origin points) - must be > 1 for proper coverage
-#define UNDERWATER_RAY_COUNT 2
+#define UNDERWATER_RAY_COUNT 1
 // Number of rays per source (must be > 1 for proper ray fan effect)
 #define RAYS_PER_SOURCE 2  // Reduced from 3 for performance (slightly thinner rays)
 // Vaporwave color palette cycling
@@ -43,9 +43,9 @@
 #define VAPORWAVE_CYCLE_SECONDS 15.0
 #define VAPORWAVE_TRANSITION_SMOOTH 0.7
 // Ray sources (y < 0 means "below the screen")
-#define UNDERWATER_RAY_POS1_NORM vec2(0.55, -0.10)
+#define UNDERWATER_RAY_POS1_NORM vec2(0.55, -0.35)
 #define UNDERWATER_RAY_DIR1_NORM normalize(vec2(1.0, -0.06))
-#define UNDERWATER_RAY_POS2_NORM vec2(0.45, -0.10)
+#define UNDERWATER_RAY_POS2_NORM vec2(0.45, -0.35)
 #define UNDERWATER_RAY_DIR2_NORM normalize(vec2(-1.0, -0.06))
 
 // ---- Glitch controls ----
@@ -53,13 +53,13 @@
 #define GLITCH_PERIOD_MAX 45.0
 #define GLITCH_WINDOW_SECONDS 7.0
 #define GLITCH_ALWAYS_ON 1
-#define GLITCH_STRENGTH 0.0378              // +20% (was 0.0315)
+#define GLITCH_STRENGTH 0.30
 #define GLITCH_TIME_SCALE 0.00000015        // -50% (was 0.0000003)
-#define GLITCH_SCANLINE_SPEED 0.000125      // -50% (was 0.00025)
-#define GLITCH_DISTORTION_SCALE 0.147       // +20% (was 0.1225)
-#define GLITCH_RGB_SPLIT_SCALE 0.189        // +20% (was 0.1575)
-#define GLITCH_NOISE_SCALE 0.115            // +20% (was 0.096)
-#define GLITCH_SCANLINE_SCALE 0.126         // +20% (was 0.105)
+#define GLITCH_SCANLINE_SPEED 0.0004
+#define GLITCH_DISTORTION_SCALE 1.0
+#define GLITCH_RGB_SPLIT_SCALE 1.2
+#define GLITCH_NOISE_SCALE 0.25
+#define GLITCH_SCANLINE_SCALE 0.4
 // Boost glitch on dark/dim pixels (background), exclude bright text
 #define GLITCH_RAY_BOOST 10.0
 #define GLITCH_DIM_THRESHOLD 0.35
@@ -70,7 +70,7 @@
 #define MAJOR_GLITCH_PERIOD 5.0       // Every 5 seconds for testing
 #define MAJOR_GLITCH_DURATION 2.0     // 2 second duration
 #define MAJOR_GLITCH_STRENGTH 60.0      // CRANKED for testing (was 35.0)
-#define MAJOR_GLITCH_PURPLE_BOOST 40.5  // Purple glitch intensity (+50%, was 27.0)
+#define MAJOR_GLITCH_PURPLE_BOOST 120.0 // Purple glitch intensity (was 27.0)
 #define STARTUP_GLITCH_DURATION 0.4     // Startup glitch lasts 0.4 seconds (was 1.2)
 
 // ---- Purple smearing controls ----
@@ -582,7 +582,7 @@ float rayStrength(vec2 raySource, vec2 rayRefDirection, vec2 coord, float seedA,
 #else
 	float distance = length(sourceToCoord);
 #endif
-	float maxDistance = iResolution.y * 1.5;
+	float maxDistance = iResolution.y * 3.5;
 	float distanceRatio = clamp(distance / maxDistance, 0.0, 1.0);
 
 	// Create perpendicular offset that varies with distance (makes rays curve)
@@ -603,7 +603,7 @@ float rayStrength(vec2 raySource, vec2 rayRefDirection, vec2 coord, float seedA,
 	//     cos(distance * 0.015 * seedB + adjustedTime * speed * 0.3) * 125.0 +
 	//     sin(distance * 0.024 * (seedA + seedB) + adjustedTime * speed * 0.7) * 75.0;
 	float combinedFreq = distance * 0.012 * (seedA + seedB) * 0.5 + adjustedTime * speed * 0.5;
-	float bendAmount = sin(combinedFreq) * 280.0 + cos(combinedFreq * 1.7) * 120.0;
+	float bendAmount = sin(combinedFreq) * 500.0 + cos(combinedFreq * 1.7) * 250.0;
 #endif
 
 	bendAmount *= distanceRatio * distanceRatio;
@@ -644,7 +644,9 @@ float rayStrength(vec2 raySource, vec2 rayRefDirection, vec2 coord, float seedA,
 	float ray = clamp(1.15 + 0.75 * sin(rayPhase) + dither, 0.0, 1.0);
 #endif
 
-	ray = clamp((ray - UNDERWATER_RAY_CUTOFF) / max(1.0 - UNDERWATER_RAY_CUTOFF, 1e-6), 0.0, 1.0);
+	float rayCutoff = UNDERWATER_RAY_CUTOFF + (fract(seedA * 0.1 + seedB * 0.07) - 0.5) * 0.4;
+	rayCutoff = clamp(rayCutoff, 0.2, 0.9);
+	ray = clamp((ray - rayCutoff) / max(1.0 - rayCutoff, 1e-6), 0.0, 1.0);
 
 	// Distance-based falloff
 	float distanceFade = 1.0 - smoothstep(0.0, maxDistance, distance);
@@ -692,7 +694,7 @@ vec3 glitchyColor(vec2 uv, vec2 fragCoord, float boostMask, float nearPurple, fl
 	localMask *= (1.0 - textureProtection * 0.9);
 	
 	// Near purple: ensure minimum glitch even without rays
-	float purpleMinGlitch = nearPurple * 1.125;  // +50% (was 0.75)
+	float purpleMinGlitch = nearPurple * 3.0;
 	localMask = max(localMask, purpleMinGlitch);
 	
 	if (localMask <= 0.0) return passthrough;
@@ -707,7 +709,7 @@ vec3 glitchyColor(vec2 uv, vec2 fragCoord, float boostMask, float nearPurple, fl
 	float glitchAmount = clamp(gate * GLITCH_STRENGTH * (localMask * dimMask * GLITCH_RAY_BOOST), 0.0, 3.0);
 	
 	// Boost glitch near purple text
-	float purpleGlitchMult = 1.0 + nearPurple * 18.0;  // +50% (was 12.0)
+	float purpleGlitchMult = 1.0 + nearPurple * 60.0;
 	glitchAmount *= purpleGlitchMult;
 	
 	if (glitchAmount <= 0.0) return passthrough;
@@ -756,7 +758,7 @@ vec3 glitchyColor(vec2 uv, vec2 fragCoord, float boostMask, float nearPurple, fl
 	// Use slow time for scanline scroll (no subsecond variation), cursor-adjusted
 	float scanlineTime = floor(iTime * cursorSpeedFactor() * 2.0) * 0.5;  // Steps every 0.5s, cursor-scaled
 	float scanlineY = uv.y * iResolution.y + scanlineTime * GLITCH_SCANLINE_SPEED * 1000.0;
-	float heightVar = 0.005 + fract(sin(scanlineY * 0.001) * 43758.5453) * 49.995; // 0.005 to 50.0 (widened)
+	float heightVar = 0.005 + fract(sin(scanlineY * 0.037 + uv.x * 17.0) * 43758.5453) * 200.0;
 	float scanlinePattern = sin(scanlineY * heightVar);
 	float scanlineThreshold = 0.1; // 90% coverage (more visible)
 	float showScanline = step(scanlineThreshold, fract(scanlineY * 0.01));
@@ -792,10 +794,10 @@ float underwaterRayMask(vec2 fragCoord)
 	// Process each ray source
 	for (int source = 0; source < UNDERWATER_RAY_COUNT; source++) {
 		// Animate ray origin - non-repeating motion using incommensurate frequencies
-		float t1 = iTime * speedFactor * 0.003 * (1.0 + float(source) * 0.3);
+		float t1 = iTime * speedFactor * 0.03 * (1.0 + float(source) * 0.3);
 
-		float xOffset1 = (sin(t1) + sin(t1 * 1.618) * 0.7) * iResolution.x * 0.2;
-		float yOffset1 = (sin(t1 * 0.7071) + cos(t1 * 1.2247) * 0.5) * iResolution.y * 0.06;
+		float xOffset1 = (sin(t1) + sin(t1 * 1.618) * 0.7) * iResolution.x * 0.4;
+		float yOffset1 = (sin(t1 * 0.7071) + cos(t1 * 1.2247) * 0.5) * iResolution.y * 0.15;
 
 		vec2 rayPosBase;
 		vec2 baseDir;
@@ -810,7 +812,7 @@ float underwaterRayMask(vec2 fragCoord)
 		vec2 rayPos = rayPosBase + vec2(xOffset1, yOffset1);
 
 		// Add rotation animation to the entire ray fan
-		float rotationSpeed = 0.000006;
+		float rotationSpeed = 0.00012;
 		float rotationAngle = iTime * speedFactor * rotationSpeed * (source == 0 ? 1.0 : -1.0);
 		
 		// Create multiple rays emanating from this source at different angles
@@ -1053,7 +1055,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	float nearPurpleIntensity = purpleIntensity * nearPurple;
 	
 	// Boost glitch effect around purple text (reduced spread)
-	float purpleGlitchBoost = 1.0 + nearPurpleIntensity * 1800.0;  // +50% (was 1200)
+	// Purple purity: closeness to ideal
+	float purplePurity = 1.0 - smoothstep(0.0, 0.5, nearestPurpleDist);
+	purplePurity *= purplePurity;
+	float purityScale = 1.0 + purplePurity * 4.0;
+	float purpleGlitchBoost = 1.0 + nearPurpleIntensity * 5000.0 * purityScale;
 
 	// For purple text, bypass whiteMask protection to allow glitch on the text itself
 	float purpleBypassMask = mix(adjustedRayMask, rayMask, purpleIntensity * 0.9);
@@ -1066,7 +1072,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	float boostMask = purpleBypassMask * purpleGlitchBoost;
 
 	// Ensure minimum glitch near purple even without rays
-	boostMask = max(boostMask, nearPurpleIntensity * 20.0);
+	boostMask = max(boostMask, nearPurpleIntensity * 80.0);
 	
 	// Skip glitchy effects entirely for protected areas - just use terminal color
 	vec3 base;
@@ -1112,12 +1118,85 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 		finalRgb = mix(finalRgb, neonPurple, auraStrength * 0.15);  // Reduced from 0.6
 	}
 
+	// === PURPLE DRIP ===
+	{
+		vec2 txSz = 1.0 / iResolution.xy;
+		float dT = iTime * 0.0004;
+		float fP = 0.0; float bPur = 0.0; float cPD = 1.0; float cP = 0.0;
+		vec3 sC = vec3(0.0);
+		for (int i = 1; i <= 50; i++) {
+			float fi = float(i);
+			float d = fi * txSz.y * 8.0;
+			float dR = fi / 50.0;
+			float b1 = sin(d*800.0+dT*3.0+fi*1.7)*dR*dR;
+			float b2 = cos(d*850.0+dT*2.1)*dR*dR*0.8;
+			float b3 = sin(d*690.0+dT*1.4+uv.x*40.0)*dR*dR*0.5;
+			float b4 = cos(d*420.0+dT*0.7+fi*3.1)*dR*dR*dR*2.0;
+			float wb = (b1+b2+b3+b4)*txSz.x*400.0;
+			vec2 sUV = vec2(uv.x+wb, uv.y-d);
+			if (sUV.y < 0.0) break;
+			vec3 s = texture(iChannel0, sUV).rgb;
+			float p = (s.r+s.b)*0.5 - s.g*0.5;
+			float dM=length(s-vec3(1.0,0.0,0.973)); float dN=length(s-vec3(0.67,0.376,0.929)); float dD=length(s-vec3(0.667,0.0,0.91));
+			float nD=min(min(dM,dN),dD);
+			float pB=1.0+(1.0-smoothstep(0.0,0.8,nD))*3.0;
+			float w=1.0-dR*0.3;
+			float pw=max(p-0.03,0.0)*w*pB;
+			if(pw>0.0){bPur=max(bPur,(pB-1.0)/3.0);cP+=1.0;if(pw>fP){fP=pw;sC=s;}cPD=min(cPD,dR);}
+		}
+		float dO=smoothstep(0.0,0.3,1.0-cPD);
+		float sT=smoothstep(0.0,5.0,cP);
+		fP*=dO*sT;
+		if(fP>0.0){
+			float fE=mix(5.0,1.0,bPur);
+			float fade=pow(1.0-cPD,fE);
+			float dF=iTime*0.0008; float dY=uv.y-dF; float sY=uv.y;
+			float c1=sin(sY*12.0+dT*2.5+uv.x*30.0)*sY*sY;
+			float c2=cos(sY*8.0+dT*1.7+uv.x*50.0)*sY*sY*0.7;
+			float c3=sin(sY*20.0+dT*0.9)*sY*sY*sY*1.5;
+			float cX=uv.x+(c1+c2+c3)*0.08;
+			float dW=max(max(pow(fract(dY*6.0+cX*1.2),2.5),pow(fract(dY*3.5+cX*2.7+0.4),3.0)*0.6),pow(fract(dY*1.8+cX*0.8+0.7),2.0)*0.4);
+			float cXi=floor(cX*60.0); float rT=iTime*0.15; float tS=floor(rT); float tF=fract(rT);
+			float bl=tF*tF*(3.0-2.0*tF);
+			float sC1=fract(sin(cXi*12.9898+tS*78.233)*43758.5453);
+			float sN1=fract(sin(cXi*12.9898+(tS+1.0)*78.233)*43758.5453);
+			float cW=mix(step(0.3,sC1)*(0.5+sC1*0.5),step(0.3,sN1)*(0.5+sN1*0.5),bl);
+			float dS=fP*dW*fade*cW*5.0;
+			vec3 dCol=mix(sC,neonPurple,pow(uv.y,0.5));
+			finalRgb=mix(finalRgb,dCol,min(dS,0.7)*(1.0-protectedMask*0.5));
+			float hSC=fract(sin(cXi*45.164+tS*12.7)*28461.352);
+			float hSN=fract(sin(cXi*45.164+(tS+1.0)*12.7)*28461.352);
+			float hA=mix(step(0.65,hSC),step(0.65,hSN),bl);
+			float cSB=mix(sC1,sN1,bl);
+			float hW=pow(fract(dY*2.5+cSB*3.0),4.0);
+			float hS=fP*hW*fade*hA*6.0;
+			vec3 hCol=mix(sC*0.8,neonPurple*0.7,pow(uv.y,0.35));
+			finalRgb=mix(finalRgb,hCol,min(hS,0.5)*(1.0-protectedMask*0.5));
+		}
+	}
+	// === PULSE ===
+	{
+		float pT=iTime*cursorBright*0.0003;
+		float gP=sin(pT+uv.y*4.0)*0.5+0.5; gP*=gP;
+		finalRgb*=(1.0+gP*0.8);
+	}
+	// === SHIMMER ===
+	{
+		float sT2=iTime*0.0000005;
+		float wD=sin(uv.x*6.28318+iTime*0.000008)*0.08+cos(uv.y*4.71239+iTime*0.000013)*0.05;
+		float ph=(uv.x+uv.y*0.7+wD)*2.5+sT2;
+		float cBl=fract(ph);
+		vec3 shC=mix(mix(vec3(0.36,0.93,1.0),neonPurple,smoothstep(0.0,0.33,cBl)),mix(vec3(0.98,0.72,0.15),vec3(1.0,0.0,0.6),smoothstep(0.33,0.66,cBl)),smoothstep(0.33,1.0,cBl));
+		float shM=rawRayMask*rayIntensity*cursorBright*0.85;
+		finalRgb=mix(finalRgb,shC,shM);
+	}
+
 	finalRgb = clamp(finalRgb, 0.0, 1.0);
 
 	// Slowly varying global luminosity reduction using smooth sine
 	// Speed scales with cursor stillness
 	float lumPhase = iTime * cursorBright * 0.0001;
-	float lumFactor = (0.256 + sin(lumPhase) * 0.09 + 0.09) * 0.61; // Range: 0.16 to 0.27 (40% dimmer)
+	float lumFactor = (0.6 + sin(lumPhase) * 0.15 + 0.15) * 1.0;
 	finalRgb *= lumFactor;
 
 	// Feature #4: Grecas overlay (faint stepped spiral pattern on rays)
