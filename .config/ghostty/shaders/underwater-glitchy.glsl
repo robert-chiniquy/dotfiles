@@ -1273,6 +1273,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	float finalDelta = max(max(abs(finalRgb.r-finalRgb.g), abs(finalRgb.r-finalRgb.b)), abs(finalRgb.g-finalRgb.b));
 	float finalChroma = smoothstep(0.01, 0.06, finalDelta);
 	finalRgb *= mix(finalChroma, 1.0, brightProtect);
-	finalRgb = mix(finalRgb, terminalColor.rgb, brightProtect);
+
+	// Use inverse of original alpha to scale effects:
+	// cmux: background alpha=0 -> effectScale=1 (full shader)
+	// cmux: text alpha=1 -> effectScale=0 (passthrough)
+	// ghostty: all alpha=1 -> effectScale=0, but brightProtect handles it
+	float origAlpha = terminalColor.a;
+	float effectScale = pow(1.0 - origAlpha, 0.3); // sharper cutoff
+	// If alpha is always 1 (ghostty), fall back to brightProtect
+	float useAlphaScale = step(0.01, 1.0 - origAlpha); // 1 if alpha < 1 anywhere
+	float blendBack = mix(brightProtect, min(origAlpha * 2.5, 1.0), useAlphaScale);
+	finalRgb = mix(finalRgb, terminalColor.rgb, blendBack);
 	fragColor = vec4(finalRgb, 1.0);
 }
