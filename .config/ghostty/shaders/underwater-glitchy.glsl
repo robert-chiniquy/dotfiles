@@ -74,7 +74,7 @@
 #define STARTUP_GLITCH_DURATION 0.4     // Startup glitch lasts 0.4 seconds (was 1.2)
 
 // ---- Purple smearing controls ----
-#define PURPLE_DETECT_THRESHOLD 0.06
+#define PURPLE_DETECT_THRESHOLD 0.02
 #define PURPLE_SMEAR_DISTANCE 4.0   // Reduced from 16.0 - tighter around letters
 #define PURPLE_SMEAR_STRENGTH 0.85
 #define DEBUG_PURPLE 0  // Set to 1 to visualize purple detection
@@ -961,12 +961,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
 	vec4 terminalColor = texture(iChannel0, uv);
 	
-	// Protect bright pixels
 	float distFromBlack = length(terminalColor.rgb);
-	if (distFromBlack > 0.5) {
-		fragColor = terminalColor;
-		return;
-	}
+	float brightProtect = smoothstep(0.4, 0.6, distFromBlack);
 	
 	// For grey-ish pixels, check if they're uniform (UI) or textured (image)
 	// Sample neighbors at larger radius to detect texture
@@ -981,12 +977,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	variance += length(texture(iChannel0, uv + offset2).rgb - centerCol);
 	variance /= 2.0;
 	
-	// If there's color variance (image), protect it
-	// Solid grey UI has variance near 0
-	if (distFromBlack > 0.08 && variance > 0.002) {
-		fragColor = terminalColor;
-		return;
-	}
+	// no early return — alpha=1.0 at end handles cmux compositing
 	
 	// Use existing variance for proximity fade (no extra samples)
 	float contentProximity = smoothstep(0.0, 0.01, variance);
@@ -1090,12 +1081,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	float glitchTextFade = 1.0 - textNearby * 0.85; // 85% reduction near text
 	boostMask *= glitchTextFade;
 
-	// Skip glitchy effects entirely for protected areas - just use terminal color
+	// Skip glitch on very dark pixels (prevents gray noise on black background)
+	// But allow it near purple text
 	vec3 base;
-	if (boostMask < 0.01 && nearPurpleIntensity < 0.01) {
+	if ((boostMask < 0.01 && nearPurpleIntensity < 0.01) || (luminance < 0.02 && nearPurpleIntensity < 0.1)) {
 		base = terminalColor.rgb;
 	} else {
 		base = glitchyColor(uv, fragCoord, boostMask, nearPurpleIntensity, effectiveProtectedMask, localVariance);
+		// Crush non-chromatic output to black — grays die, colors live
+		float baseDelta = max(max(abs(base.r-base.g), abs(base.r-base.b)), abs(base.g-base.b));
+		float baseChroma = smoothstep(0.02, 0.1, baseDelta);
+		base *= baseChroma;
 	}
 
 	float distToTarget = length(terminalColor.rgb - TARGET_COLOR);
@@ -1156,7 +1152,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 			// Grays/whites have delta~0, saturated colors have delta>>0
 			float chDelta = max(max(abs(s.r-s.g), abs(s.r-s.b)), abs(s.g-s.b));
 			float chromatic = smoothstep(0.05, 0.25, chDelta); // 0 for gray, 1 for saturated
-			float p = (s.r+s.b)*0.5 - s.g*0.7;
+			float p = (s.r+s.b)*0.5 - s.g*0.45;
 			float dM=length(s-vec3(1.0,0.0,0.973)); float dN=length(s-vec3(0.67,0.376,0.929)); float dD=length(s-vec3(0.667,0.0,0.91));
 			float nD=min(min(dM,dN),dD);
 			float pB=1.0+(1.0-smoothstep(0.0,0.8,nD))*3.0;
@@ -1238,7 +1234,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	// Slowly varying global luminosity reduction using smooth sine
 	// Speed scales with cursor stillness
 	float lumPhase = iTime * cursorBright * 0.0001;
-	float lumFactor = (0.4 + sin(lumPhase) * 0.1 + 0.1) * 1.0;
+	float lumFactor = 0.38 + sin(lumPhase) * 0.07;
 	finalRgb *= lumFactor;
 
 	// Feature #4: Grecas overlay (faint stepped spiral pattern on rays)
@@ -1273,5 +1269,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	}
 #endif
 
-	fragColor = vec4(finalRgb, terminalColor.a);
+	// Kill any remaining non-chromatic (gray) output on dark areas
+	float finalDelta = max(max(abs(finalRgb.r-finalRgb.g), abs(finalRgb.r-finalRgb.b)), abs(finalRgb.g-finalRgb.b));
+	float finalChroma = smoothstep(0.01, 0.06, finalDelta);
+	finalRgb *= mix(finalChroma, 1.0, brightProtect);
+	finalRgb = mix(finalRgb, terminalColor.rgb, brightProtect);
+	fragColor = vec4(finalRgb, 1.0);
 }
