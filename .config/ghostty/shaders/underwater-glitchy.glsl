@@ -602,7 +602,7 @@ float rayStrength(vec2 raySource, vec2 rayRefDirection, vec2 coord, float seedA,
 	//     sin(distance * 0.009 * seedA + adjustedTime * speed * 0.5) * 200.0 +
 	//     cos(distance * 0.015 * seedB + adjustedTime * speed * 0.3) * 125.0 +
 	//     sin(distance * 0.024 * (seedA + seedB) + adjustedTime * speed * 0.7) * 75.0;
-	float combinedFreq = distance * 0.012 * (seedA + seedB) * 0.5 + adjustedTime * speed * 0.5;
+	float combinedFreq = distance * 0.002 * (seedA + seedB) * 0.5 + adjustedTime * speed * 0.5;
 	float bendAmount = sin(combinedFreq * 0.3) * 500.0 + cos(combinedFreq * 0.3 * 1.7) * 250.0;
 #endif
 
@@ -640,7 +640,7 @@ float rayStrength(vec2 raySource, vec2 rayRefDirection, vec2 coord, float seedA,
 	//         (0.5 + 0.4 * cos(-cosAngle * seedB * bendFactor + adjustedTime * speed)) +
 	//         widthVariation + dither,
 	//     0.0, 1.0);
-	float rayPhase = cosAngle * (seedA + seedB) * 0.5 * bendFactor + adjustedTime * speed;
+	float rayPhase = cosAngle * (seedA + seedB) * 0.1 * bendFactor + adjustedTime * speed;
 	float ray = clamp(1.15 + 0.75 * sin(rayPhase) + dither, 0.0, 1.0);
 #endif
 
