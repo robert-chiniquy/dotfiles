@@ -19,37 +19,37 @@ keybind = shift+enter=text:\x1b\r
 # Cursor
 cursor-style = block
 cursor-style-blink = true
-cursor-color = ff00f8
+cursor-color = ff0099
 cursor-opacity = 1.0
 cursor-invert-fg-bg = true
 
 # Background image from iTerm2
-background-image = /Users/rch/Documents/proof.png
+background-image = /Users/rch/Pictures/c1-logo.png
 background-image-fit = contain
 background-image-opacity = 0.095
 
-# Vaporwave colors from vim cioj/inkpot themes
+# Vaporwave colors
 background = 000000
-foreground = f0f0f0
-selection-background = ab60ed
-selection-foreground = 000000
+foreground = ffffff
+selection-background = aa00e8
+selection-foreground = ffffff
 
-# ANSI colors - vaporwave palette
-palette = 0=#030c33
-palette = 1=#ff6b9d
-palette = 2=#58e8a3
-palette = 3=#fff9d9
-palette = 4=#99b3f5
-palette = 5=#c080d0
-palette = 6=#bafffd
-palette = 7=#e0e0e0
-palette = 8=#7070b0
-palette = 9=#ff8bff
-palette = 10=#00ff8b
-palette = 11=#ffcd8b
-palette = 12=#808bed
-palette = 13=#ab60ed
-palette = 14=#8b8bff
+# ANSI colors - canonical vaporwave palette
+palette = 0=#1a1a2e
+palette = 1=#ff0099
+palette = 2=#5cecff
+palette = 3=#fbb725
+palette = 4=#aa00e8
+palette = 5=#ff00f8
+palette = 6=#5cecff
+palette = 7=#ffffff
+palette = 8=#333355
+palette = 9=#ff0099
+palette = 10=#5cecff
+palette = 11=#fbb725
+palette = 12=#aa00e8
+palette = 13=#ff00f8
+palette = 14=#5cecff
 palette = 15=#ffffff
 
 custom-shader = ./shaders/underwater-glitchy.glsl
