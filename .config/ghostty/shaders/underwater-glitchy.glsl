@@ -31,7 +31,7 @@
 // Higher = fewer rays / blacker baseline
 #define UNDERWATER_RAY_CUTOFF 0.55
 // Ray origin + motion tuning
-#define UNDERWATER_SPEED_SCALE 0.000004
+#define UNDERWATER_SPEED_SCALE 0.0000015
 #define GRECAS_SPEED_SCALE 0.000004
 #define SHARED_SPEED_VARIANCE 0.1         // +/- 10% random variance shared by rays and grecas
 // Number of ray sources (origin points) - must be > 1 for proper coverage
@@ -603,7 +603,7 @@ float rayStrength(vec2 raySource, vec2 rayRefDirection, vec2 coord, float seedA,
 	//     cos(distance * 0.015 * seedB + adjustedTime * speed * 0.3) * 125.0 +
 	//     sin(distance * 0.024 * (seedA + seedB) + adjustedTime * speed * 0.7) * 75.0;
 	float combinedFreq = distance * 0.012 * (seedA + seedB) * 0.5 + adjustedTime * speed * 0.5;
-	float bendAmount = sin(combinedFreq) * 500.0 + cos(combinedFreq * 1.7) * 250.0;
+	float bendAmount = sin(combinedFreq * 0.3) * 500.0 + cos(combinedFreq * 0.3 * 1.7) * 250.0;
 #endif
 
 	bendAmount *= distanceRatio * distanceRatio;
@@ -794,7 +794,7 @@ float underwaterRayMask(vec2 fragCoord)
 	// Process each ray source
 	for (int source = 0; source < UNDERWATER_RAY_COUNT; source++) {
 		// Animate ray origin - non-repeating motion using incommensurate frequencies
-		float t1 = iTime * speedFactor * 0.005 * (1.0 + float(source) * 0.3);
+		float t1 = iTime * speedFactor * 0.002 * (1.0 + float(source) * 0.3);
 
 		float xOffset1 = (sin(t1) + sin(t1 * 1.618) * 0.7) * iResolution.x * 0.4;
 		float yOffset1 = (sin(t1 * 0.7071) + cos(t1 * 1.2247) * 0.5) * iResolution.y * 0.15;
@@ -812,7 +812,7 @@ float underwaterRayMask(vec2 fragCoord)
 		vec2 rayPos = rayPosBase + vec2(xOffset1, yOffset1);
 
 		// Add rotation animation to the entire ray fan
-		float rotationSpeed = 0.00002;
+		float rotationSpeed = 0.000007;
 		float rotationAngle = iTime * speedFactor * rotationSpeed * (source == 0 ? 1.0 : -1.0);
 		
 		// Create multiple rays emanating from this source at different angles
@@ -1073,7 +1073,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 		for (float dx = -rad; dx <= rad; dx += rad) {
 			for (float dy = -rad; dy <= rad; dy += rad) {
 				if (dx == 0.0 && dy == 0.0) continue;
-				float lum = dot(texture(iChannel0, uv + vec2(dx, dy) * ps).rgb, vec3(0.299, 0.587, 0.114));
+				vec4 nSample = texture(iChannel0, uv + vec2(dx, dy) * ps);
+				float lum = dot(nSample.rgb, vec3(0.299, 0.587, 0.114)) * nSample.a;
 				textNearby = max(textNearby, smoothstep(0.15, 0.4, lum));
 			}
 		}
@@ -1087,7 +1088,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	if ((boostMask < 0.01 && nearPurpleIntensity < 0.01) || (luminance < 0.02 && nearPurpleIntensity < 0.1)) {
 		base = terminalColor.rgb;
 	} else {
-		base = glitchyColor(uv, fragCoord, boostMask, nearPurpleIntensity, effectiveProtectedMask, localVariance);
+		// Reduce glitch where rays are strong — keep rays clean
+		float glitchRaySuppress = 1.0 - rawRayMask * 0.97;
+		base = glitchyColor(uv, fragCoord, boostMask * glitchRaySuppress, nearPurpleIntensity, effectiveProtectedMask, localVariance);
 		// Crush non-chromatic output to black — grays die, colors live
 		float baseDelta = max(max(abs(base.r-base.g), abs(base.r-base.b)), abs(base.g-base.b));
 		float baseChroma = smoothstep(0.02, 0.1, baseDelta);
