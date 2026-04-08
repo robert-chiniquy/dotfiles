@@ -55,11 +55,11 @@
 #define GLITCH_ALWAYS_ON 1
 #define GLITCH_STRENGTH 0.12
 #define GLITCH_TIME_SCALE 0.00000015        // -50% (was 0.0000003)
-#define GLITCH_SCANLINE_SPEED 0.00013
+#define GLITCH_SCANLINE_SPEED 0.00025
 #define GLITCH_DISTORTION_SCALE 0.4
 #define GLITCH_RGB_SPLIT_SCALE 0.5
 #define GLITCH_NOISE_SCALE 0.25
-#define GLITCH_SCANLINE_SCALE 0.4
+#define GLITCH_SCANLINE_SCALE 0.7
 // Boost glitch on dark/dim pixels (background), exclude bright text
 #define GLITCH_RAY_BOOST 10.0
 #define GLITCH_DIM_THRESHOLD 0.35
@@ -1152,12 +1152,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 			vec2 sUV = vec2(uv.x+wb, uv.y-d);
 			if (sUV.y < 0.0) break;
 			vec3 s = texture(iChannel0, sUV).rgb;
+			// Channel delta: max difference between any two channels
+			// Grays/whites have delta~0, saturated colors have delta>>0
+			float chDelta = max(max(abs(s.r-s.g), abs(s.r-s.b)), abs(s.g-s.b));
+			float chromatic = smoothstep(0.05, 0.25, chDelta); // 0 for gray, 1 for saturated
 			float p = (s.r+s.b)*0.5 - s.g*0.7;
 			float dM=length(s-vec3(1.0,0.0,0.973)); float dN=length(s-vec3(0.67,0.376,0.929)); float dD=length(s-vec3(0.667,0.0,0.91));
 			float nD=min(min(dM,dN),dD);
 			float pB=1.0+(1.0-smoothstep(0.0,0.8,nD))*3.0;
 			float w=1.0-dR*0.3;
-			float pw=max(p-0.03,0.0)*w*pB;
+			float pw=max(p-0.03,0.0)*w*pB*chromatic;
 			if(pw>0.0){bPur=max(bPur,(pB-1.0)/3.0);cP+=1.0;if(pw>fP){fP=pw;sC=s;}cPD=min(cPD,dR);}
 		}
 		float dO=smoothstep(0.0,0.3,1.0-cPD);
@@ -1184,12 +1188,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 			vec3 nU=texture(iChannel0,vec2(uv.x,uv.y-txSz.y*30.0)).rgb;
 			vec3 nLL=texture(iChannel0,vec2(uv.x-txSz.x*30.0,uv.y-txSz.y*10.0)).rgb;
 			vec3 nRR=texture(iChannel0,vec2(uv.x+txSz.x*30.0,uv.y-txSz.y*10.0)).rgb;
-			// Weight neighbors by their purpleness
-			float pL=max((nL.r+nL.b)*0.5-nL.g*0.7-0.05,0.0);
-			float pR=max((nR.r+nR.b)*0.5-nR.g*0.7-0.05,0.0);
-			float pU=max((nU.r+nU.b)*0.5-nU.g*0.7-0.05,0.0);
-			float pLL=max((nLL.r+nLL.b)*0.5-nLL.g*0.7-0.05,0.0);
-			float pRR=max((nRR.r+nRR.b)*0.5-nRR.g*0.7-0.05,0.0);
+			// Weight neighbors by purpleness * chromaticity (grays contribute nothing)
+			float cL=smoothstep(0.05,0.25,max(max(abs(nL.r-nL.g),abs(nL.r-nL.b)),abs(nL.g-nL.b)));
+			float cR=smoothstep(0.05,0.25,max(max(abs(nR.r-nR.g),abs(nR.r-nR.b)),abs(nR.g-nR.b)));
+			float cU=smoothstep(0.05,0.25,max(max(abs(nU.r-nU.g),abs(nU.r-nU.b)),abs(nU.g-nU.b)));
+			float cLL=smoothstep(0.05,0.25,max(max(abs(nLL.r-nLL.g),abs(nLL.r-nLL.b)),abs(nLL.g-nLL.b)));
+			float cRR=smoothstep(0.05,0.25,max(max(abs(nRR.r-nRR.g),abs(nRR.r-nRR.b)),abs(nRR.g-nRR.b)));
+			float pL=max((nL.r+nL.b)*0.5-nL.g*0.7-0.05,0.0)*cL;
+			float pR=max((nR.r+nR.b)*0.5-nR.g*0.7-0.05,0.0)*cR;
+			float pU=max((nU.r+nU.b)*0.5-nU.g*0.7-0.05,0.0)*cU;
+			float pLL=max((nLL.r+nLL.b)*0.5-nLL.g*0.7-0.05,0.0)*cLL;
+			float pRR=max((nRR.r+nRR.b)*0.5-nRR.g*0.7-0.05,0.0)*cRR;
 			float totalW=max(fP+pL+pR+pU+pLL*0.5+pRR*0.5,0.001);
 			vec3 blendedSource=(sC*fP+nL*pL+nR*pR+nU*pU+nLL*pLL*0.5+nRR*pRR*0.5)/totalW;
 			vec3 dCol=mix(blendedSource,neonPurple,pow(uv.y,0.5));
