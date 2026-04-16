@@ -200,77 +200,7 @@ float underwaterRayMask(vec2 fragCoord);
 // Cached ray mask passed through to avoid redundant computation
 // neighborRays: vec4(left, right, up, down) for gradient estimation
 
-#define UI0 1597334673U
-#define UI1 3812015801U
-#define UI2 uvec2(UI0, UI1)
-#define UI3 uvec3(UI0, UI1, 2798796415U)
-#define UIF (1. / float(0xffffffffU))
-
-// OPTIMIZED: RGB to HSL conversion (branchless)
-vec3 rgb2hsl(vec3 rgb)
-{
-	float maxC = max(max(rgb.r, rgb.g), rgb.b);
-	float minC = min(min(rgb.r, rgb.g), rgb.b);
-	float delta = maxC - minC;
-	float l = (maxC + minC) * 0.5;
-
-	// Branchless saturation
-	float denom = mix(maxC + minC, 2.0 - maxC - minC, step(0.5, l));
-	float s = delta / max(denom, 0.0001);
-	s *= step(0.0001, delta);  // Zero if no delta
-
-	// Branchless hue calculation
-	float isR = step(maxC, rgb.r + 0.0001) * step(rgb.r, maxC + 0.0001);
-	float isG = step(maxC, rgb.g + 0.0001) * step(rgb.g, maxC + 0.0001) * (1.0 - isR);
-	float isB = 1.0 - isR - isG;
-
-	float invDelta = 1.0 / max(delta, 0.0001);
-	float hR = (rgb.g - rgb.b) * invDelta;
-	float hG = 2.0 + (rgb.b - rgb.r) * invDelta;
-	float hB = 4.0 + (rgb.r - rgb.g) * invDelta;
-
-	float h = (hR * isR + hG * isG + hB * isB) / 6.0;
-	h = fract(h);  // Wraps negative to positive
-
-	return vec3(h, s, l);
-}
-
-// OPTIMIZED: HSL to RGB conversion (branchless using smoothstep sectors)
-vec3 hsl2rgb(vec3 hsl)
-{
-	float h = hsl.x;
-	float s = hsl.y;
-	float l = hsl.z;
-
-	float c = (1.0 - abs(2.0 * l - 1.0)) * s;
-	float m = l - c * 0.5;
-
-	// Use continuous function: RGB = |H*6 - vec3(0,2,4)| clamped and scaled
-	vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-	return rgb * c + m;
-}
-
-// OPTIMIZED: Vaporwave-aware color interpolation (branchless)
-vec3 mixVaporwave(vec3 color1, vec3 color2, float t)
-{
-	vec3 hsl1 = rgb2hsl(color1);
-	vec3 hsl2 = rgb2hsl(color2);
-
-	// Choose shorter hue rotation path on the color wheel (branchless)
-	float hueDiff = hsl2.x - hsl1.x;
-	hueDiff += mix(0.0, -1.0, step(0.5, hueDiff));
-	hueDiff += mix(0.0, 1.0, step(hueDiff, -0.5));
-
-	vec3 hslMix = vec3(
-		fract(hsl1.x + hueDiff * t),  // fract handles wrap
-		mix(hsl1.y, hsl2.y, t),
-		mix(hsl1.z, hsl2.z, t)
-	);
-
-	return hsl2rgb(hslMix);
-}
-
-// OPTIMIZED: Vaporwave color palette as array (single indexed lookup vs 8 branches)
+// Vaporwave color palette as array (single indexed lookup vs 8 branches)
 const vec3 VAPORWAVE_PALETTE[8] = vec3[8](
 	vec3(1.00, 0.00, 0.973),   // 0: #ff00f8 Hot Magenta
 	vec3(0.984, 0.718, 0.145), // 1: #fbb725 Warm Gold
@@ -285,51 +215,6 @@ const vec3 VAPORWAVE_PALETTE[8] = vec3[8](
 vec3 getVaporwaveColor(int index)
 {
 	return VAPORWAVE_PALETTE[index];
-}
-
-// Hash by David_Hoskins
-vec3 hash33(vec3 p)
-{
-	uvec3 q = uvec3(ivec3(p)) * UI3;
-	q = (q.x ^ q.y ^ q.z) * UI3;
-	return -1. + 2. * vec3(q) * UIF;
-}
-
-// Gradient noise by iq
-float gnoise(vec3 x)
-{
-	vec3 p = floor(x);
-	vec3 w = fract(x);
-	vec3 u = w * w * w * (w * (w * 6. - 15.) + 10.);
-	
-	vec3 ga = hash33(p + vec3(0., 0., 0.));
-	vec3 gb = hash33(p + vec3(1., 0., 0.));
-	vec3 gc = hash33(p + vec3(0., 1., 0.));
-	vec3 gd = hash33(p + vec3(1., 1., 0.));
-	vec3 ge = hash33(p + vec3(0., 0., 1.));
-	vec3 gf = hash33(p + vec3(1., 0., 1.));
-	vec3 gg = hash33(p + vec3(0., 1., 1.));
-	vec3 gh = hash33(p + vec3(1., 1., 1.));
-	
-	float va = dot(ga, w - vec3(0., 0., 0.));
-	float vb = dot(gb, w - vec3(1., 0., 0.));
-	float vc = dot(gc, w - vec3(0., 1., 0.));
-	float vd = dot(gd, w - vec3(1., 1., 0.));
-	float ve = dot(ge, w - vec3(0., 0., 1.));
-	float vf = dot(gf, w - vec3(1., 0., 1.));
-	float vg = dot(gg, w - vec3(0., 1., 1.));
-	float vh = dot(gh, w - vec3(1., 1., 1.));
-	
-	float gNoise =
-		va + u.x * (vb - va) +
-		u.y * (vc - va) +
-		u.z * (ve - va) +
-		u.x * u.y * (va - vb - vc + vd) +
-		u.y * u.z * (va - vc - ve + vg) +
-		u.z * u.x * (va - vb - ve + vf) +
-		u.x * u.y * u.z * (-va + vb + vc - vd + ve - vf - vg + vh);
-	
-	return 2. * gNoise;
 }
 
 float hash21(vec2 p)
@@ -446,7 +331,8 @@ float aztecSteppedEdge(float rayValue)
 #if RAY_3D_DEPTH
 vec3 apply3DRayDepth(vec3 rayColor, float rayIntensity, vec4 neighborRays)
 {
-	// BRANCHLESS: use smoothstep mask instead of early return
+	// Early out when ray intensity is negligible (no visible effect)
+	if (rayIntensity < 0.005) return rayColor;
 	float activeMask = smoothstep(0.0, 0.02, rayIntensity);
 
 	// neighborRays = vec4(left, right, up, down)
@@ -484,7 +370,8 @@ vec3 apply3DRayDepth(vec3 rayColor, float rayIntensity, vec4 neighborRays)
 #if RAY_SUBSURFACE
 vec3 applySubsurfaceScattering(vec3 rayColor, float rayIntensity, vec4 neighborRays)
 {
-	// BRANCHLESS: use smoothstep mask instead of early return
+	// Early out when ray intensity is negligible (no visible effect)
+	if (rayIntensity < 0.005) return rayColor;
 	float activeMask = smoothstep(0.0, 0.02, rayIntensity);
 
 	// neighborRays = vec4(left, right, up, down)
@@ -529,24 +416,22 @@ vec3 applySubsurfaceScattering(vec3 rayColor, float rayIntensity, vec4 neighborR
 #if GREY_OUTLINE_ENABLE
 float greyTextOutline(vec2 uv, vec2 pixelSize, float centerLum)
 {
-	// BRANCHLESS: use smoothstep mask instead of early return
+	// Early out for bright pixels — outline only applies to dark backgrounds
+	if (centerLum > 0.2) return 0.0;
 	float darkMask = 1.0 - smoothstep(0.1, 0.2, centerLum);
 
-	// Always sample 4 neighbors (branchless - multiply by mask at end)
 	vec2 offset = pixelSize * GREY_OUTLINE_RADIUS;
 	float lumR = dot(texture(iChannel0, uv + vec2(offset.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
 	float lumL = dot(texture(iChannel0, uv - vec2(offset.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
 	float lumU = dot(texture(iChannel0, uv + vec2(0.0, offset.y)).rgb, vec3(0.299, 0.587, 0.114));
 	float lumD = dot(texture(iChannel0, uv - vec2(0.0, offset.y)).rgb, vec3(0.299, 0.587, 0.114));
 
-	// Check if any neighbor is grey (between threshold and range) - branchless
 	float isNearGrey = 0.0;
 	isNearGrey = max(isNearGrey, step(GREY_OUTLINE_THRESHOLD, lumR) * step(lumR, GREY_OUTLINE_RANGE));
 	isNearGrey = max(isNearGrey, step(GREY_OUTLINE_THRESHOLD, lumL) * step(lumL, GREY_OUTLINE_RANGE));
 	isNearGrey = max(isNearGrey, step(GREY_OUTLINE_THRESHOLD, lumU) * step(lumU, GREY_OUTLINE_RANGE));
 	isNearGrey = max(isNearGrey, step(GREY_OUTLINE_THRESHOLD, lumD) * step(lumD, GREY_OUTLINE_RANGE));
 
-	// Mask multiplication makes result 0 when darkMask is 0 (branchless early-out)
 	return isNearGrey * GREY_OUTLINE_STRENGTH * darkMask;
 }
 #endif
@@ -1065,20 +950,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 	// Ensure minimum glitch near purple even without rays
 	boostMask = max(boostMask, nearPurpleIntensity * 45.0);
 	
-	// Fade glitch near text — sample wider radius for text proximity
-	float textNearby = 0.0;
-	{
-		vec2 ps = 1.0 / iResolution.xy;
-		float rad = 12.0; // pixels — larger than outline radius
-		for (float dx = -rad; dx <= rad; dx += rad) {
-			for (float dy = -rad; dy <= rad; dy += rad) {
-				if (dx == 0.0 && dy == 0.0) continue;
-				vec4 nSample = texture(iChannel0, uv + vec2(dx, dy) * ps);
-				float lum = dot(nSample.rgb, vec3(0.299, 0.587, 0.114)) * nSample.a;
-				textNearby = max(textNearby, smoothstep(0.15, 0.4, lum));
-			}
-		}
-	}
+	// Fade glitch near text — reuse variance (high variance = near text edge)
+	float textNearby = smoothstep(0.01, 0.06, variance);
 	float glitchTextFade = 1.0 - textNearby * 0.85; // 85% reduction near text
 	boostMask *= glitchTextFade;
 
@@ -1139,10 +1012,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 		float dT = iTime * 0.0004;
 		float fP = 0.0; float bPur = 0.0; float cPD = 1.0; float cP = 0.0;
 		vec3 sC = vec3(0.0);
-		for (int i = 1; i <= 50; i++) {
+		for (int i = 1; i <= 15; i++) {
 			float fi = float(i);
-			float d = fi * txSz.y * 8.0;
-			float dR = fi / 50.0;
+			float d = fi * txSz.y * 27.0;  // ~1.7x step, same ~400px range
+			float dR = fi / 15.0;
 			float b1 = sin(d*800.0+dT*3.0+fi*1.7)*dR*dR;
 			float b2 = cos(d*850.0+dT*2.1)*dR*dR*0.8;
 			float b3 = sin(d*690.0+dT*1.4+uv.x*40.0)*dR*dR*0.5;
@@ -1181,25 +1054,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 			float sN1=fract(sin(cXi*12.9898+(tS+1.0)*78.233)*43758.5453);
 			float cW=mix(step(0.3,sC1)*(0.5+sC1*0.5),step(0.3,sN1)*(0.5+sN1*0.5),bl);
 			float dS=fP*dW*fade*cW*5.0;
-			// Spectral blending: sample purple from neighbors and mix colors
+			// Spectral blending: sample purple from 3 neighbors and mix colors
 			vec3 nL=texture(iChannel0,vec2(uv.x-txSz.x*16.0,uv.y-txSz.y*18.0)).rgb;
 			vec3 nR=texture(iChannel0,vec2(uv.x+txSz.x*16.0,uv.y-txSz.y*18.0)).rgb;
 			vec3 nU=texture(iChannel0,vec2(uv.x,uv.y-txSz.y*30.0)).rgb;
-			vec3 nLL=texture(iChannel0,vec2(uv.x-txSz.x*30.0,uv.y-txSz.y*10.0)).rgb;
-			vec3 nRR=texture(iChannel0,vec2(uv.x+txSz.x*30.0,uv.y-txSz.y*10.0)).rgb;
 			// Weight neighbors by purpleness * chromaticity (grays contribute nothing)
 			float cL=smoothstep(0.05,0.25,max(max(abs(nL.r-nL.g),abs(nL.r-nL.b)),abs(nL.g-nL.b)));
 			float cR=smoothstep(0.05,0.25,max(max(abs(nR.r-nR.g),abs(nR.r-nR.b)),abs(nR.g-nR.b)));
 			float cU=smoothstep(0.05,0.25,max(max(abs(nU.r-nU.g),abs(nU.r-nU.b)),abs(nU.g-nU.b)));
-			float cLL=smoothstep(0.05,0.25,max(max(abs(nLL.r-nLL.g),abs(nLL.r-nLL.b)),abs(nLL.g-nLL.b)));
-			float cRR=smoothstep(0.05,0.25,max(max(abs(nRR.r-nRR.g),abs(nRR.r-nRR.b)),abs(nRR.g-nRR.b)));
 			float pL=max((nL.r+nL.b)*0.5-nL.g*0.7-0.05,0.0)*cL;
 			float pR=max((nR.r+nR.b)*0.5-nR.g*0.7-0.05,0.0)*cR;
 			float pU=max((nU.r+nU.b)*0.5-nU.g*0.7-0.05,0.0)*cU;
-			float pLL=max((nLL.r+nLL.b)*0.5-nLL.g*0.7-0.05,0.0)*cLL;
-			float pRR=max((nRR.r+nRR.b)*0.5-nRR.g*0.7-0.05,0.0)*cRR;
-			float totalW=max(fP+pL+pR+pU+pLL*0.5+pRR*0.5,0.001);
-			vec3 blendedSource=(sC*fP+nL*pL+nR*pR+nU*pU+nLL*pLL*0.5+nRR*pRR*0.5)/totalW;
+			float totalW=max(fP+pL+pR+pU,0.001);
+			vec3 blendedSource=(sC*fP+nL*pL+nR*pR+nU*pU)/totalW;
 			vec3 dCol=mix(blendedSource,neonPurple,pow(uv.y,0.5));
 			// Dim drips closer to white — pure purple drips stay bright
 			float dripLum=dot(dCol,vec3(0.299,0.587,0.114));

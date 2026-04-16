@@ -1,0 +1,14 @@
+version: 1
+
+# Command template the manager invokes. {flow} is substituted with the flow name.
+# Must print one JSON object to stdout and exit 0 on pass / non-zero on fail.
+runner_command: "npm run verify -- {flow}"
+
+# Default base URL. Runner may also read VERIFY_BASE_URL from env to override.
+base_url: "http://localhost:3000"
+
+flows:
+  - name: checkout-happy-path
+    description: Anonymous user adds an item to cart and reaches checkout.
+    timeout_s: 60
+    tags: [critical, checkout]

@@ -1,0 +1,17 @@
+{
+  "name": "verify-reference",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify": "tsx src/runner.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
