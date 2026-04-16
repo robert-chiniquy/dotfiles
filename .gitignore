@@ -36,3 +36,10 @@ bin/squire
 .claude/sessions/
 .claude/settings.json.bak
 .claude/mcp-needs-auth-cache.json
+.Codex/
+LEARNINGS.md
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
