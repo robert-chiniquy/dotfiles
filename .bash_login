@@ -10,6 +10,7 @@ export CLICOLOR=1
 export LSCOLORS=Gxfxcxdxbxegedabagacad
 
 # === History ===
+HISTFILE="${HISTFILE:-$HOME/.bash_history}"
 HISTFILESIZE=500000
 HISTSIZE=1000000
 HISTCONTROL=ignoredups
@@ -17,7 +18,7 @@ shopt -s histappend
 shopt -s cmdhist
 
 append_history() {
-  history -a
+  [[ -n "${HISTFILE:-}" ]] && history -a
 }
 trap append_history EXIT
 
