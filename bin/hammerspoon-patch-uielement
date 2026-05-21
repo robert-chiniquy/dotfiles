@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Re-apply the nil-element guard to Hammerspoon's bundled uielement.lua.
+#
+# Hammerspoon upgrades replace the file in the app bundle. Run this once
+# after every Hammerspoon update to keep PaperWM startup from crashing on
+# transient PIDs.
+#
+# Symptom this fixes:
+#   ERROR: LuaSkin: Unable to fetch NSRunningApplication for pid: NNN
+#   *** ERROR: .../hs/uielement.lua:134: attempt to index a nil value
+#       (via window_filter.startGlobalWatcher -> PaperWM.spoon events.start)
+#
+# See ADR-005 in dotfiles for background.
+
+set -euo pipefail
+
+UI=/Applications/Hammerspoon.app/Contents/Resources/extensions/hs/uielement.lua
+
+if [[ ! -f "$UI" ]]; then
+    echo "uielement.lua not found at $UI — is Hammerspoon installed?" >&2
+    exit 1
+fi
+
+if grep -q 'transient PIDs (process dies between enum and watch)' "$UI"; then
+    echo "Already patched — nothing to do."
+    exit 0
+fi
+
+cp "$UI" "$UI.bak.$(date +%Y%m%d-%H%M%S)"
+
+sed -i '' '/-- For normal elements, listen for elementDestroyed events\./{
+  a\
+    -- Guard: transient PIDs (process dies between enum and watch) return nil\
+    -- from :element() and crash with "attempt to index nil value". Skip silently.\
+    local _elem = self:element()\
+    if not _elem then return self end
+}' "$UI"
+
+sed -i '' 's|if not self:element():isApplication() then|if not _elem:isApplication() then|' "$UI"
+
+echo "Patched $UI"
+echo "Reload Hammerspoon (cmd+ctrl+r in any HS-aware window, or: hs -c 'hs.reload()')."

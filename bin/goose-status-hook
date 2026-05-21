@@ -1,0 +1,21 @@
+#!/usr/bin/env zsh
+# GOOSE_STATUS_HOOK target — fires on goose status transitions.
+# Pops a Hammerspoon-rendered notification (no sound, no URL scheme
+# round-trip — calls hs CLI directly). Goose passes status info via env;
+# we surface whatever is present so the notification is informative.
+
+set -u
+
+event="${GOOSE_STATUS_EVENT:-${GOOSE_EVENT:-${1:-status}}}"
+session="${GOOSE_SESSION_NAME:-${GOOSE_SESSION_ID:-}}"
+text="$event"
+[[ -n "$session" ]] && text="$event · $session"
+
+# Escape single quotes for the Lua single-quoted string literal.
+safe=${text//\'/\'\\\'\'}
+
+if command -v hs >/dev/null 2>&1; then
+    hs -c "hs.notify.new({title='goose', informativeText='${safe}', withdrawAfter=4}):send()" >/dev/null 2>&1 || true
+fi
+
+exit 0
