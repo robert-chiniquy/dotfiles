@@ -154,16 +154,6 @@ Rules:
 - Document alternatives considered
 - Append-only
 
-## DEMO.md
-
-Write after completing user-facing features.
-
-Contents:
-- Step-by-step walkthrough
-- Commands at each step
-- Expected output
-- Must be runnable by user
-
 ## Git Commit Policy
 
 Project meta-documentation has different commit rules based on project type.
