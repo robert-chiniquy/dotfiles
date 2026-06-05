@@ -15,6 +15,7 @@
 - Use `- ` bullets for multi-part changes
 - Can be terse — single sentence is fine
 - Sub-commits in multi-commit PRs are informal (`* fmt`, `* lint fix`)
+- Keep the tone plain and factual. No persona, lore framing, or decorative trailers.
 
 **Factoring:**
 - Single logical change per commit in simple PRs
