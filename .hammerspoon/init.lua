@@ -98,6 +98,11 @@ PaperWM:bindHotkeys({
 })
 PaperWM:start()
 
+-- Auto-refresh PaperWM every 60s to rescue offscreen windows
+paperWMRefreshTimer = hs.timer.new(60, function()
+    pcall(function() PaperWM.windows.refreshWindows() end)
+end)
+paperWMRefreshTimer:start()
 
 -- Auto-slurp: new windows from the same app get stacked into one column
 -- Waits 2s after startup to avoid slurping everything on reload
@@ -512,6 +517,34 @@ mediaKeyWatcher:start()
 -- Runs when plugged in + battery > 50%, stops otherwise
 -- Uses globals to prevent GC, checks process existence before starting
 
--- VW overlay managed via LaunchAgent and `vw` CLI, not Hammerspoon
--- Auto-start removed: hs.task.new triggers macOS permission dialogs on every launch
+local function vwIsRunning()
+    local output = hs.execute("pgrep -f vaporwave-overlay", true)
+    return output ~= nil and output ~= ""
+end
+
+local function vwShouldRun()
+    local battery = hs.battery.percentage()
+    local charging = hs.battery.isCharging() or hs.battery.isCharged()
+    return charging and battery > 50
+end
+
+VW_TASK = nil
+local function vwUpdate()
+    local running = vwIsRunning()
+    local shouldRun = vwShouldRun()
+    if shouldRun and not running then
+        local path = os.getenv("HOME") .. "/Applications/VaporwaveOverlay.app/Contents/MacOS/vaporwave-overlay"
+        VW_TASK = hs.task.new(path, function(code, stdout, stderr)
+            VW_TASK = nil
+        end)
+        if VW_TASK then VW_TASK:start() end
+    elseif not shouldRun and running then
+        hs.execute("pkill -9 -f vaporwave-overlay", true)
+    end
+end
+
+vwBatteryWatcher = hs.battery.watcher.new(vwUpdate)
+vwBatteryWatcher:start()
+hs.timer.doAfter(3, vwUpdate)
+
 hs.alert.show("Hammerspoon loaded")
