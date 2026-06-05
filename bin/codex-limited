@@ -1,0 +1,45 @@
+#!/bin/zsh
+
+set -eu
+
+limit_mb="${CODEX_MAX_OLD_SPACE_MB:-3072}"
+codex_bin="${CODEX_REAL_BIN:-/opt/homebrew/bin/codex}"
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat <<'EOF'
+Usage: codex-limited [codex args...]
+
+Runs Codex with a Node V8 heap cap on macOS.
+
+Environment:
+  CODEX_MAX_OLD_SPACE_MB Whole-number MiB value for Node's old-space limit.
+                         Default: 3072
+  CODEX_REAL_BIN         Codex executable to run after the limit is set.
+                         Default: /opt/homebrew/bin/codex
+EOF
+  exit 0
+fi
+
+if [[ ! "$limit_mb" == <-> ]]; then
+  echo "CODEX_MAX_OLD_SPACE_MB must be a whole number of MiB, got: $limit_mb" >&2
+  exit 1
+fi
+
+if (( limit_mb < 512 )); then
+  echo "CODEX_MAX_OLD_SPACE_MB must be at least 512 MiB, got: $limit_mb" >&2
+  exit 1
+fi
+
+if [[ ! -x "$codex_bin" ]]; then
+  echo "Codex executable not found or not executable: $codex_bin" >&2
+  exit 1
+fi
+
+node_limit="--max-old-space-size=$limit_mb"
+if [[ -n "${NODE_OPTIONS:-}" ]]; then
+  export NODE_OPTIONS="${NODE_OPTIONS} ${node_limit}"
+else
+  export NODE_OPTIONS="${node_limit}"
+fi
+
+exec "$codex_bin" "$@"
