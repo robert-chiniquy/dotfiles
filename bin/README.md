@@ -6,6 +6,8 @@ Custom binaries and tools installed outside of package managers.
 
 | Tool | Source | Purpose |
 |------|--------|---------|
+| codex-capped | Shell script | Run Codex with the default lower heap cap |
+| codex-limited | Shell script | Launch Codex with a lower Node heap cap via `NODE_OPTIONS` |
 | conns | Shell script | Show active network connections (listening + established) |
 | fclones | `cargo install fclones --root ~/` | Fast duplicate file finder |
 | gist | Shell script | Create GitHub gist from file(s) or stdin |
@@ -33,4 +35,18 @@ Cargo tools can be reinstalled via:
 Added to PATH in `~/.zprofile`:
 ```
 export PATH="$HOME/bin:$PATH"
+```
+
+## Codex Memory Limit
+
+`codex-limited` defaults to `3072 MiB` for Node old-space and forwards all arguments to the real Codex binary.
+`codex-capped` runs that default capped launch directly.
+
+Examples:
+
+```bash
+codex-capped
+codex-limited
+CODEX_MAX_OLD_SPACE_MB=4096 codex-limited
+CODEX_REAL_BIN=/opt/homebrew/bin/node codex-limited -p 'require("node:v8").getHeapStatistics().heap_size_limit'
 ```
