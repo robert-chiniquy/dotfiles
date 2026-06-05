@@ -1,0 +1,5 @@
+#!/bin/sh
+# Route all gopls invocations through one shared daemon (-remote=auto) so
+# parallel Claude agent sessions don't each spawn a multi-GB gopls process.
+export GOMEMLIMIT="${GOMEMLIMIT:-24GiB}"
+exec "$HOME/go/bin/gopls" -remote=auto "$@"

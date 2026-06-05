@@ -8,13 +8,13 @@ echo ""
 # 1. Go build cache (~56GB) - rebuilds on demand, zero risk
 echo "--- go build cache ---"
 du -sh ~/Library/Caches/go-build 2>/dev/null || true
-# go clean -cache
+go clean -cache
 echo "DONE"
 
 # 2. Go module cache (~12GB) - re-downloads on demand
 echo "--- go module cache ---"
 du -sh ~/go/pkg 2>/dev/null || true
-# go clean -modcache
+go clean -modcache
 echo "DONE"
 
 # 3. gopls + goimports caches (~1.6GB) - regenerate automatically
