@@ -67,3 +67,6 @@ bin/gotestsum
 
 # Demo / scratch docs
 DEMO_CODEX_LIMITED.md
+
+# Symlink to sqfan project's local skill source — dev-machine convenience
+.claude/skills/sqfan
