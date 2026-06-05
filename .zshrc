@@ -6,6 +6,17 @@ export DIRENV_LOG_FORMAT=$'\e[38;5;243mdirenv: %s\e[0m'
 # Source secrets (tokens, API keys - not in git)
 [[ -f ~/.secrets ]] && source ~/.secrets
 
+# Built-in epoch seconds and file stat (eliminates date/find subprocesses)
+zmodload zsh/datetime
+zmodload zsh/stat
+
+# Staleness check: _file_older_than FILE SECONDS (no subprocess)
+_file_older_than() {
+  [[ ! -f "$1" ]] && return 0
+  local -a st; zstat -A st -F %s +mtime "$1" 2>/dev/null || return 0
+  (( EPOCHSECONDS - st[1] > $2 ))
+}
+
 # === Greeting (only on first shell, not subshells) ===
 if [[ -z "$_GREETED" && -o interactive ]]; then
   export _GREETED=1
@@ -18,7 +29,7 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
   # Daily brew outdated check (runs in background, shows next prompt)
   _brew_marker=~/.cache/brew-outdated-check
   mkdir -p ~/.cache
-  if [[ ! -f "$_brew_marker" ]] || [[ $(find "$_brew_marker" -mtime +1 2>/dev/null) ]]; then
+  if _file_older_than "$_brew_marker" 86400; then
     touch "$_brew_marker"
     (
       outdated=$(brew outdated --quiet 2>/dev/null | wc -l | tr -d ' ')
@@ -35,7 +46,7 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
 
   # GitHub PR status check (hourly, only if something to report)
   _pr_marker=~/.cache/gh-pr-status
-  if command -v gh &>/dev/null && { [[ ! -f "$_pr_marker" ]] || [[ $(find "$_pr_marker" -mmin +60 2>/dev/null) ]]; }; then
+  if command -v gh &>/dev/null && _file_older_than "$_pr_marker" 3600; then
     touch "$_pr_marker"
     (
       # Check for PRs with activity in last hour
@@ -91,7 +102,7 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
 
   # Next calendar event (cached for 15 min)
   _cal_marker=~/.cache/next-event
-  if [[ ! -f "$_cal_marker" ]] || [[ $(find "$_cal_marker" -mmin +15 2>/dev/null) ]]; then
+  if _file_older_than "$_cal_marker" 900; then
     (
       event=$(osascript -e '
         set now to current date
@@ -132,40 +143,58 @@ _set_terminal_title() {
   local dir="${PWD/#$HOME/~}"
   local title="${${dir%/*}:t}/${dir:t}"
   [[ "$dir" == "~" || "$dir" == "/" ]] && title="$dir"
-  if [[ -n "$_git_dir" ]]; then
-    local branch=$(git branch --show-current 2>/dev/null)
-    [[ -n "$branch" ]] && title="$title [$branch]"
-  fi
+  [[ -n "$_git_branch" ]] && title="$title [$_git_branch]"
   print -Pn "\e]0;$title\a"
 }
 precmd_functions+=(_set_terminal_title)
 
+# === Prompt accent (project color from PROMPT_ACCENT env var) ===
+# Computed once per direnv reload, not every prompt
+__prompt_accent_cache=""
+__prompt_accent_src=""
+_update_prompt_accent() {
+  local color="${PROMPT_ACCENT:-#5cecff}"
+  [[ "$color" == "$__prompt_accent_src" ]] && return
+  __prompt_accent_src="$color"
+  color="${color#\#}"
+  local r=$((16#${color:0:2})) g=$((16#${color:2:2})) b=$((16#${color:4:2}))
+  __prompt_accent_cache=$'\033[38;2;'${r}';'${g}';'${b}'m>\033[0m'
+}
+chpwd_functions+=(_update_prompt_accent)
+_update_prompt_accent  # compute initial value
+
 # === Unified git context on directory entry ===
 # Single git rev-parse, all info gathered in one pass
+# Cached state reused by _set_terminal_title and precmd badge
 _git_dir=""
+_git_branch=""
+_git_dirty_count=0
+_git_dirty_files=""
 _git_chpwd() {
-  _git_dir=$(git rev-parse --git-dir 2>/dev/null) || { _git_dir=""; return; }
+  _git_dir=$(git rev-parse --git-dir 2>/dev/null) || { _git_dir=""; _git_branch=""; _git_dirty_count=0; _git_dirty_files=""; return; }
   local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
 
   # Background fetch (throttled to every 10 min)
   local fetch_marker="$git_root/.git/FETCH_HEAD"
-  if [[ ! -f "$fetch_marker" ]] || [[ $(find "$fetch_marker" -mmin +10 2>/dev/null) ]]; then
+  if _file_older_than "$fetch_marker" 600; then
     (git fetch --quiet --prune &) 2>/dev/null
   fi
 
-  # Gather info in one shot
-  local branch=$(git branch --show-current 2>/dev/null)
+  # Gather info in one shot — cached for reuse
+  _git_branch=$(git branch --show-current 2>/dev/null)
   local commit_age=$(git log -1 --format=%cr 2>/dev/null)
   local ahead=0 behind=0
   if git rev-parse --abbrev-ref @{upstream} &>/dev/null; then
     ahead=$(git rev-list --count @{upstream}..HEAD 2>/dev/null)
     behind=$(git rev-list --count HEAD..@{upstream} 2>/dev/null)
   fi
-  local dirty=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  _git_dirty_files=$(git status -s 2>/dev/null)
+  _git_dirty_count=$(echo "$_git_dirty_files" | grep -c . 2>/dev/null)
+  [[ -z "$_git_dirty_files" ]] && _git_dirty_count=0
 
   # Branch age (only for non-main branches)
   local branch_age=""
-  if [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" ]]; then
+  if [[ -n "$_git_branch" && "$_git_branch" != "main" && "$_git_branch" != "master" ]]; then
     local base=$(git merge-base main HEAD 2>/dev/null || git merge-base master HEAD 2>/dev/null)
     [[ -n "$base" ]] && branch_age=$(git log -1 --format=%cr "$base" 2>/dev/null)
   fi
@@ -173,7 +202,7 @@ _git_chpwd() {
   # Single terse output line
   local parts=()
   [[ -n "$commit_age" ]] && parts+=("last commit $commit_age")
-  (( dirty > 0 )) && parts+=("${dirty} dirty")
+  (( _git_dirty_count > 0 )) && parts+=("${_git_dirty_count} dirty")
   (( ahead > 0 )) && parts+=("${ahead}↑")
   (( behind > 0 )) && parts+=("${behind}↓")
   [[ -n "$branch_age" ]] && parts+=("branch $branch_age")
@@ -181,6 +210,20 @@ _git_chpwd() {
   (( ${#parts} > 0 )) && print -P "%F{243}${(j:, :)parts}%f"
 }
 chpwd_functions+=(_git_chpwd)
+
+# === Lightweight git dirty refresh on every prompt ===
+# Updates just _git_dirty_files/_count so badge stays fresh when editing without cd
+# Skipped outside git repos (no wasted git invocation)
+_git_dirty_refresh() {
+  [[ -z "$_git_dir" ]] && return
+  _git_dirty_files=$(git status -s 2>/dev/null)
+  if [[ -z "$_git_dirty_files" ]]; then
+    _git_dirty_count=0
+  else
+    _git_dirty_count=$(echo "$_git_dirty_files" | grep -c .)
+  fi
+}
+precmd_functions+=(_git_dirty_refresh)
 
 # === Claude project files display on directory entry ===
 _show_project_files() {
@@ -815,11 +858,7 @@ zstyle ':completion:*' cache-path ~/.zsh/cache
 
 # Cache policy: invalidate after 1 hour
 _cache_policy_1h() {
-  [[ -z "$1" ]] && return 0
-  [[ ! -f "$1" ]] && return 0
-  local -a stat
-  stat=("${(@f)$(stat -f '%m' "$1" 2>/dev/null)}")
-  (( $(date +%s) - stat[1] > 3600 ))
+  _file_older_than "${1:-}" 3600
 }
 zstyle ':completion:*' cache-policy _cache_policy_1h
 
@@ -1092,23 +1131,22 @@ if [[ -n "$ZSH_HIGHLIGHT_STYLES" ]]; then
 fi
 
 # === Auto-ls after cd ===
-# Automatically show tree after changing directory
-chpwd() {
+_auto_ls_chpwd() {
   emulate -L zsh
-
 
   # Show fully qualified path
   print -P "%F{243}${PWD}%f"
 
   # Persist last directory for new tabs/sessions
   [[ -n "$__LAST_DIR_FILE" ]] && print -r -- "$PWD" >| "$__LAST_DIR_FILE" 2>/dev/null
-  
-  # Show directory contents as tree if small enough
-  local item_count=$(ls -1A 2>/dev/null | wc -l | tr -d ' ')
-  if [[ $item_count -le 30 ]]; then
-    eza --tree --level=1 --icons --git --color=always --group-directories-first 2>/dev/null || ls
+
+  # Show directory contents as tree if small enough (zsh glob count, no subprocesses)
+  local -a items=( *(DN) )
+  if (( ${#items} <= 30 )); then
+    eza --tree --level=1 --icons --color=always --group-directories-first 2>/dev/null || ls
   fi
 }
+chpwd_functions+=(_auto_ls_chpwd)
 
 # === Dangerous Command Warning ===
 _check_dangerous() {
@@ -1194,9 +1232,9 @@ _blast_radius() {
 }
 
 # === Welcome back (friendly idle detection) ===
-typeset -g __last_cmd_time=$(date +%s)
+typeset -g __last_cmd_time=$EPOCHSECONDS
 _welcome_back() {
-  local now=$(date +%s)
+  local now=$EPOCHSECONDS
   local idle=$((now - __last_cmd_time))
   __last_cmd_time=$now
 
@@ -1234,8 +1272,8 @@ _check_win() {
 # === Weekly momentum (days coded this week) ===
 _weekly_momentum() {
   local momentum_file=~/.cache/weekly-momentum
-  local today=$(date +%Y-%m-%d)
-  local dow=$(date +%u)  # 1=Monday, 7=Sunday
+  local today=$(strftime %Y-%m-%d $EPOCHSECONDS)
+  local dow=$(strftime %u $EPOCHSECONDS)  # 1=Monday, 7=Sunday
 
   # Read existing data
   local data=""
@@ -1246,18 +1284,23 @@ _weekly_momentum() {
     echo "$today" >> "$momentum_file"
   fi
 
-  # Count days this week (keep only last 7 days)
+  # Count days this week
   local week_start=$(date -v-$((dow-1))d +%Y-%m-%d 2>/dev/null || date -d "last monday" +%Y-%m-%d 2>/dev/null)
-  local count=$(awk -v start="$week_start" '$1 >= start' "$momentum_file" 2>/dev/null | wc -l | tr -d ' ')
+  local -i count=0
+  if [[ -f "$momentum_file" ]]; then
+    while IFS= read -r line; do
+      [[ ! "$line" < "$week_start" ]] && (( count++ ))
+    done < "$momentum_file"
+  fi
 
-  echo "$count/7"
+  export __weekly_momentum="$count/7"
 }
 
 # === Focus time (uninterrupted session) ===
-typeset -g __focus_start=${__focus_start:-$(date +%s)}
+typeset -g __focus_start=${__focus_start:-$EPOCHSECONDS}
 typeset -g __focus_breaks=0
 _track_focus() {
-  local now=$(date +%s)
+  local now=$EPOCHSECONDS
   local idle=$((now - __last_cmd_time))
 
   # Break detected (>10 min idle resets focus)
@@ -1280,10 +1323,10 @@ _track_focus() {
 
 # === Coding hours tracking ===
 _track_coding_hours() {
-  local today=$(date +%Y-%m-%d)
+  local today=$(strftime %Y-%m-%d $EPOCHSECONDS)
   local hours_file=~/.cache/coding-hours-data
   local display_file=~/.cache/coding-hours-today
-  local now=$(date +%s)
+  local now=$EPOCHSECONDS
 
   # Read last timestamp and date
   local last_ts=0 last_date=""
@@ -1301,15 +1344,15 @@ _track_coding_hours() {
   echo "$today $now $total_secs" >| "$hours_file"
 
   # Update display (hours with 1 decimal)
-  local hours=$(echo "scale=1; $total_secs / 3600" | bc)
-  echo "${hours}h" >| "$display_file"
+  local -i tenths=$(( total_secs * 10 / 3600 ))
+  echo "$(( tenths / 10 )).$(( tenths % 10 ))h" >| "$display_file"
 }
 
 # === Momentum tracking ===
 typeset -ga __cmd_times=()
 _momentum_sparkline() {
   # Track last 20 command timestamps, show sparkline
-  local now=$(date +%s)
+  local now=$EPOCHSECONDS
   __cmd_times+=($now)
   # Keep only last 20
   (( ${#__cmd_times} > 20 )) && __cmd_times=("${__cmd_times[@]: -20}")
@@ -1449,25 +1492,22 @@ precmd() {
   fi
 
   # History cleanup: remove similar failed commands when a command succeeds
+  # Deferred to background to avoid blocking the prompt
   if [[ -n "$__last_cmd" ]]; then
     if (( __last_exit != 0 )); then
-      # Command failed - remember it
       __failed_cmds+=("$__last_cmd")
-      # Keep only last 10 failed commands
       (( ${#__failed_cmds} > 10 )) && __failed_cmds=("${__failed_cmds[@]: -10}")
     elif (( ${#__failed_cmds} > 0 )); then
-      # Command succeeded - check for similar failed commands to remove
       local failed
       for failed in "${__failed_cmds[@]}"; do
         if __cmds_similar "$__last_cmd" "$failed"; then
-          # Remove the failed command from history file (portable: macOS + Linux)
           local escaped="${failed//\//\\/}"
           escaped="${escaped//\[/\\[}"
           escaped="${escaped//\]/\\]}"
-          sed -i.bak "/;${escaped}$/d" "$HISTFILE" 2>/dev/null && rm -f "$HISTFILE.bak"
+          ( sed -i.bak "/;${escaped}$/d" "$HISTFILE" 2>/dev/null && rm -f "$HISTFILE.bak" ) &!
         fi
       done
-      __failed_cmds=()  # clear after success
+      __failed_cmds=()
     fi
   fi
 
@@ -1490,33 +1530,20 @@ precmd() {
   fi
   unset _command_start_time _last_cmd_name
   
-  # Update iTerm2 badge with git info (shows all changed files up to 10)
-  if git rev-parse --git-dir &>/dev/null 2>&1; then
-    local branch=$(git branch --show-current 2>/dev/null)
-    local count=$(git status -s 2>/dev/null | wc -l | tr -d ' ')
-    
-    if [[ -n "$branch" ]]; then
-      local badge_text="⎇ $branch"
-      
-      # Check if there are changes
-      if [[ "$count" -gt 0 ]]; then
-        local files=$(git status -s 2>/dev/null | head -10)
-        badge_text="$badge_text\n"
-        badge_text="$badge_text$(echo "$files" | awk '{print "  " $2 " " $1}')"
-        
-        # Show "and N more" if more than 10
-        if (( count > 10 )); then
-          badge_text="$badge_text\n  ... and $((count - 10)) more"
-        fi
-      else
-        # No changes - show skull and crossbones
-        badge_text="$badge_text\n\n☠☠☠☠☠\n☠☠☠☠☠\n☠☠☠☠☠"
-      fi
-      
-      printf "\e]1337;SetBadgeFormat=%s\a" $(echo -n "$badge_text" | base64)
+  # Update iTerm2 badge with cached git info (no git commands here)
+  if [[ -n "$_git_branch" ]]; then
+    local badge_text="⎇ $_git_branch"
+
+    if (( _git_dirty_count > 0 )); then
+      badge_text="$badge_text\n"
+      badge_text="$badge_text$(echo "$_git_dirty_files" | head -10 | awk '{print "  " $2 " " $1}')"
+      (( _git_dirty_count > 10 )) && badge_text="$badge_text\n  ... and $((_git_dirty_count - 10)) more"
+    else
+      badge_text="$badge_text\n\n☠☠☠☠☠\n☠☠☠☠☠\n☠☠☠☠☠"
     fi
+
+    printf "\e]1337;SetBadgeFormat=%s\a" $(echo -n "$badge_text" | base64)
   else
-    # Not in a git repo - show skulls
     printf "\e]1337;SetBadgeFormat=%s\a" $(echo -n "☠☠☠☠☠\n☠☠☠☠☠\n☠☠☠☠☠" | base64)
   fi
 }
@@ -1532,22 +1559,6 @@ y() {
   rm -f "$tmp"
 }
 
-# === Auto-start yazi in Ghostty ===
-# Ghostty is fast enough for yazi; iTerm2 is not
-if [[ "$TERM_PROGRAM" == "ghostty" && -z "$YAZI_LEVEL" && -o interactive ]]; then
-  # Start yazi, and cd to the directory yazi exits in
-  function _yazi_startup() {
-    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
-    yazi --cwd-file="$tmp"
-    if [[ -f "$tmp" ]]; then
-      local cwd="$(cat "$tmp")"
-      [[ -n "$cwd" && "$cwd" != "$PWD" ]] && cd "$cwd"
-    fi
-    rm -f "$tmp"
-  }
-  _yazi_startup
-  unfunction _yazi_startup
-fi
 
 # === Which All - show all versions in PATH ===
 whichall() {
@@ -1600,11 +1611,10 @@ histstats() {
 function _accept_line_or_diffstat() {
   # Empty line: show git diffstat without new prompt
   if [[ -z "$BUFFER" ]]; then
-    if git rev-parse --git-dir &>/dev/null; then
-      local file_count=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+    if [[ -n "$_git_dir" ]]; then
       local stat=$(git diff --shortstat 2>/dev/null)
       local output=""
-      (( file_count > 0 )) && output="$file_count files"
+      (( _git_dirty_count > 0 )) && output="$_git_dirty_count files"
       [[ -n "$stat" ]] && output="${output:+$output, }$stat"
       if [[ -n "$output" ]]; then
         zle -I
@@ -1671,3 +1681,10 @@ rm() {
 # SSH key auto-add on first use
 ssh-add -l &>/dev/null || ssh-add --apple-use-keychain ~/.ssh/id_* 2>/dev/null
 ulimit -n 10240
+
+# agents: refresh /tmp/agent-context (pi/codex/sketchybar consumption)
+[[ -r "$HOME/repo/dotfiles/.agents/zsh-precmd.zsh" ]] && source "$HOME/repo/dotfiles/.agents/zsh-precmd.zsh"
+
+# Added by codebase-memory-mcp install
+export PATH="/Users/rch/.local/bin:$PATH"
+export PATH="/opt/homebrew/sbin:$PATH"
