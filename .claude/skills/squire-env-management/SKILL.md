@@ -9,6 +9,25 @@ description: >-
 
 # Squire Env Management
 
+> **Status: partially deprecated.** For multi-env / batch
+> orchestration (Parallel Envs, Background Agent Polling, Dispatch
+> Backlog & Autonomous Queue), prefer the `sqfan` skill. sqfan
+> replaces the conversational backlog + `/loop` polling protocol with
+> a declarative `batch.yaml`, a typed event stream, evidence on every
+> transition, and a paranoid-doubt API. The sections marked
+> **Legacy: superseded by sqfan** below remain for reference only —
+> new dispatches should not use them.
+>
+> The following content STILL applies and is the canonical reference:
+> Core Commands (single-env `squire new`), OpenCode API Protocol,
+> Monitoring Agent Progress, Extracting Work from Envs, the Multi-
+> Repo Dispatches / Non-Default Repo Pattern, Envmgr MCP Tools, and
+> Gateway MCP. The accumulated domain knowledge — Quality Gates,
+> Brief Templates, Beads Dispatch Manifest, Failure Debrief Protocol,
+> Completion Metrics, Model Enforcement, and Common Mistakes — has
+> been folded into the `sqfan` skill (which itself references this
+> skill back for single-env work).
+
 Squire provisions ephemeral dev environments with an in-env agent (OpenCode, not Claude Code). Use these for parallel, isolated work: each env gets its own container, services, and agent session.
 
 ## Core Commands
@@ -47,9 +66,99 @@ squire attach <id>
 
 Opens OpenCode's TUI. Use this to watch the agent work or intervene.
 
+## Exposed Service URLs
+
+For services exposed through the Squire gateway, public URLs generally use:
+
+```text
+https://<service-or-hostname-prefix>--<env-id>.<region>.squire.ductone.com/<path>
+```
+
+Example:
+
+```text
+https://website--crystal-bee-83212.us-west-2.squire.ductone.com/pricing
+```
+
+Nested hostnames use repeated `--` segments. For example, a C1 tenant host
+`c1dev.<installation-domain>` behind an exposed `envoy` service becomes:
+
+```text
+https://c1dev--envoy--crystal-bee-83212.us-west-2.squire.ductone.com/
+```
+
+Use the `expose` section in `.squire/squire.yaml` to identify which service
+names or hostname prefixes are public. If a service is not exposed through the
+gateway, use `squire tunnel -e <env-id> -p <remote-port>` or
+`squire tunnel -e <env-id> -s <service>` and point clients at the local tunnel.
+
+## C1 Runtime Note
+
+For an already-running C1 Squire env, do not use Tilt to start services. C1 docs
+mention Tilt for local Kubernetes development and for building/registering the
+Squire image, but the remote env runtime is `squire-envmgr` with
+`.squire/squire.yaml`. C1 fixture/auth bootstrap uses `dev-util ensure`,
+`dev-util ensure-tenant`, and `dev-util mint-test-client` from inside the env.
+If manually starting long-lived services over `squire ssh`, detach them from the
+SSH session with `setsid -f`; a plain background process may receive SIGTERM
+when the SSH command exits.
+
+## Multi-Repo Dispatches (Latchkey)
+
+Most Latchkey work spans more than one repo. Before dispatching,
+enumerate which of these repos the task is likely to touch and bundle
+**all** of them into the env up front; do not wait for the agent to
+discover a missing dependency at compile time.
+
+| Repo | Path in env | What lives here |
+|---|---|---|
+| `latchkey-proto` | `/data/squire/src/latchkey-proto` | Canonical proto schemas for V4 API + models + service contracts. |
+| `latchkey-mls-core` | `/data/squire/src/latchkey-mls-core` | MLS adapter + OpenMLS shim. Owns `MlsGroupRuntime`, `CommitReceipt`, `IncomingEvent`, `StreamKind`. |
+| `latchkey-client-sdk` | `/data/squire/src/latchkey-client-sdk` | Rust SDK consumed by every native client. Re-exports the relevant mls-core types. Wraps the c1 gRPC stubs. |
+| `latchkey-client-shells` | `/data/squire/src/latchkey-client-shells` | Top-level Rust workspace: the `latchkey` CLI binary at the root + non-CLI shell scaffolds under `shells/`. |
+| `latchkey-desktop` | `/data/squire/src/latchkey-desktop` | Standalone Tauri 2.x desktop client (React/Vite + Rust). |
+| `c1` | `/data/squire/src/c1` | The C1 monorepo. Frontend lives under `frontend/`; backend Go under `pkg/`. |
+
+A task framed as "add a CLI command" almost always touches the SDK
+(new method on `LatchkeyClient` or `VaultStore`) and may touch the
+proto (new RPC field or message). A task framed as "Tauri Keychain
+support" touches both the desktop repo and the SDK (`keychain` module
+with `MacosKeychainStateStore`). A task framed as "the API now uses
+bytes for SHA-256" touches the proto (field type), the SDK (struct
+field name + type), and **every** consumer that references the field.
+
+When bundling for the dispatch:
+
+1. Bundle every repo the task plausibly touches, not just the
+   "primary" one. The bundles are small (typically <1 MB each);
+   bundling speculatively costs almost nothing and prevents the
+   agent from getting stuck.
+2. Inside the env, clone each bundle to its canonical path
+   (`/data/squire/src/<repo-name>`) and check out the right branch
+   (typically `rch/feature/latchkey-api-v4-*`).
+3. Patch each Rust consumer's `Cargo.toml` with a
+   `[patch."ssh://git@github.com/ductone/<repo>.git"]` block pointing
+   at the sibling working tree. This is the convenience-patch that
+   lets the in-env build resolve sibling crates without network
+   access — and it is **for the env only**. The agent must **not**
+   commit this patch table. See the "Common Mistakes" entry on
+   committed `[patch]` tables for the failure mode.
+4. In the dispatch prompt, name the sibling repos explicitly: "if
+   you need to add a type to the SDK to make the CLI compile, do it
+   in `/data/squire/src/latchkey-client-sdk` on its working branch;
+   commit there as well as in the CLI repo; do not paper over the
+   missing type with a `[patch]` table that points at the sibling
+   tree."
+5. Brief the agent on how to report multi-repo work: the final
+   status note lists, per sibling repo touched, the branch and the
+   commit SHA range. The extraction step then bundles each
+   non-c1 repo separately back to the laptop.
+
 ## Non-Default Repo Pattern
 
-The default image ships with only the c1 repo. For other repos, the workflow is:
+The default image historically shipped with c1 pre-cloned at `/data/squire/src/c1`, but newer images may launch with `/data/squire/src/` empty. **Always verify before assuming**: `squire ssh <id> -- "ls /data/squire/src/"`. If c1 isn't there, clone it inline — the env's git credential helper covers ductone/c1, so `git clone https://github.com/ductone/c1.git /data/squire/src/c1` works directly (no bundle needed). The clone takes ~30-60 s; build it into the env-prep step rather than letting the agent discover the missing tree at first compile.
+
+For other repos, the workflow is:
 
 1. **Create the env** (without a prompt):
    ```bash
@@ -89,30 +198,131 @@ The default image ships with only the c1 repo. For other repos, the workflow is:
 ## OpenCode API Protocol
 
 The in-env agent is OpenCode (NOT Claude Code). Sending prompts requires
-a three-step API flow on `http://localhost:4096`:
+a three-step API flow over HTTP on the env's authenticated OpenCode
+server.
 
-1. `POST /session` — create a session, returns `{"id": "ses_..."}`.
+**The env's authenticated OpenCode listens on a RANDOM port, not 4096.**
+The default image launches `opencode-linux-arm64/bin/opencode serve` at
+env-start with `ANTHROPIC_API_KEY` in its process environment, on a
+randomly-assigned port. Find it with:
+
+```bash
+squire ssh <env> -- 'ss -tlnp | grep "opencode" || pgrep -af "opencode.*serve"'
+```
+
+Use the discovered port — for the rest of this protocol, treat it as
+`$PORT`.
+
+1. `POST http://localhost:$PORT/session` with body `{}` — create a
+   session, returns `{"id": "ses_..."}`.
 2. Wait 2s for the session to initialize.
-3. `POST /session/{id}/prompt_async` — fire-and-forget prompt delivery.
+3. `POST http://localhost:$PORT/session/{id}/prompt_async` — fire-and-
+   forget prompt delivery. Returns `204 No Content` on accept.
 
-**Critical: the payload format is NOT `{"content": "..."}`.** It is:
+**Critical: the payload format requires `role: "user"`.** Without it,
+the server returns `204` but the agent silently errors with
+`"No user message found in stream. This should never happen."` and
+never invokes the model. The correct payload:
 
 ```json
 {
   "messageID": "msg_unique_id",
+  "role": "user",
   "parts": [{"type": "text", "text": "Your prompt text"}],
-  "model": {"providerID": "anthropic", "modelID": "claude-opus-4-6"}
+  "model": {"providerID": "anthropic", "modelID": "claude-opus-4-7"}
 }
 ```
 
 - `messageID` must be unique per prompt (used for dedup on retry).
+- `role` must be `"user"`. Older skill docs omitted this and the
+  agent silently failed; current OpenCode versions require it.
 - `parts` is an array of message parts (text, images, etc.).
-- `model` must match an available provider+model. The default image
-  has `anthropic/claude-opus-4-6` configured. Using a wrong model ID
-  (e.g. `claude-sonnet-4-20250514`) produces a silent
+- `model` must match an available provider+model. Using a wrong model
+  ID (e.g. `claude-sonnet-4-20250514`) produces a silent
   `ProviderModelNotFoundError` — the session shows 0 messages and the
   agent never starts. Check `/home/squire/.local/share/opencode/log/`
   for the actual error.
+
+**Build the JSON payload locally with the Write tool and `scp` it
+in.** In-env `jq` edits of payload files can produce JSON that passes
+shape validation but is rejected at model-invocation time (likely a
+text-encoding issue). The reliable pattern:
+
+```bash
+# Local: write the payload file with Write
+# Local: scp it in
+scp /tmp/my-prompt.json <env>.squire:/tmp/prompt.json
+# In env: POST the file
+squire ssh <env> -- "curl -sf -X POST http://localhost:$PORT/session/$SID/prompt_async \
+  -H 'Content-Type: application/json' --data @/tmp/prompt.json -w 'http=%{http_code}\n'"
+```
+
+### Recovering from `ProviderAuthError`
+
+If you start your own `opencode serve` (e.g., on port 4096 for
+convenience), it inherits no API key and every prompt fails with
+`ProviderAuthError: Anthropic API key is missing`. Extract the key
+from the env's existing authenticated process and relaunch:
+
+```bash
+squire ssh <env> -- '
+  PID=$(pgrep -f "linux-arm64/bin/opencode" | head -1)
+  KEY=$(tr "\0" "\n" < /proc/$PID/environ | grep "^ANTHROPIC_API_KEY=" | cut -d= -f2-)
+  pkill -f "opencode serve --port 4096" 2>/dev/null || true
+  sleep 2
+  ANTHROPIC_API_KEY="$KEY" nohup opencode serve --port 4096 --hostname 127.0.0.1 \
+    >/tmp/opencode.log 2>&1 &
+'
+```
+
+### The `question` tool deadlocks the agent
+
+If OpenCode invokes its built-in `question` tool, the agent halts
+indefinitely until the question is answered. The HTTP endpoint
+`POST /session/{sid}/question/{qid}` returns `200 OK` but routes to
+the web UI SPA — **there is no programmatic answer API exposed by the
+server**.
+
+Mitigations:
+
+- Include an explicit rule in the dispatch prompt: *"HARD RULE: do not
+  use the `question` tool under any circumstance. If you encounter a
+  decision point, pick the most reasonable default, document the
+  choice in your status note, and continue."*
+- If a session is already stalled on a question, the practical
+  recovery is to create a fresh session and re-dispatch with the rule
+  embedded. The old session can be abandoned.
+
+**Recovery via the OpenCode UI proxy (unblock without abandoning):**
+
+Every squire env exposes its OpenCode UI as a public proxy at:
+
+```
+https://opencode--<env-id>.us-west-2.squire.ductone.com/
+```
+
+where `<env-id>` is the env ID shown in `squire env` (e.g.
+`giant-goat-55224` → `https://opencode--giant-goat-55224.us-west-2.squire.ductone.com/`).
+This is a direct passthrough to the OpenCode web UI running in the
+env, including the question-answer prompt. To unblock a stalled
+session:
+
+1. `squire env` to find the env-id of the stalled env.
+2. Open `https://opencode--<env-id>.us-west-2.squire.ductone.com/` in
+   a browser.
+3. Authenticate (typical squire SSO flow).
+4. The pending question renders in the UI — answer it there, the
+   agent resumes from where it stalled.
+
+When to use this instead of abandoning the session:
+
+- The agent has done meaningful work (commits, edits) that you don't
+  want to lose by re-dispatching.
+- The question is one a human can answer in seconds (yes/no, file
+  path choice, "is this the right approach").
+- You're already at a keyboard. Don't use this for fire-and-forget
+  fleets — the rule above (forbid the question tool entirely) is
+  still the right default for autonomous dispatches.
 
 ## Monitoring Agent Progress
 
@@ -181,7 +391,15 @@ was using.
 but OpenCode can switch models per-prompt. The `prompt_async` model
 field is the only guarantee.
 
-## Background Agent Polling
+## Legacy: Background Agent Polling (superseded by sqfan)
+
+> **Deprecated.** sqfan's `poll` MCP tool replaces the `/loop`-driven
+> polling described here. `poll` blocks until the next typed event
+> fires (`status_change`, `committed`, `failure_fired`, etc.) and
+> carries the evidence the gate consulted. Use sqfan for any
+> dispatch that produces > 1 env. Sections kept below for reference
+> when working around a sqfan limitation or doing single-env
+> diagnostics.
 
 When delegating work to Squire envs, set up a `/loop` to periodically
 check agent status so you're notified when work completes or stalls
@@ -252,7 +470,14 @@ Haiku subagent returns raw facts; Opus applies the stall/nudge/cut-off
 rules and picks next actions. This keeps the main context lean while
 preserving decision quality.
 
-## Dispatch Backlog and Autonomous Queue
+## Legacy: Dispatch Backlog and Autonomous Queue (superseded by sqfan)
+
+> **Deprecated.** The conversational backlog + slot-management
+> protocol described below is replaced by sqfan's declarative
+> `batch.yaml`. Define your tasks once; sqfan handles concurrency
+> limits, dispatch ordering, completion metrics, and the polling
+> loop. Section kept below for reference and for understanding the
+> origin of sqfan's design.
 
 When you have multiple tasks that are mechanical and well-scoped,
 maintain a dispatch backlog and use the polling loop to drain it
@@ -324,11 +549,15 @@ For each running Squire env: check git log for commits.
 If an env committed+pushed:
   - Pull locally, check PR for new feedback
   - Reply+resolve addressed threads
+  - Record completion metrics:
+      ~/repo/dotfiles/scripts/squire-metrics.sh record <env-id>
   - Dispatch next QUEUED item from backlog
   - Report to user
 If an env is stalled: send finish prompt.
 If backlog is empty and no envs running: kill the loop.
 ```
+
+No side-table needed in the dispatching session — `squire env info <env-id>` exposes `Created:` which the script parses automatically.
 
 ### Drain mode
 
@@ -482,7 +711,75 @@ Protocol:
 
 Never skip step 1. PEACE before ABC; clean data before analysis. Skipping PEACE produces brief redesigns based on your hypothesis of what went wrong, not the agent's actual experience.
 
-## Parallel Envs
+## Completion Metrics
+
+Track time-to-completion and diff size for every dispatch so the cost/yield of squire work is visible across the fleet. Without this, the wall-clock estimates in the task-family table stay anecdotal; with it, they get refined by real data.
+
+### What to record
+
+One JSONL line per completed dispatch, captured at extraction time (after the env has committed + pushed, or after bundle extraction). Required fields:
+
+- `env_id` — the squire env ID (`jade-sloth-58345`)
+- `env_name` — human-readable name from `squire env`
+- `started_at` — ISO-8601 UTC timestamp of when `squire new` ran. Pulled automatically from `squire env info <env-id>` (the `Created:` field) when not supplied; override only if you want to scope duration to a sub-period (e.g. a re-dispatch into an existing env).
+- `completed_at` — ISO-8601 UTC timestamp at record time
+- `duration_seconds` — `completed_at - started_at`
+- `branch` — the env's working branch
+- `base` — base SHA the diff is computed against (defaults to `merge-base origin/main <branch>`). For dispatches that EXTEND an existing branch with prior commits, pass `--base <head-before-dispatch>` explicitly, or the recorded LOC/file counts will include the prior work.
+- `commit_count` — `git rev-list --count base..HEAD`
+- `files_changed`, `lines_added`, `lines_removed` — from `git diff --shortstat base..HEAD`
+
+### Where it lives
+
+Canonical location: `~/repo/dotfiles/scripts/squire-metrics.jsonl`. Override via `SQUIRE_METRICS_FILE` env var if the dotfiles repo isn't checked out at that path.
+
+### The helper script
+
+`~/repo/dotfiles/scripts/squire-metrics.sh` provides two subcommands:
+
+```bash
+# Capture a record at completion time. started_at is pulled from
+# `squire env info` automatically; override only if needed.
+squire-metrics.sh record <env-id>
+
+# Aggregate stats across all recorded dispatches.
+squire-metrics.sh tally
+squire-metrics.sh tally --last 10
+```
+
+The `record` subcommand SSHes into the env to compute diff stats. The `tally` subcommand reports min/median/mean/max duration plus LOC totals, optionally restricted to the last N records.
+
+### When to record
+
+Record at one of these points:
+
+1. **Branch-push completion** — env committed and pushed to a branch the dispatching session controls. Run `squire-metrics.sh record` after the push lands.
+2. **Bundle extraction** — env can't push (no GitHub App access); commits extracted via `git bundle`. Run record after the bundle is fetched and reviewed locally.
+
+Both happen at known points in the polling loop. Add a record step to the loop's "env committed and pushed" branch (see Background Agent Polling).
+
+### When NOT to record
+
+- Stalled envs that never committed — they have no diff to measure.
+- Envs cut off in drain mode — the work was abandoned; recording duration is misleading.
+- Failed envs with no commits — same.
+
+### Tally examples
+
+After enough records accumulate, `tally` answers questions the task-family table currently guesses at:
+
+- Is "small / comment-only" actually 15 minutes? `tally --last 20` over comment-only briefs.
+- Does adding the `question`-tool ban shrink duration? Compare tally before/after the rule was added.
+- LOC distribution per task family — is the per-family scope creeping?
+
+Refine the task-family table's wall-clock estimates once N >= 5 records exist per family.
+
+## Legacy: Parallel Envs (superseded by sqfan)
+
+> **Deprecated.** Multiple-env work belongs in a sqfan `batch.yaml`,
+> not in a sequence of bare `squire new` calls. Section kept for
+> single-env one-off context and for understanding what sqfan
+> automates.
 
 For independent work items, create multiple envs:
 
@@ -524,11 +821,23 @@ The gateway MCP `create_env` tool is accessible from within an env and exposes a
 ## Common Mistakes
 
 - **Using `git clone` URL for repos not in the GitHub App** — the env's credential helper only covers repos the squire GitHub App is installed on. For other repos, use `git bundle` + `scp` (see above). The symptom is `could not read Username for 'https://github.com/...'`.
+- **Assuming `gh` CLI is authenticated in the env** — `/usr/bin/gh` IS installed in squire envs (verify with `gh --version`; on 2026-06 images it's v2.93.0), but it is NOT authenticated to any GitHub host. `gh pr diff`, `gh pr view`, `gh api`, etc. all fail with `You are not logged into any GitHub hosts`. There's no token in the env's environment vars either. The symptom is silent if the agent doesn't check stderr, or "not logged in" if it does. **Two correct patterns:**
+  1. **Pre-stage everything via scp from the laptop before dispatch.** If the agent needs the PR diff, run `gh pr diff <num> --repo <owner>/<repo> > /tmp/pr-<num>.diff` locally and `scp` it into the env to `/tmp/`. Same for `gh pr view --json title,body`, comments, etc. The dispatched agent reads `/tmp/...` files instead of calling `gh`. This is the cheapest pattern for one-shot tasks like code review where the data is bounded.
+  2. **Mint a token via envmgr MCP at dispatch time, export `GH_TOKEN`.** The env's envmgr at `localhost:9877` exposes a `git_token` MCP tool (see `c1-dev-stack-in-squire` for the JSON-RPC protocol). It returns a short-lived GitHub App installation token scoped to the repos the squire GitHub App covers (today: just `ductone/c1`). For tasks that need ad-hoc gh calls, the dispatch prompt should include the token-minting recipe AND export `GH_TOKEN=<minted>` before any `gh` call. Note: the token expires (~30 min); long-running tasks may need to re-mint.
+
+  Choose pattern 1 for code review / diff inspection (bounded, easy to stage). Choose pattern 2 only when the agent needs to make many GitHub API calls or call repos beyond the scope of pre-staging. Never assume `gh auth status` returns logged-in.
 - **Wrong model ID in prompt_async** — using a model string like `claude-sonnet-4-20250514` silently fails with `ProviderModelNotFoundError`. The session shows 0 messages and the agent never starts. The correct default is `claude-opus-4-6`. Check the env's config: `cat /home/squire/.config/opencode/opencode.json | jq '.model'`.
-- **Wrong prompt payload format** — `{"content": "..."}` does NOT work. Must use `{"messageID": "...", "parts": [{"type": "text", "text": "..."}]}`. See OpenCode API Protocol above.
+- **Wrong prompt payload format** — `{"content": "..."}` does NOT work. The payload requires `messageID`, `role: "user"`, `parts`, and `model`. Missing `role: "user"` is the silent killer: server returns 204, agent errors with "No user message found in stream", model is never invoked. See OpenCode API Protocol above.
+- **Talking to port 4096 instead of the env's random port** — the env's authenticated `opencode serve` listens on a randomly-assigned port (e.g. 36127, 43825). Port 4096 only listens if you started your own server. The env's server has `ANTHROPIC_API_KEY` in its process env; yours does not, and your prompts will fail with `ProviderAuthError`. Find the real port with `ss -tlnp | grep opencode` or `pgrep -af "opencode-linux-arm64.*serve"`. See OpenCode API Protocol above for the API-key recovery pattern.
+- **Editing prompt JSON in-env with `jq`** — produces output that passes JSON shape checks but is rejected at model invocation. Build the payload locally with the Write tool and `scp` it in.
+- **Agent uses the `question` tool and stalls forever** — opencode has no programmatic answer API. Always include "HARD RULE: do not use the `question` tool" in your dispatch prompt. If a session is already stalled, create a fresh session and re-dispatch with the rule embedded.
+- **Stopped env not resumable from old `squire` CLI** — squire envs auto-stop on idle and need `squire env start <name>` to wake. Older `squire` CLI builds lack the `start` subcommand (`squire env start` errors with "accepts at most 1 arg(s), received 2"). Upgrade: `make -C ~/repo/squire install`. Disk state is preserved across stop, including commits on the agent's branch. After restart, the env's opencode is back on a possibly-different random port; any port-4096 server you launched needs to be relaunched (with the API key).
+- **Polling loop wastes cycles probing dead envs** — add `if env status=stopped, report and stop polling that env` to the polling prompt. Otherwise the cron keeps SSHing into stopped envs and only sees error messages.
+- **Agent introduces or references types that live in a sibling repo and ships only the CLI/UI side** — for Latchkey work this happens because the CLI lives in `latchkey-client-shells`, the SDK in `latchkey-client-sdk`, the proto in `latchkey-proto`, the MLS adapter in `latchkey-mls-core`, and the desktop in `latchkey-desktop`. The `[patch]` table the agent committed into `Cargo.toml` (pointing at sibling working trees in `/data/squire/src/`) papered over the gap inside the env, but the missing exports / proto field changes never landed upstream. On a clean clone the consumer fails to compile. Brief the in-env agent explicitly: when a change requires modifying a sibling repo (a new SDK type, a proto field rename, a new MLS adapter method), either (a) make the sibling change in the same dispatch and produce commits against both repos' branches, or (b) stop at the boundary and document the required sibling change in the status note instead of papering over it with a local `[patch]`. The agent must not commit a `[patch]` table that resolves to sibling working trees — that always represents a missing upstream change. For Latchkey specifically, name the canonical repo roots in the prompt so the agent can navigate them: `/data/squire/src/latchkey-client-shells`, `/data/squire/src/latchkey-client-sdk`, `/data/squire/src/latchkey-proto`, `/data/squire/src/latchkey-mls-core`, `/data/squire/src/latchkey-desktop`, `/data/squire/src/c1`.
 - **Piping binary data through `squire ssh`** — SSH via squire mangles binary. The pipe `cat file | squire ssh <id> -- "cat > dest"` corrupts non-UTF-8 content. Use `scp <file> <env>.squire:/path` instead.
 - **Forgetting `--no-open`** — without it, `squire new` opens the TUI immediately. Use `--no-open` for scripted/parallel workflows.
 - **Missing quotes around SSH commands** — `squire ssh <id> -- cd /foo && bar` runs `bar` locally. Always quote: `squire ssh <id> -- "cd /foo && bar"`.
 - **Stale bd lock from crashed subagents** — if a subagent held the beads DB lock and crashed, `bd` fails with "another process holds the exclusive lock". Fix: `rm /path/to/.beads/embeddeddolt/.lock` (verify no process holds it with `lsof` first).
-- **Workspace directory** — OpenCode's working directory defaults to `/data/squire/src` (containing c1). Your prompt must tell the agent the full path to the repo (e.g. `/data/squire/src/occult`). The `directory` field in the session object shows where the agent is actually working.
+- **Workspace directory** — OpenCode's working directory defaults to `/data/squire/src`. Older images pre-cloned c1 there; newer images may launch with an empty `src/`. Verify with `ls /data/squire/src/` before dispatching; clone c1 (or any other repo) into its canonical path before sending the prompt. Your prompt must name the full path to the repo (e.g. `/data/squire/src/c1` or `/data/squire/src/occult`). The `directory` field in the session object shows where the agent is actually working.
+- **OpenCode log files may not exist** — older images wrote logs to `/home/squire/.local/share/opencode/log/*.log`. Newer images launch `opencode serve` with `--print-logs` only (no file rotation), so that directory is missing and `grep modelID ...log/*.log` returns "No such file or directory". For model-drift verification on those envs, hit the session API instead: `curl -sf http://localhost:<port>/session/<sid>/message | jq '.[-1].metadata.assistant.modelID'` shows the model used on the most recent assistant turn. Always discover the port (`ss -tlnp | grep opencode`) before forming the URL.
 - **Model drift mid-session** — OpenCode's whitelist includes cheaper models (haiku, sonnet, GPT variants). The agent can switch models mid-session without warning, producing lower-quality output. Always include the `model` field in every `prompt_async` call and verify the model on polling ticks by grepping `modelID` in the logs. See "Model Enforcement" section above.

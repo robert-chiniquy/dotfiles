@@ -7,7 +7,8 @@ description: >-
   Use when testing a Latchkey or other c1 client against a real (not stubbed)
   c1 backend, or when reproducing c1 server-side behavior locally.
   Triggers on: c1 dev env, squire c1 stack, pc/up, dev-util mint-test-client,
-  test against c1, c1 OAuth client_credentials.
+  test against c1, c1 OAuth client_credentials, run c1 integration tests in
+  squire, repro buildkite integration test, TEST_LOCAL_EXEC, api_no_uplift.
 ---
 
 # Standing up a c1 dev stack in a Squire env
@@ -324,6 +325,70 @@ device-register or per-tenant flow.
   cloud-routed envs it's a squire subdomain. In non-cloud-tested envs the
   default is `c1.ductone.com`. Always check `.dev/env/be-innkeeper.env`
   before composing tenant URLs.
+
+## Running c1 integration tests in a Squire env (no docker)
+
+This is a different goal from standing up the running stack above. The
+`tests/...` integration suites (e.g. `tests/api_no_uplift`, run in CI as the
+buildkite `go-...-testapinouplift-api-no-uplift` shard) don't need the
+process-compose services — the suite starts the c1 services **in-process**.
+They only need the data backends: postgres, dynamodb-local, temporal, valkey,
+and an S3 endpoint.
+
+CI runs them with `TEST_TEST_CONTAINER=true`, which spins those up as
+**docker** containers (`ci/integration.sh`). **Squire envs have no docker
+daemon** — neither the base image nor the c1 image — so the testcontainer
+path is dead. Use the docker-less path instead: `TEST_LOCAL_EXEC=true`
+(`pkg/utest/integration.go` → `newLocalResourceClient`), which runs every
+backend as a native binary on PATH. The c1 nix `localdev` devshell already
+provides postgres, temporal, valkey, and java; three things it does **not**
+set up for you:
+
+1. **DynamoDBLocal.jar** — `newLocalResourceClient.allocateDynamoDB` looks only
+   in `/home/dynamodblocal` or `/usr/local/dynamodblocal` (both root-owned).
+   The squire user has passwordless sudo:
+   ```bash
+   sudo mkdir -p /usr/local/dynamodblocal && sudo chown "$(id -un)" /usr/local/dynamodblocal
+   curl -sSL https://d1ni2b6xgvw0s0.cloudfront.net/v2.x/dynamodb_local_latest.tar.gz \
+     | tar xz -C /usr/local/dynamodblocal
+   ```
+2. **An S3 endpoint on `127.0.0.1:34567`** — `allocateS3` *connects* to it (creds
+   `dummyaccesskey` / `dummysecret`) but never starts it, and nothing in
+   process-compose does either. Run minio (arm64 env):
+   ```bash
+   curl -sSL -o /tmp/minio https://dl.min.io/server/minio/release/linux-arm64/minio && chmod +x /tmp/minio
+   MINIO_ROOT_USER=dummyaccesskey MINIO_ROOT_PASSWORD=dummysecret \
+     setsid -f /tmp/minio server /tmp/minio-data --address 127.0.0.1:34567
+   ```
+3. **A UTF-8 locale** — pgtest's `initdb` inherits the shell locale, which is
+   unset on a fresh env. With `LC_ALL=C` the DB comes up SQL_ASCII and every
+   query dies with `simple protocol queries must be run with client_encoding=UTF8`
+   (the config sets `PreferSimpleProtocol: true`). Use `C.UTF-8` (present as
+   `C.utf8` in `locale -a`), not `C`.
+
+Then run the suite (use `go -C` since the block-cd hook rejects `cd`; the
+first compile is slow, the binary caches after):
+```bash
+nix develop /data/squire/src/c1#localdev --command bash -c '
+  export TEST_LOCAL_EXEC=true LC_ALL=C.UTF-8 LANG=C.UTF-8 LC_CTYPE=C.UTF-8
+  go -C /data/squire/src/c1 test -vet=off -count=1 -v \
+    ./tests/api_no_uplift/... -run TestAPINoUplift -timeout 25m
+'
+```
+The buildkite shard name maps directly to this: `TEST_CASE="TestAPINoUplift|api_no_uplift"`
+→ `-run "TestAPINoUplift" ./tests/api_no_uplift/...` (split on the last `|`,
+see `ci/integration.sh`). Launch it detached (`setsid -f ... > log; touch done`)
+and poll the log — `squire ssh` sessions drop on long holds.
+
+**Caveat — this does not match CI's postgres.** local-exec uses the devshell's
+native postgres (currently 18.3); buildkite's testcontainer pins ECR
+`postgres:2` (an older major). A test that passes here can still fail in
+buildkite (and vice-versa) when the behavior is postgres-version-dependent —
+e.g. partitioned-table schema handling. So a green local-exec run rules out
+"broken on modern pg / general staleness," but it does **not** clear a
+buildkite failure. To reproduce a version-specific failure you need docker +
+the pinned image (`TEST_TEST_CONTAINER=true` with
+`TEST_TEST_CONTAINER_POSTGRES_IMAGE` set), which means a docker host, not squire.
 
 ## Cleanup
 

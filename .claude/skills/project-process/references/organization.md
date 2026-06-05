@@ -35,7 +35,6 @@ Top-level files (keep at root):
 - CLAUDE.md, README.md, project.md
 - DATA_SOURCES.md, GLOSSARY.md, LEARNINGS.md
 - TODO.md, COMPLETED.md
-- DEMO.md
 
 Categorization:
 - **old/**: V1 when V2 exists, superseded approaches
