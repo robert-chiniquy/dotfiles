@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "insecure-defaults",
+  "owner": "trailofbits",
+  "repo": "skills",
+  "path": "plugins/insecure-defaults/skills/insecure-defaults",
+  "branch": "main",
+  "sha": "0744323963ae53df931610d686ffad2bf3e1f4b8",
+  "source": "manual"
+}

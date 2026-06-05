@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "post-change-verification",
+  "owner": "ivantorresedge",
+  "repo": "molcajete.ai",
+  "path": "deprecated/tech-stacks/go/skills/post-change-verification",
+  "branch": "master",
+  "sha": "49eba4add22579f6075493b0141656906c752fcb",
+  "source": "manual"
+}

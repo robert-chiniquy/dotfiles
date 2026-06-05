@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "audit-context-building",
+  "owner": "trailofbits",
+  "repo": "skills",
+  "path": "plugins/audit-context-building/skills/audit-context-building",
+  "branch": "main",
+  "sha": "ca1a596307eccb94a6db0ed99ee7b4f63ed20f31",
+  "source": "manual"
+}
