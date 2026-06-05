@@ -1,6 +1,6 @@
 # Skills Catalog
 
-17 skills. Always-on skills load at startup. Manual skills load via `/name`.
+20 skills. Always-on skills load at startup. Manual skills load via `/name`.
 
 ---
 
@@ -22,6 +22,9 @@
 | terraform | .tf files, HCL, infrastructure pipelines (hub + references/) |
 | protogen | .proto files, gRPC, codegen (hub + references/) |
 | documentation | Writing or reviewing docs (hub + references/) |
+| subagent-prompt-review | Before Agent() / sqfan dispatch / scheduled remote agents; vet prompts |
+| calendaring | Multi-month personal master schedule: travel, parenting, camps, conferences |
+| tactical-sitrep | One named milestone + hard deadline → calibrated A/B/C readiness call + one most-pressing action |
 
 ## Manual Only (`disable-model-invocation: true`)
 

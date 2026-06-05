@@ -1,67 +1,4 @@
 {
-  "alwaysThinkingEnabled": true,
-  "enabledPlugins": {
-    "claude-hud@claude-hud": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "claude-hud": {
-      "source": {
-        "repo": "jarrodwatts/claude-hud",
-        "source": "github"
-      }
-    }
-  },
-  "hooks": {
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "command": "bd prime",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "command": "/Users/rch/.claude/hooks/block-cd.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/Users/rch/.claude/hooks/rtk-rewrite.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": "Bash"
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "command": "bd prime",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ]
-  },
-  "model": "opus[1m]",
   "permissions": {
     "allow": [
       "WebSearch",
@@ -164,8 +101,287 @@
       "Bash(iterm-pane-purple)",
       "Bash(iterm-pane-reset)",
       "Bash(~/bin/iterm-pane-purple)",
-      "Bash(~/bin/iterm-pane-reset)"
+      "Bash(~/bin/iterm-pane-reset)",
+      "mcp__codebase-memory-mcp__index_repository",
+      "Bash(bd list *)",
+      "Bash(bd dolt *)",
+      "Bash(bd prime *)",
+      "Bash(bd create *)",
+      "Bash(set -e)",
+      "Bash(bd stats *)",
+      "Bash(squire --version)",
+      "Bash(squire --help)",
+      "Bash(bd update *)",
+      "Bash(squire api *)",
+      "Bash(bd remember *)",
+      "Bash(bd close *)",
+      "Bash(bd ready *)",
+      "Read(//Users/rch/.local/bin/**)",
+      "Bash(~/.local/bin/sqfan version *)",
+      "Bash(squire context *)",
+      "Bash(~/.local/bin/sqfan dispatch *)",
+      "Bash(squire env *)",
+      "Bash(~/.local/bin/sqfan teardown *)",
+      "Bash(squire ssh *)",
+      "Bash(~/.local/bin/sqfan status *)",
+      "Bash(scp gentle-tiger-78106.squire:/tmp/cobra-work.bundle /tmp/cobra-work.bundle)",
+      "Bash(~/.local/bin/sqfan execute *)",
+      "Bash(bd show *)",
+      "Bash(~/.local/bin/sqfan stats *)",
+      "Bash(mkdir -p /Users/rch/repo/dotfiles/.claude/skills/comment-discipline)",
+      "Bash(cp /Users/rch/.claude/skills/comment-discipline/SKILL.md /Users/rch/repo/dotfiles/.claude/skills/comment-discipline/SKILL.md)",
+      "Bash(rtk diff *)",
+      "Bash(/bin/ls -li /Users/rch/.claude/skills/comment-discipline/SKILL.md /Users/rch/repo/dotfiles/.claude/skills/comment-discipline/SKILL.md)",
+      "Bash(/bin/ls -la ~/.claude/skills)",
+      "Bash(/bin/ls -la ~/)",
+      "Bash(~/.local/bin/sqfan mcp *)",
+      "Bash(~/.local/bin/sqfan --help)",
+      "Bash(~/.local/bin/sqfan prime *)",
+      "Bash(bd --help)",
+      "Bash(bd init *)",
+      "Bash(bd onboard *)",
+      "Bash(bd hooks *)",
+      "Bash(bd setup *)",
+      "Bash(~/.local/bin/sqfan setup *)",
+      "Bash(~/.local/bin/sqfan merge *)",
+      "Bash(~/.local/bin/bd show *)",
+      "Bash(~/.local/bin/bd close *)",
+      "Bash(~/.local/bin/bd dolt *)",
+      "Bash(~/.local/bin/bd ready *)",
+      "Bash(~/.local/bin/bd list *)",
+      "Bash(~/.local/bin/bd update *)",
+      "WebFetch(domain:github.com)",
+      "Bash(~/.local/bin/sqfan --version)",
+      "Bash(~/.local/bin/bd create '--title=Probe FilesChanged/LinesAdded/LinesRemoved so small_diff_large_brief fires' '--description=failure.Observable carries FilesChanged/LinesAdded/LinesRemoved fields, and the small_diff_large_brief detector reads them. But pkg/status'\\\\''s Collect\\(\\) never populates them, so that detector is dormant — it self-gates on zeros and never fires. *)",
+      "Bash(/Users/rch/.local/bin/sqfan --version)",
+      "Bash(/Users/rch/.local/bin/sqfan mcp *)",
+      "Bash(sqfan --version)",
+      "Bash(sqfan mcp *)",
+      "Bash(sqfan --help)",
+      "Bash(mv -f prompts/make-help.txt scratch/prompts/)",
+      "Bash(mv -f prompts/readme-toc.txt scratch/prompts/)",
+      "Bash(mv -f prompts/editorconfig.txt scratch/prompts/)",
+      "Bash(sqfan teardown *)",
+      "Bash(SQUIRE_DEBUG=1 squire env)",
+      "Bash(sqfan execute *)",
+      "Bash(./build/sqfan status *)",
+      "Bash(sqfan setup *)",
+      "Bash(codex --version)",
+      "Bash(mkdir -p ~/.claude/skills)",
+      "Bash(mkdir -p ~/.codex/skills)",
+      "Bash(./build/sqfan setup *)",
+      "Bash(./build/sqfan doubt *)",
+      "Bash(./build/sqfan transcript *)",
+      "mcp__codebase-memory-mcp__index_status",
+      "mcp__codebase-memory-mcp__search_graph",
+      "mcp__codebase-memory-mcp__get_code_snippet",
+      "Bash(./build/sqfan top *)",
+      "Bash(squire list *)",
+      "Bash(rtk proxy *)",
+      "Bash(./build/sqfan reap *)",
+      "Bash(./build/sqfan dispatch *)",
+      "Bash(./build/sqfan teardown *)",
+      "Bash(./build/sqfan merge *)",
+      "Bash(bd help *)",
+      "Bash(tee scratch/review-beads-filed.log)",
+      "Bash(./build/sqfan bug *)",
+      "Read(//Users/rch/.sqfan/**)",
+      "Bash(./build/sqfan prime *)",
+      "Bash(./build/sqfan stats *)",
+      "Bash(/tmp/sqfan-url-check version *)",
+      "Bash(/tmp/sqfan-url-check *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan top *)",
+      "Bash(/tmp/sqfan-nudge nudge *)",
+      "Bash(/tmp/sqfan-sdkcheck execute *)",
+      "Bash(sqfan reap *)",
+      "Bash(squire envs *)",
+      "Read(//tmp/**)",
+      "Read(//private/tmp/**)",
+      "Bash(sqfan status *)",
+      "Bash(sqfan orphans *)",
+      "Bash(squire version *)",
+      "Bash(build/sqfan prime *)",
+      "Bash(build/sqfan --help)",
+      "Bash(build/sqfan top *)",
+      "Skill(schedule)",
+      "Bash(build/sqfan *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan dispatch *)",
+      "Bash(bd dep *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan status *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan nudge *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan execute *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan merge *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan completion *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan --version)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan prime *)",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=10 bugs-aggregate.squire \"cd /data/squire/src/sqfan && git log --oneline b95a8470..HEAD 2>&1\")",
+      "Bash(ssh -o BatchMode=yes bugs-aggregate.squire 'cd /data/squire/src/sqfan && git bundle create /tmp/sqfan-wyb-review.bundle b95a8470..rch/feature/sqfan-wyb-bugs 2>&1 && ls -la /tmp/sqfan-wyb-review.bundle')",
+      "Bash(scp -o BatchMode=yes bugs-aggregate.squire:/tmp/sqfan-wyb-review.bundle /tmp/sqfan-wyb-review.bundle)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan bugscan *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan beep *)",
+      "Bash(ssh -o BatchMode=yes metrics-flush.squire 'cd /data/squire/src/sqfan && git bundle create /tmp/sqfan-ebe-review.bundle 4aa00717..rch/feature/sqfan-ebe-flush 2>&1 && ls -la /tmp/sqfan-ebe-review.bundle')",
+      "Bash(scp -o BatchMode=yes metrics-flush.squire:/tmp/sqfan-ebe-review.bundle /tmp/sqfan-ebe-review.bundle)",
+      "Bash(/tmp/handdeliver --help)",
+      "Bash(/tmp/handdeliver)",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=5 little-kangaroo-57734.squire echo ok)",
+      "Bash(squire attach *)",
+      "Bash(squire new *)",
+      "Bash(time ssh -o BatchMode=yes -o ConnectTimeout=10 metrics-flush.squire echo ok)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan dr *)",
+      "Bash(mkdir -p /Users/rch/repo/sqfan-trunc-u3z/prompts /Users/rch/repo/sqfan-mapct-08g/prompts /Users/rch/repo/sqfan-verifmodel-kmc/prompts /Users/rch/repo/sqfan-handoff-l81/prompts)",
+      "Read(//Users/rch/repo/**)",
+      "Bash(bd memories *)",
+      "Bash(/Users/rch/repo/sqfan/build/sqfan reap *)",
+      "Bash(claude --version)",
+      "Bash(wait)",
+      "Bash(yes y *)",
+      "Bash(ssh -o BatchMode=yes claude-probe-2.squire 'echo \"--- whoami / HOME ---\"; whoami; echo \"HOME=$HOME\"; echo \"--- which claude ---\"; which claude || command -v claude || echo \"claude NOT on PATH\"; echo \"--- PATH ---\"; echo \"$PATH\"; echo \"--- claude --version ---\"; claude --version 2>&1 || echo \"claude --version failed\"; echo \"--- ANTHROPIC_API_KEY present? ---\"; if [ -n \"$ANTHROPIC_API_KEY\" ]; then echo \"yes \\(len=${#ANTHROPIC_API_KEY}\\)\"; else echo \"no\"; fi; echo \"--- .claude dir ---\"; ls -la ~/.claude/ 2>&1 | head -n 15')",
+      "Bash(ssh -o BatchMode=yes claude-probe-2.squire 'echo \"--- find claude binary ---\"; find / -name claude -type f -executable 2>/dev/null | head -n 5; echo \"--- find claude-related ---\"; find / -name \"*claude*\" -type f -executable 2>/dev/null | head -n 10; echo \"--- /usr/local/bin ---\"; ls /usr/local/bin/ 2>&1 | grep -i claude; echo \"--- ~/.local/bin ---\"; ls ~/.local/bin/ 2>/dev/null; echo \"--- squire-session-hook content ---\"; cat ~/.claude/squire-session-hook.sh 2>&1 | head -n 30')",
+      "Bash(ssh -o BatchMode=yes claude-probe-2.squire 'echo \"--- nix-profile bins matching claude ---\"; ls ~/.nix-profile/bin/ 2>&1 | grep -i claude; echo \"--- /nix/var/.../default/bin ---\"; ls /nix/var/nix/profiles/default/bin/ 2>&1 | grep -i claude; echo \"--- session hook \\(first 40 lines\\) ---\"; head -n 40 ~/.claude/squire-session-hook.sh; echo \"--- which on EACH PATH dir ---\"; for d in /home/squire/.nix-profile/bin /nix/var/nix/profiles/default/bin /usr/local/bin /usr/bin /bin /usr/games; do test -x \"$d/claude\" && echo \"FOUND: $d/claude\"; done; echo \"--- settings.json \\(api key block\\) ---\"; cat ~/.claude/settings.json 2>&1 | head -n 30')",
+      "Bash(squire admin *)",
+      "Bash(ssh -o BatchMode=yes claude-probe-3.squire 'echo \"--- whoami / HOME / image ---\"; whoami; echo \"HOME=$HOME\"; echo \"PATH=$PATH\"; echo \"--- which claude ---\"; which claude || command -v claude || echo \"claude NOT on PATH\"; echo \"--- claude --version ---\"; claude --version 2>&1 || echo \"FAILED\"; echo \"--- ANTHROPIC_API_KEY ---\"; if [ -n \"$ANTHROPIC_API_KEY\" ]; then echo \"yes len=${#ANTHROPIC_API_KEY}\"; else echo \"no\"; fi; echo \"--- ~/.claude ---\"; ls ~/.claude/ 2>&1 | head -n 10')",
+      "Bash(ssh -o BatchMode=yes claude-probe-3.squire 'ls -la /home/squire/.local/bin/claude 2>&1; echo \"---\"; /home/squire/.local/bin/claude --version 2>&1 | head -n 3')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire \"ls -la /home/squire/.claude/projects/-data-squire-src-repo/\")",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire \"claude --version 2>&1 && echo '---'; cat /home/squire/.claude/settings.json | head -n 20\")",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'ls -la /tmp/ap-*.log 2>/dev/null; for f in /tmp/ap-*.log; do echo \"=== $f ===\"; cat \"$f\" 2>/dev/null | head -n 5; done')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'find /home/squire/.claude -name \"*.jsonl\" -newer /tmp/ap-*.log -o -newer /tmp 2>/dev/null | head -n 5; ls -lat /home/squire/.claude/projects/-data-squire-src-repo/ 2>&1 | head -n 8')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'cat /tmp/cwd-test.txt 2>&1')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'ls /etc/profile.d/ 2>&1; echo \"--- contents matching cd or PWD ---\"; grep -l -iE \"cd |PWD|chdir\" /etc/profile.d/*.sh 2>/dev/null | head -n 5; echo \"--- enter-shell content ---\"; for f in /etc/profile.d/*.sh; do head -n 5 \"$f\"; echo \"===\"; done 2>&1 | head -n 60')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'grep -nE \"cd |PWD|chdir|HOME=\" /etc/profile.d/c1-nix-env.sh 2>&1 | head -n 20')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'cat ~/.bashrc 2>&1; echo \"---\"; ls /home/squire/.c1-nix-env.local.sh 2>&1 && cat /home/squire/.c1-nix-env.local.sh 2>&1 | head -n 30')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'wc -l /etc/profile.d/c1-nix-env.sh; echo \"---\"; sed -n \"40,80p\" /etc/profile.d/c1-nix-env.sh 2>&1')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'tail -n 30 /etc/profile.d/c1-nix-env.sh; echo \"---\"; grep -nE \"cd |HOME=|chdir| HOME$\" /etc/profile.d/c1-nix-env.sh')",
+      "Bash(ssh -o BatchMode=yes claude-probe-4.squire 'echo START; nohup sleep 2 > /tmp/s2.log 2>&1 & echo BG_PID=$!')"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bd prime"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.claude/hooks/block-cd.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.claude/hooks/block-subagent-destructive.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.claude/hooks/rtk-rewrite.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep|Glob|Read|Search",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cbm-code-discovery-gate"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bd prime"
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cbm-session-reminder"
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cbm-session-reminder"
+          }
+        ]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cbm-session-reminder"
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cbm-session-reminder"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sqfan prime"
+          }
+        ]
+      }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash -c 'plugin_dir=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | sort -V | tail -1); exec /opt/homebrew/bin/node \"${plugin_dir}dist/index.js\"'"
+  },
+  "enabledPlugins": {
+    "claude-hud@claude-hud": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-hud": {
+      "source": {
+        "source": "github",
+        "repo": "jarrodwatts/claude-hud"
+      }
+    }
   },
   "spinnerVerbs": {
     "mode": "replace",
@@ -173,8 +389,16 @@
       "Working"
     ]
   },
-  "statusLine": {
-    "command": "bash -c 'plugin_dir=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/claude-hud/claude-hud/*/ 2\u003e/dev/null | sort -V | tail -1); exec /opt/homebrew/bin/node \"${plugin_dir}dist/index.js\"'",
-    "type": "command"
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "xhigh",
+  "editorMode": "normal",
+  "verbose": true,
+  "mcpServers": {
+    "sqfan": {
+      "args": [
+        "mcp"
+      ],
+      "command": "/Users/rch/.local/bin/sqfan"
+    }
   }
 }
