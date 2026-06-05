@@ -6,6 +6,7 @@ $env.PATH = ($env.PATH | split row (char esep)
     | prepend '/opt/homebrew/bin'
     | prepend '/opt/homebrew/sbin'
     | prepend $'($nu.home-dir)/go/bin'
+    | prepend $'($nu.home-dir)/bin'
     | prepend $'($nu.home-dir)/.opencode/bin'
     | uniq)
 
