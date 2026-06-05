@@ -34,15 +34,6 @@ if ! command -v eza &>/dev/null; then
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
-# goose CLI
-export GOOSE_CLI_DARK_THEME=1
-export GOOSE_CLI_SHOW_COST=1
-export GOOSE_TELEMETRY_OFF=1
-export GOOSE_MODE=smart_approve
-export GOOSE_MAX_TURNS=20
-export GOOSE_RECIPE_PATH="$HOME/repo/dotfiles/.goose/recipes"
-export GOOSE_STATUS_HOOK="$HOME/repo/dotfiles/bin/goose-status-hook"
-export GOOSE_MOIM_MESSAGE_FILE=/tmp/goose-context
 
 # pi.dev (pi-coding-agent)
 export PI_TELEMETRY=0
