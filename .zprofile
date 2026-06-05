@@ -6,8 +6,8 @@ which -s brew 1>/dev/null 2>/dev/null && (
   eval "$(/opt/homebrew/bin/brew shellenv)"
 )
 
-export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
+export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
 export PATH="$HOME/Library/Python/3.9/bin:$PATH"
 
