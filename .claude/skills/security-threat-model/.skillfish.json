@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "security-threat-model",
+  "owner": "openai",
+  "repo": "skills",
+  "path": "skills/.curated/security-threat-model",
+  "branch": "main",
+  "sha": "455ed2d898ef7d1e8836898f07be3a7d2c3f38d2",
+  "source": "manual"
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "trailmark",
+  "owner": "trailofbits",
+  "repo": "skills",
+  "path": "plugins/trailmark/skills/trailmark",
+  "branch": "main",
+  "sha": "964c2992d17345c8042db3b78b2f8d50a5404fdd",
+  "source": "manual"
+}

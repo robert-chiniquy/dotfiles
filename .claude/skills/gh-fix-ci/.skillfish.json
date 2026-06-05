@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "gh-fix-ci",
+  "owner": "openai",
+  "repo": "skills",
+  "path": "skills/.curated/gh-fix-ci",
+  "branch": "main",
+  "sha": "3f99938c9464393f27cc4cc00e4ba17387517803",
+  "source": "manual"
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "golang-code-review",
+  "owner": "teetsh-org",
+  "repo": "claude-skills",
+  "path": "code-review/skills/golang-code-review",
+  "branch": "main",
+  "sha": "e4bf5d876e7697ca146d616c36fed9d9a139858c",
+  "source": "manual"
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "property-based-testing",
+  "owner": "trailofbits",
+  "repo": "skills",
+  "path": "plugins/property-based-testing/skills/property-based-testing",
+  "branch": "main",
+  "sha": "53c40498f269b1862c23baa34c2941e43df6014f",
+  "source": "manual"
+}
