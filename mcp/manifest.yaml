@@ -1,0 +1,32 @@
+# Pinned MCP server versions.
+#
+# Agent configs (~/.codex/config.toml, ~/.claude/mcp.json) call these
+# binaries by absolute path, NOT via `npx -y <pkg>` (which would fetch
+# whatever the registry currently serves on every agent session).
+#
+# Workflow to bump a version:
+#   1. Edit the version below.
+#   2. Run scripts/install-mcp-servers.sh
+#   3. Smoke-test the agent that consumes it.
+#   4. Commit.
+#
+# Pins set 2026-05-25 — see reports/REPORT_SUPPLYCHAIN_AUDIT_2026-05-25.md
+# for the audit that produced them.
+
+npm:
+  - package: "@upstash/context7-mcp"
+    version: "3.0.0"
+    bin: context7-mcp
+    consumers: [codex, claude-code]
+  - package: "@kazuph/mcp-slack"
+    version: "1.3.2"
+    bin: mcp-slack
+    consumers: [codex]
+  - package: "@modelcontextprotocol/server-github"
+    version: "2025.4.8"
+    bin: mcp-server-github
+    consumers: [claude-code]
+  - package: "mcp-remote"
+    version: "0.1.38"
+    bin: mcp-remote
+    consumers: [claude-code]
