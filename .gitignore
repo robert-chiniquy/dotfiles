@@ -43,3 +43,27 @@ LEARNINGS.md
 .dolt/
 *.db
 .beads-credential-key
+
+# Locally-managed Claude state (per-machine, not for git)
+.claude/.mcp.json
+.claude/.last-cleanup
+.claude/.last-update-result.json
+.claude/remote-settings.json
+
+# Codebase memory and vit local indexes/state
+.codebase-memory/
+.vit/
+
+# Local squire scratch + metrics data
+scripts/.claude/
+scripts/squire-metrics.jsonl
+
+# Personal safety backups (file.bak.pre-<change>)
+*.bak.pre-*
+
+# Compiled tool binaries (installed via brew/go install, not for git)
+bin/golangci-lint
+bin/gotestsum
+
+# Demo / scratch docs
+DEMO_CODEX_LIMITED.md
