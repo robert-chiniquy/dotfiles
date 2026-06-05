@@ -106,7 +106,6 @@ Before any phase complete:
 - [ ] TODO.md empty or truly blocked
 - [ ] Deprecated code in old/ with docs
 - [ ] Sensitive docs in private/
-- [ ] DEMO.md for user-facing features
 - [ ] Documents versioned, not overwritten
 - [ ] Checkpoint commit created
 - [ ] Catalog documents updated

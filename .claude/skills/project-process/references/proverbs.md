@@ -9,7 +9,6 @@ Use the goddam makefile.
 Appear as EMTs jumping out of an ambulance.
 The code shows what the team already knows hurts.
 Look for the worst failure cases at scale.
-Demo for the people who built the system.
 Multi-tenant is not optional.
 After autocompact, review CLAUDE.md again.
 If work can be parallelized, spin up more agents.
@@ -40,3 +39,5 @@ Delegation: you have agents waiting for instructions.
 It is always worthwhile to track down the causes of explosions.
 We don't need to get weird.
 This is what happens when you use sed to write Swift.
+Find the principled perspective first.
+We are proactively helpful.

@@ -13,9 +13,9 @@ description: >-
 
 # c1 squire dispatch
 
-The c1-specific instantiation of the protocols defined in `squire-env-management`. That skill provides the *shape* — gate bundle pattern, brief-templates concept, beads manifest format, failure debrief protocol. This skill provides the c1 *content* that fills those shapes.
+The c1-specific instantiation of the protocols now defined in the `sqfan` skill (originally in `squire-env-management`, since folded into sqfan). The host skill provides the *shape* — gate bundle pattern, brief-templates concept, beads manifest format, failure debrief protocol. This skill provides the c1 *content* that fills those shapes.
 
-Read `squire-env-management` for the protocol mechanics. Read this skill for what to plug into them.
+Read `sqfan` for the protocol mechanics. Read this skill for what to plug into them. `squire-env-management` retains the single-env reference content (Core Commands, OpenCode API Protocol, etc.) but its multi-env orchestration sections are deprecated in favor of sqfan.
 
 Pairs with `c1-dev-stack-in-squire` (the env shape for tasks that need a running c1 backend).
 
@@ -39,6 +39,23 @@ Resolves `Gates: standard` for c1. The remote agent expands to the relevant subs
 | Test changed packages | `test-changes` | Always |
 | Validate protos | `validate-protos` | `.proto` files changed |
 | Post-change verify | `post-change-verification` | Always for Go |
+
+## c1 PR Reviewers
+
+Every c1 PR opened by this workflow should request review from:
+
+- `arreyder`
+- `mj-palanker`
+
+For **latchkey-touching** PRs (anything in `pkg/api/latchkey/`, `pkg/api/secret_access/`, `pkg/controller/latchkey/`, `pkg/latchkeypolicy/`, `pkg/latchkeyfileaccess/`, `pkg/middleware/latchkeydeviceassertion/`, etc.), also add:
+
+- `madison-c-evans`
+
+Do **not** add `kans` to latchkey-touching PRs (standing rule as of 2026-06-03; persisted as bd memory `c1-pr-no-kans`).
+
+For Squire-created PRs, include this reviewer set in the dispatch brief. If
+the env cannot request reviewers because `gh` is unavailable or unauthenticated,
+the dispatching session requests them after the PR exists.
 
 ## c1 Task Family Table
 
@@ -94,6 +111,6 @@ Run these in the dispatching session against the returned PR or against PR histo
 
 ## What this skill is NOT
 
-- Not the dispatch protocol — see `squire-env-management`.
+- Not the dispatch protocol — see `sqfan` (originally documented in `squire-env-management`; now folded into the sqfan skill).
 - Not policy for the c1 repo — this is personal workflow. Do not commit it into c1's `.claude/`.
 - Not a substitute for reading the individual c1 skill SKILL.md files — the tables list names; the skills themselves carry the details.
