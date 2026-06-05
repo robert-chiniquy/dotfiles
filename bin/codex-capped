@@ -1,0 +1,5 @@
+#!/bin/zsh
+
+set -eu
+
+exec /Users/rch/repo/dotfiles/bin/codex-limited "$@"
