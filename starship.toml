@@ -78,7 +78,7 @@ format = "[$status]($style) "
 disabled = true  # Using custom precmd in .zshrc (shows at 3s, more useful)
 
 [custom.accent]
-command = "prompt-accent"
+command = "echo $__prompt_accent_cache"
 when = "true"
 format = ' $output'
 style = ""
@@ -105,8 +105,8 @@ format = '[$output]($style) '
 style = "#444444"
 
 [custom.momentum]
-command = "cat ~/.cache/weekly-momentum 2>/dev/null | awk -v start=$(date -v-$(($(date +%u)-1))d +%Y-%m-%d 2>/dev/null) '$1 >= start' | wc -l | tr -d ' ' | xargs -I{} echo '{}/7'"
-when = "test -f ~/.cache/weekly-momentum"
+command = "echo $__weekly_momentum"
+when = "test -n \"$__weekly_momentum\""
 format = '[$output]($style) '
 style = "#444444"
 
