@@ -135,6 +135,36 @@ identifying details from sensitive lines:
 
 Maintain the same single-line, chronological format.
 
+## Workflowy storage rules (if syncing to Workflowy)
+
+When the master schedule lives in Workflowy as a 📆 Calendar node with
+month-folder children, three invariants must hold at all times:
+
+1. **No active item is marked completed.** A "completed" node is
+   collapsed/hidden in the Workflowy UI and disappears from view. Any
+   month folder containing future or current dates, and any item the
+   user expects to still see, MUST be uncompleted. Only fully past
+   months whose items are all truly done may stay completed — and even
+   then, prefer leaving them open until the user archives the month
+   explicitly. Audit completion state whenever something seems
+   "missing".
+
+2. **Month folders are in chronological order.** Across years too:
+   `Dec 2025 → Jan 2026 → Feb 2026 → … → Dec 2026 → Jan 2027`. Never
+   leave a month out of sequence after adding or renaming. Use a
+   year-suffixed label (`Aug 2026`, not bare `Aug`) so siblings from
+   different years sort unambiguously.
+
+3. **Days within a month are in chronological order.** Items with
+   `<time startDay="N">` tags must appear in ascending day order
+   within their month folder. Items without a time tag may sit at the
+   top or bottom of the month, but day-tagged items must be sorted.
+   Re-sort after any batch insert.
+
+When the user reports "I can't see X" in Workflowy, check completion
+state first — it is the most common cause of an invisible-but-existing
+node.
+
 ## Google Calendar write actions
 
 Calendar writes require explicit user authorization per their standing
