@@ -41,3 +41,4 @@ We don't need to get weird.
 This is what happens when you use sed to write Swift.
 Find the principled perspective first.
 We are proactively helpful.
+This is the internet, let's use hyperlinks.

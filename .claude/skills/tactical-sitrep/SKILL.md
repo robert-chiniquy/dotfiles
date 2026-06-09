@@ -99,6 +99,7 @@ Only follow with a fuller punch-list if the user asks for it.
 
 - Tight tables, not paragraphs.
 - Cite specific PR / issue / commit IDs for every claim.
+- **Every PR mentioned gets a footnote URL.** When the sitrep is written to a doc, each PR referenced (by `#number` or `repo#number`) must carry a numbered footnote linking to its full URL, collected in a `## PR references` footnote block at the bottom. The inline text stays terse (`c1#18648`); the footnote carries the clickable `https://github.com/<owner>/<repo>/pull/<number>`. One footnote per distinct PR; reuse the same marker if a PR is cited more than once. This applies to the written doc, not to a quick inline chat reply.
 - One A/B/C call, headline, no hedge.
 - No bold-item + list clutter.
 - No effort estimates, no headcount language.
@@ -116,6 +117,7 @@ Only follow with a fuller punch-list if the user asks for it.
 - **Listing more than one calendar-pressing action.** Three actions = no action. Pick the most-leveraged one; the user will ask for more if they want it.
 - **Citing "today's progress" against a multi-week timeline.** Today's work is not a calibration anchor for a milestone; the deadline is. A great work day doesn't move you off A.
 - **Forgetting the "no decision" calendar pressure.** Auditor bookings, vendor commitments, regulatory filings are calendar items that *do not* live on a PR board. Watch for them when the milestone implies one.
+- **Incurious about your own subagents.** A sitrep includes itself. If a subagent you fanned out has been running materially longer than its siblings (a useful rule of thumb: > 5× the median sibling latency) and is now blocking your synthesis, report that explicitly: time elapsed, expected baseline, likely cause (MCP timeout / rate limit / search-then-fetch loop / token exhaustion), and the cost of continuing to wait. "Still running, no notification" is not a sitrep — it is the absence of one. When in doubt, ping the agent with SendMessage; if it does not respond on its next tool round, treat that as confirmation it is wedged, TaskStop it, and synthesize from the partial data with the gap stated explicitly.
 
 ## Calibration: A/B/C language
 
@@ -152,6 +154,11 @@ Do not use "tight but doable" as a hedge to avoid A. "Tight but doable" is B wit
 ## What this sitrep deliberately did not look at
 
 <list of out-of-scope items, so the user knows what was excluded>
+
+## PR references
+
+[^1]: https://github.com/<owner>/<repo>/pull/<number>
+[^2]: https://github.com/<owner>/<repo>/pull/<number>
 ```
 
 ## Iterating this skill
