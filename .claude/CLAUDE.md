@@ -140,6 +140,7 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 - **Executive summaries show impact, not activity** - One sentence per workstream. Don't enumerate PRs or commits.
 - **"Make me look good" = accuracy** - Ensure nothing omitted, frame in context, clear structure. NOT superlatives or promotion.
 - **No titles in configs** - Never reference CEO, CTO, etc. in technical configuration files.
+- **Link every PR at the point of mention** - Whenever a pull request is mentioned in chat output, include its full URL inline at that mention (e.g. `[c1#19247](https://github.com/...)`), every time, not just on first reference. Do not make the reader scroll back or ask. (Written docs keep the footnote convention from the sitrep skill.)
 - **Banned phrases in writing** - Never use "key insight" in any output. The author is a hacker, not an academic. Prefer showing why something matters over labeling it as important.
 - **Never say "monadic"** - The word "monadic" is banned from all output: code, docs, comments, commit messages, conversation. Describe the actual behavior instead.
 - **Never say "bikeshedding"** - The word "bikeshedding" is banned. Design decisions about naming and semantics are real engineering work, not trivial distractions. Dismissing a question as "bikeshedding" is dismissing the person asking it. If a naming or semantics question isn't the right thing to address NOW, say "let's address that after X" -- don't label it.

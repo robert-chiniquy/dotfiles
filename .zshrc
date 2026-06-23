@@ -50,7 +50,7 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
     touch "$_pr_marker"
     (
       # Check for PRs with activity in last hour
-      pr_data=$(gh pr list --author @me --state open --json number,title,updatedAt,reviewDecision,statusCheckRollup,comments 2>/dev/null)
+      pr_data=$(gh pr list --author @me --state open --json number,title,updatedAt,reviewDecision,statusCheckRollup,comments,url 2>/dev/null)
       [[ -z "$pr_data" || "$pr_data" == "[]" ]] && exit 0
 
       # Parse with jq - find PRs updated in last hour or with failures
@@ -62,13 +62,13 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
       failures=$(echo "$pr_data" | jq -r --arg cutoff "$cutoff" '
         .[] | select(.statusCheckRollup != null) |
         select([.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length > 0) |
-        "#\(.number) \(.title | .[0:40])"' 2>/dev/null)
+        "\(.url)	#\(.number) \(.title | .[0:40])"' 2>/dev/null)
       [[ -n "$failures" ]] && output="${output}CI failures:\n$failures\n"
 
       # PRs with changes requested
       changes=$(echo "$pr_data" | jq -r '
         .[] | select(.reviewDecision == "CHANGES_REQUESTED") |
-        "#\(.number) \(.title | .[0:40])"' 2>/dev/null)
+        "\(.url)	#\(.number) \(.title | .[0:40])"' 2>/dev/null)
       [[ -n "$changes" ]] && output="${output}Changes requested:\n$changes\n"
 
       # PRs updated in last hour (new comments/reviews)
@@ -76,14 +76,14 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
         .[] | select(.updatedAt > $cutoff) |
         select(.reviewDecision != "CHANGES_REQUESTED") |
         select([.statusCheckRollup // [] | .[] | select(.conclusion == "FAILURE")] | length == 0) |
-        "#\(.number) updated"' 2>/dev/null)
+        "\(.url)	#\(.number) updated"' 2>/dev/null)
       [[ -n "$recent" ]] && output="${output}Recent activity:\n$recent\n"
 
       # PRs ready to merge (approved + all checks pass)
       ready=$(echo "$pr_data" | jq -r '
         .[] | select(.reviewDecision == "APPROVED") |
         select([.statusCheckRollup // [] | .[] | select(.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)] | length == 0) |
-        "#\(.number) ready to merge"' 2>/dev/null)
+        "\(.url)	#\(.number) ready to merge"' 2>/dev/null)
       [[ -n "$ready" ]] && output="${output}Ready to merge:\n$ready\n"
 
       [[ -n "$output" ]] && echo "$output" > "$_pr_marker.data"
@@ -93,8 +93,17 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
     _pr_status=$(cat "$_pr_marker.data" 2>/dev/null)
     if [[ -n "$_pr_status" ]]; then
       print -P "%F{201}PRs:%f"
+      # Lines are either a section header or URL\tdisplay. iTerm2/Ghostty/Kitty
+      # render OSC 8 hyperlinks; other terminals show the text portion only.
       echo "$_pr_status" | while IFS= read -r line; do
-        [[ -n "$line" ]] && print -P "  %F{243}$line%f"
+        [[ -z "$line" ]] && continue
+        if [[ "$line" == *$'\t'* ]]; then
+          local _url="${line%%$'\t'*}"
+          local _txt="${line#*$'\t'}"
+          printf '  \e[38;5;243m\e]8;;%s\e\\%s\e]8;;\e\\\e[0m\n' "$_url" "$_txt"
+        else
+          print -P "  %F{243}$line%f"
+        fi
       done
       rm -f "$_pr_marker.data"
     fi
