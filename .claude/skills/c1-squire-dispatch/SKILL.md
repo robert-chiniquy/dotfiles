@@ -42,16 +42,17 @@ Resolves `Gates: standard` for c1. The remote agent expands to the relevant subs
 
 ## c1 PR Reviewers
 
-Every c1 PR opened by this workflow should request review from:
+Default reviewer set for non-latchkey c1 PRs:
 
 - `arreyder`
 - `mj-palanker`
 
-For **latchkey-touching** PRs (anything in `pkg/api/latchkey/`, `pkg/api/secret_access/`, `pkg/controller/latchkey/`, `pkg/latchkeypolicy/`, `pkg/latchkeyfileaccess/`, `pkg/middleware/latchkeydeviceassertion/`, etc.), also add:
+For **latchkey-touching** PRs (anything in `pkg/api/latchkey/`, `pkg/api/secret_access/`, `pkg/controller/latchkey/`, `pkg/latchkeypolicy/`, `pkg/latchkeyfileaccess/`, `pkg/middleware/latchkeydeviceassertion/`, etc.), use ONLY:
 
 - `madison-c-evans`
+- `phoebesimon` (Phoebe Yu's GitHub login — her maiden-name account)
 
-Do **not** add `kans` to latchkey-touching PRs (standing rule as of 2026-06-03; persisted as bd memory `c1-pr-no-kans`).
+Do NOT add `arreyder`, `mj-palanker`, or `kans` to latchkey-touching PRs. The latchkey set REPLACES the default, it does not extend it. Standing rule as of 2026-06-03; bd memory `c1-pr-no-kans` covers the general no-kans-on-latchkey constraint.
 
 For Squire-created PRs, include this reviewer set in the dispatch brief. If
 the env cannot request reviewers because `gh` is unavailable or unauthenticated,
