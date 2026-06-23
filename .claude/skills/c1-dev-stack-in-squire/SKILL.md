@@ -122,15 +122,37 @@ squire ssh <env> -- "nohup nix develop /data/squire/src/c1#localdev \
     make -C /data/squire/src/c1 pc/build && \
     make -C /data/squire/src/c1 pc/init' > /tmp/pc-build.log 2>&1 &"
 
-# Once that's done (poll with: pgrep -fa 'make pc/build'), run pc/up.
-# Use -t=false because there's no TTY on a non-interactive SSH; default-TUI
-# mode prints `terminal entry not found: term not set` and bails.
-squire ssh <env> -- "nohup nix develop /data/squire/src/c1#localdev \
-  --command bash -c 'export GOOS=linux GOARCH=arm64 && \
-    process-compose up -t=false \
-      -f /data/squire/src/c1/dev/process-compose/process-compose.yaml' \
-    > /tmp/pc-up.log 2>&1 &"
+# Once that's done (poll for a sentinel file, e.g. '&& touch /tmp/pc-build.done'
+# appended to the build command), run pc/up via a launcher script. TWO traps:
+#   1. process-compose.yaml uses $PWD-relative paths ($PWD/.dev/...), so the
+#      working directory MUST be the repo root — launched from $HOME, every
+#      service resolves /home/squire/.dev and postgres/dynamodb/temporal fail
+#      with missing dirs/jars.
+#   2. `make pc/up` does NOT pass -t=false, so it dies on a non-interactive
+#      SSH with `terminal entry not found: term not set`. Use raw
+#      process-compose with -t=false.
+# A launcher script satisfies both (write locally + scp if your harness blocks
+# inline `cd`):
+cat > /tmp/pc-launch.sh <<'EOF'
+#!/bin/bash
+cd /data/squire/src/c1 || exit 1
+export GOOS=linux GOARCH=arm64
+exec nix develop /data/squire/src/c1#localdev --command \
+  process-compose up -t=false -f /data/squire/src/c1/dev/process-compose/process-compose.yaml
+EOF
+scp /tmp/pc-launch.sh <env>.squire:/tmp/pc-launch.sh
+squire ssh <env> -- "chmod +x /tmp/pc-launch.sh; setsid -f /tmp/pc-launch.sh > /tmp/pc-up.log 2>&1"
 ```
+
+If you have to kill and relaunch process-compose, kill the ORPHANS too:
+killing the supervisor leaves postgres holding `postmaster.pid` + port 5432
+(and valkey its port), so the next instance's copies crashloop to `Skipped`
+while everything else flaps. Find PIDs via `ss -tlnp` on 5432/6379/8080/2443
+and `kill -9` them before relaunching. (`pkill -f "postgres -D\|postgres:"`
+does NOT work — `\|` is not alternation in pkill.) Alternatively, if an
+orphaned postgres is healthy and serving, adopt it: stop the flapping pc
+copies via `curl -X PATCH http://localhost:8080/process/stop/postgres` (and
+valkey) and carry on.
 
 Process-compose exposes a REST API on `localhost:8080`:
 
@@ -163,6 +185,33 @@ squire ssh <env> -- "set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +
 /data/squire/src/c1/build/linux_arm64/dev-util/dev-util ensure"
 ```
 
+### Step 4b — file gateway needs minio (Latchkey uploads)
+
+The sealed-file gateway (`PUT /file/:fileToken` on pub-api — KeyPackage
+publish, secret-value upload, protocol artifacts) writes to the tenant object
+store, which `gen-env.sh` points at a REAL AWS bucket
+(`API_TENANTOBJECTSTORES3_BUCKET_NAME=dev-c1-tenant-objects-us-west-2`) with
+empty creds. Squire envs have no AWS credentials, so every upload 504s (hang)
+or 500s. Run minio and point pub-api at it — the config has an `Endpoint`
+field (proto field 5):
+
+```bash
+squire ssh <env> -- 'curl -sSL -o /tmp/minio https://dl.min.io/server/minio/release/linux-arm64/minio && chmod +x /tmp/minio
+mkdir -p /tmp/minio-data/dev-c1-tenant-objects-us-west-2
+MINIO_ROOT_USER=dummyaccesskey MINIO_ROOT_PASSWORD=dummysecret \
+  nohup /tmp/minio server /tmp/minio-data --address 127.0.0.1:34567 > /tmp/minio.log 2>&1 &
+sleep 3; curl -sf http://127.0.0.1:34567/minio/health/live && echo MINIO_LIVE'
+# NOTE: use nohup-in-the-ssh-command, and VERIFY MINIO_LIVE prints — a
+# setsid -f launch in a one-shot ssh has died silently here before.
+
+squire ssh <env> -- "sed -i \
+  's|^API_TENANTOBJECTSTORES3_ACCESS_KEY_ID=.*|API_TENANTOBJECTSTORES3_ACCESS_KEY_ID=dummyaccesskey|; \
+   s|^API_TENANTOBJECTSTORES3_SECRET_ACCESS_KEY=.*|API_TENANTOBJECTSTORES3_SECRET_ACCESS_KEY=dummysecret|; \
+   /^API_TENANTOBJECTSTORES3_OBJECT_PREFIX=/a\\API_TENANTOBJECTSTORES3_ENDPOINT=http://127.0.0.1:34567' \
+  /data/squire/src/c1/.dev/env/pub-api.env
+curl -sf -X POST http://localhost:8080/process/restart/pub-api"
+```
+
 ## Step 5 — mint a client_credentials pair
 
 The `dev-util mint-test-client` cmd (PR #17295 / merged) creates a user in the
@@ -184,6 +233,12 @@ user_id=3D5vAVJPtjmttwCTphpWsZ2uVav
 tenant_id=3D5ijhr15puycSTgo0ol87hz4yE
 tenant_domain=c1dev
 ```
+
+**Multi-principal tests: pass `--user-email`.** The user is keyed by email
+(default `test-cli@dev.local`), NOT by `--display-name` — re-running the cmd
+without `--user-email` mints a new client for the SAME user, which silently
+defeats any two-principal flow (share-to-self). For a second principal:
+`--user-email=test-cli-b@dev.local --display-name=test-cli-b`.
 
 The client_id encodes the tenant's installation domain (`c1.ductone.com`
 in this default config). If your env has a different `INNKEEPER_INSTALLATION_DOMAIN`
