@@ -73,6 +73,26 @@ text as plain, un-clickable text; inside tmux it needs a recent tmux with
 `allow-passthrough`. Link width is measured by the visible text, so box
 alignment is unaffected.
 
+## Actions & the close box
+
+When a source file is known, each criterion row gets a clickable close box (`✕`)
+linking to `scorecard://remove/<id>?file=<path>` — the **row id (first table
+column) is the anchor**. Clicking removes that row from the markdown; the change
+shows on the next render (there is no live redraw). Suppress the close boxes with
+`--no-actions`.
+
+The `scorecard://` scheme is handled by the binary itself — no separate script:
+
+```sh
+scorecard install-handler     # register scorecard:// -> scorecard --action …  (macOS)
+scorecard uninstall-handler   # remove it
+```
+
+`install-handler` builds a small AppleScript app in `~/Applications` that
+forwards scheme opens to this binary; `--action <url>` runs the action (currently
+`remove`) and posts a macOS notification. Clicking works in OSC-8 terminals
+(iTerm2 / WezTerm / kitty / …); inside tmux it needs `allow-passthrough`.
+
 ## New-terminal greeting
 
 `.zshrc` renders `$SCORECARD_FILE` (default `~/.config/scorecard/status.md`) on
