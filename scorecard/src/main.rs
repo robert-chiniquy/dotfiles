@@ -653,6 +653,69 @@ fn uninstall_handler() -> Result<String, String> {
     Err("uninstall-handler is macOS-only".into())
 }
 
+// ---- install-agents: point every installed harness at `scorecard prime` ----
+const AGENTS_BEGIN: &str = "<!-- scorecard:begin (managed by `scorecard install-agents`) -->";
+const AGENTS_END: &str = "<!-- scorecard:end -->";
+fn agents_block() -> String {
+    format!(
+        "{}\nWhen asked to summarize a tactical situation — a code / PR / incident / deadline /\nmilestone status, a readiness read, or a go/no-go — run `scorecard prime` and follow it\nto render a skimmable status scorecard with the `scorecard` TUI.\n{}",
+        AGENTS_BEGIN, AGENTS_END
+    )
+}
+fn upsert_block(content: &str, block: &str) -> String {
+    if let (Some(bi), Some(ei)) = (content.find(AGENTS_BEGIN), content.find(AGENTS_END)) {
+        let end = ei + AGENTS_END.len();
+        format!("{}{}{}", &content[..bi], block, &content[end..])
+    } else if content.trim().is_empty() {
+        format!("{}\n", block)
+    } else {
+        format!("{}\n\n{}\n", content.trim_end(), block)
+    }
+}
+fn remove_block(content: &str) -> String {
+    if let (Some(bi), Some(ei)) = (content.find(AGENTS_BEGIN), content.find(AGENTS_END)) {
+        let end = ei + AGENTS_END.len();
+        let joined = format!("{}{}", content[..bi].trim_end(), &content[end..]);
+        format!("{}\n", joined.trim())
+    } else {
+        content.to_string()
+    }
+}
+// (display name, detect-dir under $HOME, instructions file under $HOME)
+const HARNESSES: &[(&str, &str, &str)] = &[
+    ("Claude Code", ".claude", ".claude/CLAUDE.md"),
+    ("Codex", ".codex", ".codex/AGENTS.md"),
+    ("Cursor", ".cursor", ".cursor/rules/scorecard.mdc"),
+    ("pi", ".pi", ".pi/AGENTS.md"),
+    ("opencode", ".opencode", ".opencode/AGENTS.md"),
+    ("Goose", ".config/goose", ".config/goose/AGENTS.md"),
+];
+fn agents_apply(remove: bool) -> Result<String, String> {
+    let home = env::var("HOME").map_err(|_| "HOME unset".to_string())?;
+    let block = agents_block();
+    let mut report = Vec::new();
+    for (name, dir, file) in HARNESSES {
+        let dirp = format!("{}/{}", home, dir);
+        if !std::path::Path::new(&dirp).exists() {
+            report.push(format!("  skip   {:<12} (not installed)", name));
+            continue;
+        }
+        let filep = format!("{}/{}", home, file);
+        if let Some(parent) = std::path::Path::new(&filep).parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        let existing = std::fs::read_to_string(&filep).unwrap_or_default();
+        let updated = if remove {
+            remove_block(&existing)
+        } else {
+            upsert_block(&existing, &block)
+        };
+        std::fs::write(&filep, updated).map_err(|e| format!("write {}: {}", filep, e))?;
+        report.push(format!("  {}  {:<12} {}", if remove { "clear" } else { "wrote" }, name, file));
+    }
+    Ok(report.join("\n"))
+}
+
 // ---- rendering ----
 struct Canvas {
     w: usize,
@@ -1023,6 +1086,17 @@ Each row shows a ✕ close box linking to scorecard://remove/<id>. Register the
 scheme once (macOS): `scorecard install-handler` (uninstall-handler to remove).
 Clicking removes that row — and every row sharing its topic group — from the file.
 
+## Compose well
+
+- Scope to the user's surface: only what they own, drive, are blocked on, or must
+  decide — drop work that sits elsewhere.
+- Group by theme (the clusters they actually think in), not generic Must/Should
+  tiers unless the rubric is truly weighted (e.g. a scored POC).
+- Succinct, weighted by importance: trim each note; let a line's length track how
+  much it matters — the one real gap earns its whole line, routine solids get a
+  few words. Uniform-length notes flatten the signal.
+- Honest severities; real content only; no names or PII in anything shareable.
+
 ## Preserve-on-write
 
 Before writing a new status.md, move the old one aside with a datestamp:
@@ -1036,6 +1110,26 @@ fn main() {
             print!("{}", PRIME);
             exit(0);
         }
+        Some("install-agents") => match agents_apply(false) {
+            Ok(m) => {
+                println!("scorecard: pointed installed harnesses at `scorecard prime`\n{}", m);
+                exit(0);
+            }
+            Err(e) => {
+                eprintln!("scorecard: {}", e);
+                exit(1);
+            }
+        },
+        Some("uninstall-agents") => match agents_apply(true) {
+            Ok(m) => {
+                println!("scorecard: removed the scorecard block from harnesses\n{}", m);
+                exit(0);
+            }
+            Err(e) => {
+                eprintln!("scorecard: {}", e);
+                exit(1);
+            }
+        },
         Some("install-handler") => match install_handler() {
             Ok(m) => {
                 println!("{}", m);
@@ -1089,6 +1183,7 @@ fn main() {
             eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>");
             eprintln!("       scorecard --action scorecard://remove/<id>?file=<path>");
             eprintln!("       scorecard install-handler | uninstall-handler | prime");
+            eprintln!("       scorecard install-agents | uninstall-agents");
             exit(0);
         } else if a.starts_with("scorecard://") {
             action = Some(a);
@@ -1270,5 +1365,24 @@ note: two at-risk gates in review
     #[test]
     fn prime_has_content() {
         assert!(PRIME.contains("scorecard") && PRIME.contains("groups:") && PRIME.contains("fit"));
+    }
+
+    #[test]
+    fn agents_block_upsert_is_idempotent() {
+        let b = agents_block();
+        let once = upsert_block("# Rules\nfoo\n", &b);
+        assert!(once.contains(AGENTS_BEGIN) && once.contains("foo"));
+        let twice = upsert_block(&once, &b);
+        assert_eq!(once, twice, "re-install must be idempotent");
+        assert_eq!(twice.matches(AGENTS_BEGIN).count(), 1);
+    }
+
+    #[test]
+    fn agents_block_removes_cleanly() {
+        let b = agents_block();
+        let withb = upsert_block("# Rules\nfoo\n", &b);
+        let cleared = remove_block(&withb);
+        assert!(!cleared.contains(AGENTS_BEGIN));
+        assert!(cleared.contains("foo"));
     }
 }

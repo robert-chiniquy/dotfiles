@@ -117,6 +117,16 @@ macOS notification.
 groups, modes, actions, and the write/preserve convention. It's the canonical
 "how to use this" text; point agents at it.
 
+## Teaching agents
+
+`scorecard install-agents` points every installed agent harness at `scorecard
+prime`. It writes an idempotent, marker-delimited block into each harness's
+global instructions — Claude Code, Codex, Cursor, pi, opencode, Goose — telling
+it to run `scorecard prime` when asked to summarize a tactical
+code/PR/incident/deadline/milestone situation. Only harnesses that actually
+exist are touched; `uninstall-agents` removes the blocks. (Claude Code also has a
+skill that auto-triggers and defers to `scorecard prime`.)
+
 ## New-terminal greeting
 
 `.zshrc` renders `$SCORECARD_FILE` (default `~/.config/scorecard/status.md`) on a
