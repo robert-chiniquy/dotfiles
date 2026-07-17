@@ -107,6 +107,10 @@ decision here:
 Banner color keys off the tag: `STANDOUT`/`RISK` → pink, `DECIDE`/`BLOCK`/`GAP`
 → red, else cyan.
 
+**Links.** `[text](url)` in the id, note, and callout fields becomes a clickable
+terminal hyperlink (OSC 8) — use it for ticket ids, PRs, and docs. Width is
+measured by the visible text; unsupported terminals just show the text.
+
 ## Content rules
 
 - **Succinct, weighted by importance.** Trim every note to the fewest words that

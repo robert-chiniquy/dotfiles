@@ -1,0 +1,15 @@
+[package]
+name = "scorecard"
+version = "0.1.0"
+edition = "2021"
+description = "Render a dark, one-screen readiness scorecard TUI from a structured markdown file. No dependencies."
+
+[[bin]]
+name = "scorecard"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
