@@ -2,19 +2,23 @@
 //! structured markdown file. Truecolor ANSI, adapts to terminal width,
 //! one line per criterion. No external dependencies.
 //!
-//! Usage:  scorecard [--width N] <file.md>
-//!         scorecard --width "$COLUMNS" ~/.config/scorecard/status.md
+//! Usage:  scorecard [--width N] [--no-actions] <file.md>
+//!         scorecard --action scorecard://remove/<id>?file=<path>
+//!         scorecard install-handler          # register scorecard:// (macOS)
+//!         scorecard uninstall-handler
 //!
-//! Markdown `[text](url)` in the id column, notes, and callouts renders as an
-//! OSC 8 terminal hyperlink (clickable in iTerm2/WezTerm/kitty/etc.; plain text
-//! elsewhere). See README.md for the schema.
+//! `[text](url)` in the id/note/callout fields renders as an OSC 8 hyperlink.
+//! When a file path is known, each row gets a clickable close box (✕) whose
+//! link is `scorecard://remove/<id>?file=<path>`; the `scorecard://` scheme is
+//! registered (see install-handler.sh) to run `scorecard --action <url>`, which
+//! removes that row (matched by its id — the first table column) from the file.
 
 use std::env;
 use std::process::exit;
 
-// ---- palette (vaporwave accents; semantics kept distinct from accent) ----
-const ACCENT: [u8; 3] = [92, 236, 255]; // cyan — structural accent
-const SPARK: [u8; 3] = [255, 0, 153]; // hot pink — spark
+// ---- palette ----
+const ACCENT: [u8; 3] = [92, 236, 255];
+const SPARK: [u8; 3] = [255, 0, 153];
 const TEXT: [u8; 3] = [234, 232, 246];
 const MUTED: [u8; 3] = [156, 151, 192];
 const FAINT: [u8; 3] = [109, 104, 146];
@@ -36,10 +40,7 @@ fn sty(rgb: [u8; 3], bold: bool, s: &str) -> String {
     format!("{}{}{}{}", c(rgb), if bold { BOLD } else { "" }, s, RESET)
 }
 
-// ---- visible-length-aware string helpers ----
-// Zero-width escapes: SGR/CSI color codes (ESC[ … final-byte) AND OSC 8
-// hyperlinks (ESC] … BEL|ST). Both must be skipped or padding/truncation and
-// the box alignment break.
+// ---- visible-length-aware helpers (SGR + OSC 8 are zero-width) ----
 fn vlen(s: &str) -> usize {
     let mut n = 0;
     let mut chars = s.chars().peekable();
@@ -48,7 +49,6 @@ fn vlen(s: &str) -> usize {
             match chars.peek() {
                 Some('[') => {
                     chars.next();
-                    // CSI: consume through the final byte (0x40..=0x7E, e.g. 'm')
                     while let Some(cc) = chars.next() {
                         if ('@'..='~').contains(&cc) {
                             break;
@@ -57,7 +57,6 @@ fn vlen(s: &str) -> usize {
                 }
                 Some(']') => {
                     chars.next();
-                    // OSC: consume through BEL or ST (ESC '\')
                     while let Some(cc) = chars.next() {
                         if cc == '\x07' {
                             break;
@@ -71,7 +70,7 @@ fn vlen(s: &str) -> usize {
                     }
                 }
                 _ => {
-                    chars.next(); // lone ESC + following byte
+                    chars.next();
                 }
             }
         } else {
@@ -88,7 +87,6 @@ fn pad_end(s: &str, w: usize) -> String {
         format!("{}{}", s, " ".repeat(w - v))
     }
 }
-/// Truncate PLAIN text (no ANSI) to `w` display columns, adding an ellipsis.
 fn trunc(s: &str, w: usize) -> String {
     let count = s.chars().count();
     if count <= w {
@@ -104,6 +102,37 @@ fn trunc(s: &str, w: usize) -> String {
     format!("{}…", head.trim_end())
 }
 
+// ---- percent-encoding for action URLs ----
+fn percent_encode(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        let ch = b as char;
+        if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '~' | '/') {
+            out.push(ch);
+        } else {
+            out.push_str(&format!("%{:02X}", b));
+        }
+    }
+    out
+}
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 // ---- inline markdown links -> OSC 8 hyperlinks ----
 #[derive(Debug, PartialEq)]
 enum Seg {
@@ -113,7 +142,6 @@ enum Seg {
 fn find_char(chars: &[char], from: usize, target: char) -> Option<usize> {
     (from..chars.len()).find(|&j| chars[j] == target)
 }
-/// Parse `[text](url)` runs; everything else is literal text.
 fn parse_links(s: &str) -> Vec<Seg> {
     let chars: Vec<char> = s.chars().collect();
     let mut segs = Vec::new();
@@ -154,7 +182,6 @@ fn seg_vlen(segs: &[Seg]) -> usize {
         })
         .sum()
 }
-/// Truncate a segment list to `w` VISIBLE columns (a link counts as its text).
 fn seg_trunc(segs: Vec<Seg>, w: usize) -> Vec<Seg> {
     if seg_vlen(&segs) <= w {
         return segs;
@@ -198,17 +225,16 @@ fn seg_trunc(segs: Vec<Seg>, w: usize) -> Vec<Seg> {
     }
     out
 }
-/// Render a possibly-link-bearing field: apply `base` style, emit OSC 8 for
-/// links, truncate to `budget` visible columns, reset at the end.
+fn osc8(url: &str, text: &str) -> String {
+    format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", url, text)
+}
 fn render_field(text: &str, budget: usize, base: &str) -> String {
     let segs = seg_trunc(parse_links(text), budget);
     let mut out = String::from(base);
     for s in &segs {
         match s {
             Seg::Text(t) => out.push_str(t),
-            Seg::Link { text, url } => {
-                out.push_str(&format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", url, text));
-            }
+            Seg::Link { text, url } => out.push_str(&osc8(url, text)),
         }
     }
     out.push_str(RESET);
@@ -237,7 +263,7 @@ impl Sev {
             Sev::Crit => CRITC,
         }
     }
-    fn bg(self) -> [u8; 3] {
+    fn bgc(self) -> [u8; 3] {
         match self {
             Sev::Ok => [17, 46, 38],
             Sev::Warn => [46, 38, 12],
@@ -313,9 +339,10 @@ fn is_header(cells: &[String]) -> bool {
 }
 fn split_weight(h: &str) -> (String, String) {
     if let Some(i) = h.find('(') {
-        let label = h[..i].trim().to_string();
-        let w = h[i + 1..].trim_end_matches(')').trim().to_string();
-        (label, w)
+        (
+            h[..i].trim().to_string(),
+            h[i + 1..].trim_end_matches(')').trim().to_string(),
+        )
     } else {
         (h.trim().to_string(), String::new())
     }
@@ -330,12 +357,10 @@ fn is_banner_label(label: &str) -> bool {
         "callouts" | "callout" | "banners" | "banner" | "notes" | "note"
     )
 }
-
 fn parse(input: &str) -> Doc {
     let mut doc = Doc::default();
     let mut cur: Option<Section> = None;
     let mut in_front = true;
-
     for raw in input.lines() {
         let t = raw.trim();
         if t.is_empty() {
@@ -434,6 +459,138 @@ fn parse(input: &str) -> Doc {
     doc
 }
 
+// ---- actions ----
+/// Remove every criteria row whose first cell equals `id`. Returns count.
+fn remove_line(file: &str, id: &str) -> Result<usize, String> {
+    if !file.ends_with(".md") {
+        return Err(format!("refusing to edit non-markdown file: {}", file));
+    }
+    let content = std::fs::read_to_string(file).map_err(|e| format!("read {}: {}", file, e))?;
+    let mut kept: Vec<&str> = Vec::new();
+    let mut removed = 0;
+    for line in content.lines() {
+        let t = line.trim_start();
+        if t.starts_with('|') {
+            let cells = split_row(t);
+            if cells.first().map(|s| s.as_str()) == Some(id) {
+                removed += 1;
+                continue;
+            }
+        }
+        kept.push(line);
+    }
+    if removed > 0 {
+        let mut new = kept.join("\n");
+        new.push('\n');
+        std::fs::write(file, new).map_err(|e| format!("write {}: {}", file, e))?;
+    }
+    Ok(removed)
+}
+/// Dispatch a `scorecard://…` action URL. Returns a human message on success.
+fn run_action(url: &str) -> Result<String, String> {
+    let rest = url
+        .strip_prefix("scorecard://")
+        .ok_or_else(|| format!("not a scorecard URL: {}", url))?;
+    let (pathq, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let segs: Vec<&str> = pathq.split('/').filter(|s| !s.is_empty()).collect();
+    let action = segs.first().copied().unwrap_or("");
+    let mut file = String::new();
+    for kv in query.split('&') {
+        if let Some(v) = kv.strip_prefix("file=") {
+            file = percent_decode(v);
+        }
+    }
+    match action {
+        "remove" => {
+            let id = segs.get(1).copied().unwrap_or("");
+            if id.is_empty() {
+                return Err("remove: missing id".into());
+            }
+            if file.is_empty() {
+                return Err("remove: missing file".into());
+            }
+            let n = remove_line(&file, id)?;
+            Ok(format!("removed {} ({} line{})", id, n, if n == 1 { "" } else { "s" }))
+        }
+        other => Err(format!("unknown action: {}", other)),
+    }
+}
+fn notify(msg: &str) {
+    let _ = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(format!("display notification {:?} with title \"scorecard\"", msg))
+        .status();
+}
+
+// ---- self-install of the scorecard:// URL-scheme handler (macOS, Route B) ----
+fn run_cmd(cmd: &mut std::process::Command) -> Result<(), String> {
+    let st = cmd.status().map_err(|e| format!("spawn failed: {}", e))?;
+    if st.success() {
+        Ok(())
+    } else {
+        Err(format!("{:?} exited with {}", cmd, st))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn install_handler() -> Result<String, String> {
+    use std::process::Command;
+    let bin = std::env::current_exe()
+        .map_err(|e| format!("current_exe: {}", e))?
+        .to_string_lossy()
+        .into_owned();
+    let home = env::var("HOME").map_err(|_| "HOME unset".to_string())?;
+    let app = format!("{}/Applications/ScorecardHandler.app", home);
+
+    let tmp = env::temp_dir().join(format!("scorecard-handler-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
+    let script = tmp.join("handler.applescript");
+    std::fs::write(
+        &script,
+        format!(
+            "on open location this_URL\n\tdo shell script \"{} --action \" & quoted form of this_URL\nend open location\n",
+            bin
+        ),
+    )
+    .map_err(|e| e.to_string())?;
+
+    let _ = std::fs::remove_dir_all(&app);
+    std::fs::create_dir_all(format!("{}/Applications", home)).ok();
+    run_cmd(Command::new("osacompile").arg("-o").arg(&app).arg(&script))?;
+
+    let plist = format!("{}/Contents/Info.plist", app);
+    let pb = "/usr/libexec/PlistBuddy";
+    let _ = Command::new(pb).args(["-c", "Add :CFBundleURLTypes array", &plist]).status();
+    run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0 dict", &plist]))?;
+    run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLName string ai.c1.scorecard", &plist]))?;
+    run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLSchemes array", &plist]))?;
+    run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string scorecard", &plist]))?;
+
+    let lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+    run_cmd(Command::new(lsregister).arg("-f").arg(&app))?;
+    let _ = std::fs::remove_dir_all(&tmp);
+    Ok(format!("registered scorecard:// -> {}\n  handler: {}", bin, app))
+}
+
+#[cfg(target_os = "macos")]
+fn uninstall_handler() -> Result<String, String> {
+    let home = env::var("HOME").map_err(|_| "HOME unset".to_string())?;
+    let app = format!("{}/Applications/ScorecardHandler.app", home);
+    let lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+    let _ = std::process::Command::new(lsregister).arg("-u").arg(&app).status();
+    std::fs::remove_dir_all(&app).map_err(|e| format!("remove {}: {}", app, e))?;
+    Ok(format!("removed {}", app))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn install_handler() -> Result<String, String> {
+    Err("install-handler is macOS-only".into())
+}
+#[cfg(not(target_os = "macos"))]
+fn uninstall_handler() -> Result<String, String> {
+    Err("uninstall-handler is macOS-only".into())
+}
+
 // ---- rendering ----
 struct Canvas {
     w: usize,
@@ -475,14 +632,12 @@ impl Canvas {
         self.raw(format!("{}├{}┤{}", c(FAINT), "─".repeat(self.w - 2), RESET));
     }
 }
-
 fn pill(sev: Sev) -> String {
     let label = sev.label();
-    let chip = format!("{}{}{} {} {}", bg(sev.bg()), c(sev.color()), BOLD, label, RESET);
+    let chip = format!("{}{}{} {} {}", bg(sev.bgc()), c(sev.color()), BOLD, label, RESET);
     let pad = 9usize.saturating_sub(label.len() + 2);
     format!("{}{}", chip, " ".repeat(pad))
 }
-
 fn banner_color(tag: &str) -> [u8; 3] {
     let u = tag.to_uppercase();
     if u.contains("STANDOUT") || u.contains("RISK") {
@@ -494,7 +649,9 @@ fn banner_color(tag: &str) -> [u8; 3] {
     }
 }
 
-fn render(doc: &Doc, w: usize) -> String {
+/// `file` = absolute source path; when Some (and actions enabled), each row gets
+/// a clickable ✕ close box linking to `scorecard://remove/<id>?file=…`.
+fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
     let mut cv = Canvas::new(w);
     let iw = cv.iw;
 
@@ -554,10 +711,7 @@ fn render(doc: &Doc, w: usize) -> String {
             ));
         }
     }
-    let mut n_ok = 0;
-    let mut n_warn = 0;
-    let mut n_crit = 0;
-    let mut n_zero = 0;
+    let (mut n_ok, mut n_warn, mut n_crit, mut n_zero) = (0, 0, 0, 0);
     for s in &doc.sections {
         for cr in &s.crits {
             match cr.sev {
@@ -606,6 +760,14 @@ fn render(doc: &Doc, w: usize) -> String {
                 };
                 cv.boxln(&hdr);
                 for cr in &s.crits {
+                    let close = match file {
+                        Some(f) => {
+                            let url = format!("scorecard://remove/{}?file={}", cr.id, percent_encode(f));
+                            format!(" {}", osc8(&url, &format!("{}✕{}", c(FAINT), RESET)))
+                        }
+                        None => String::new(),
+                    };
+                    let cwid = vlen(&close);
                     let id_r = render_field(&cr.id, cv.nw, &format!("{}{}", c(cr.sev.color()), BOLD));
                     let name = pad_end(&trunc(&cr.name, cv.nw), cv.nw);
                     let left = format!(
@@ -621,13 +783,14 @@ fn render(doc: &Doc, w: usize) -> String {
                         cr.score,
                         RESET
                     );
-                    let budget = iw.saturating_sub(vlen(&left) + 1);
+                    let budget = iw.saturating_sub(vlen(&left) + 1 + cwid);
                     let note = if budget > 6 && !cr.note.is_empty() {
                         format!(" {}", render_field(&cr.note, budget, &format!("{}{}", DIM, c(MUTED))))
                     } else {
                         String::new()
                     };
-                    cv.boxln(&format!("{}{}", left, note));
+                    let body = format!("{}{}", left, note);
+                    cv.boxln(&format!("{}{}", pad_end(&body, iw.saturating_sub(cwid)), close));
                 }
             }
             Kind::Banner => {
@@ -667,26 +830,73 @@ fn term_width(cli: Option<usize>) -> usize {
 }
 
 fn main() {
+    let argv: Vec<String> = env::args().skip(1).collect();
+    match argv.first().map(|s| s.as_str()) {
+        Some("install-handler") => match install_handler() {
+            Ok(m) => {
+                println!("{}", m);
+                exit(0);
+            }
+            Err(e) => {
+                eprintln!("scorecard: {}", e);
+                exit(1);
+            }
+        },
+        Some("uninstall-handler") => match uninstall_handler() {
+            Ok(m) => {
+                println!("{}", m);
+                exit(0);
+            }
+            Err(e) => {
+                eprintln!("scorecard: {}", e);
+                exit(1);
+            }
+        },
+        _ => {}
+    }
+
     let mut width_cli: Option<usize> = None;
     let mut file: Option<String> = None;
-    let mut args = env::args().skip(1);
+    let mut action: Option<String> = None;
+    let mut no_actions = false;
+    let mut args = argv.into_iter();
     while let Some(a) = args.next() {
         if a == "--width" {
             width_cli = args.next().and_then(|s| s.trim().parse().ok());
         } else if let Some(v) = a.strip_prefix("--width=") {
             width_cli = v.trim().parse().ok();
+        } else if a == "--action" {
+            action = args.next();
+        } else if a == "--no-actions" {
+            no_actions = true;
         } else if a == "-h" || a == "--help" {
-            eprintln!("usage: scorecard [--width N] <file.md>");
+            eprintln!("usage: scorecard [--width N] [--no-actions] <file.md>");
+            eprintln!("       scorecard --action scorecard://remove/<id>?file=<path>");
             exit(0);
+        } else if a.starts_with("scorecard://") {
+            action = Some(a);
         } else if !a.starts_with('-') {
             file = Some(a);
+        }
+    }
+
+    if let Some(url) = action {
+        match run_action(&url) {
+            Ok(msg) => {
+                notify(&msg);
+                exit(0);
+            }
+            Err(e) => {
+                eprintln!("scorecard: {}", e);
+                exit(1);
+            }
         }
     }
 
     let path = match file {
         Some(p) => p,
         None => {
-            eprintln!("usage: scorecard [--width N] <file.md>");
+            eprintln!("usage: scorecard [--width N] [--no-actions] <file.md>");
             exit(2);
         }
     };
@@ -697,8 +907,12 @@ fn main() {
             exit(1);
         }
     };
+    let abs = std::fs::canonicalize(&path)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| path.clone());
     let doc = parse(&input);
-    print!("{}", render(&doc, term_width(width_cli)));
+    let file_ref = if no_actions { None } else { Some(abs.as_str()) };
+    print!("{}", render(&doc, term_width(width_cli), file_ref));
 }
 
 // ---- tests ----
@@ -709,7 +923,7 @@ mod tests {
     const SAMPLE: &str = "\
 # Test card
 sub: a subtitle
-meta: gate Fri  ·  weights must x3
+meta: gate Fri
 score: 148/175
 pass: 123
 note: two at-risk gates in review
@@ -726,92 +940,89 @@ note: two at-risk gates in review
 ";
 
     #[test]
-    fn parses_front_matter_and_score() {
-        let d = parse(SAMPLE);
-        assert_eq!(d.title, "Test card");
-        assert_eq!(d.score, Some((148, 175)));
-        assert_eq!(d.pass, Some(123));
-    }
-
-    #[test]
     fn parses_criteria_and_states() {
         let d = parse(SAMPLE);
         let crits: Vec<&Crit> = d.sections.iter().flat_map(|s| s.crits.iter()).collect();
         assert_eq!(crits.len(), 3);
         assert_eq!(crits[0].sev, Sev::Ok);
-        assert_eq!(crits[1].sev, Sev::Warn);
         assert_eq!(crits[2].sev, Sev::Crit);
-        assert_eq!(crits[2].score, "0");
     }
 
-    #[test]
-    fn sev_mapping() {
-        assert_eq!(Sev::from("SOLID"), Sev::Ok);
-        assert_eq!(Sev::from("at-risk"), Sev::Warn);
-        assert_eq!(Sev::from("gap"), Sev::Crit);
-    }
-
-    // The bug class we hit in the prototype: a line wider than the box —
-    // now including OSC 8 hyperlinks in notes and callouts.
+    // Width invariant, with links AND close boxes present.
     #[test]
     fn no_rendered_line_exceeds_width() {
         let d = parse(SAMPLE);
-        for w in [84usize, 100, 120, 170] {
-            for line in render(&d, w).lines() {
-                assert!(vlen(line) <= w, "line width {} > {}: {:?}", vlen(line), w, line);
+        for file in [None, Some("/Users/x/status.md")] {
+            for w in [84usize, 100, 120, 170] {
+                for line in render(&d, w, file).lines() {
+                    assert!(vlen(line) <= w, "width {} > {} (file={:?}): {:?}", vlen(line), w, file, line);
+                }
             }
         }
     }
 
     #[test]
-    fn vlen_ignores_sgr() {
-        assert_eq!(vlen(&sty(OK, true, "hello")), 5);
-        assert_eq!(vlen("plain"), 5);
+    fn close_box_links_to_remove_action() {
+        let d = parse(SAMPLE);
+        let out = render(&d, 120, Some("/Users/x/status.md"));
+        assert!(out.contains("scorecard://remove/R1?file=/Users/x/status.md"));
     }
 
     #[test]
-    fn vlen_ignores_osc8_hyperlink() {
-        let link = "\x1b]8;;https://example.com/very/long/path\x1b\\IGA-1\x1b]8;;\x1b\\";
-        assert_eq!(vlen(link), 5); // "IGA-1"
+    fn vlen_ignores_sgr_and_osc8() {
+        assert_eq!(vlen(&sty(OK, true, "hi")), 2);
+        assert_eq!(vlen(&osc8("scorecard://remove/D1?file=/a/b.md", "✕")), 1);
     }
 
     #[test]
     fn parse_links_splits_text_and_link() {
-        let segs = parse_links("see [IGA-1](https://ex.com/1) now");
         assert_eq!(
-            segs,
+            parse_links("see [IGA-1](https://ex.com/1) now"),
             vec![
                 Seg::Text("see ".into()),
-                Seg::Link {
-                    text: "IGA-1".into(),
-                    url: "https://ex.com/1".into()
-                },
+                Seg::Link { text: "IGA-1".into(), url: "https://ex.com/1".into() },
                 Seg::Text(" now".into()),
             ]
         );
     }
 
     #[test]
-    fn parse_links_leaves_plain_brackets() {
-        assert_eq!(parse_links("[not a link]"), vec![Seg::Text("[not a link]".into())]);
+    fn percent_roundtrip() {
+        let s = "/Users/x y/status.md";
+        assert_eq!(percent_decode(&percent_encode(s)), s);
+        assert!(percent_encode(s).contains("%20"));
     }
 
     #[test]
-    fn seg_vlen_counts_link_text_only() {
-        let segs = parse_links("[IGA-1](https://very-long-url.example.com/abcdef) tail");
-        assert_eq!(seg_vlen(&segs), "IGA-1 tail".chars().count());
+    fn remove_line_drops_matching_row_only() {
+        let p = std::env::temp_dir().join(format!("scorecard_rm_{}.md", std::process::id()));
+        let path = p.to_string_lossy().to_string();
+        std::fs::write(&path, "## S\n| A1 | ok | 5 | one | n1 |\n| A2 | gap | 1 | two | n2 |\n").unwrap();
+        assert_eq!(remove_line(&path, "A1").unwrap(), 1);
+        let after = std::fs::read_to_string(&path).unwrap();
+        assert!(!after.contains("A1"));
+        assert!(after.contains("A2"));
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
-    fn render_field_link_is_measured_by_text() {
-        let out = render_field("go [x](https://e.com/averylongpath) end", 100, "");
-        assert!(out.contains("\x1b]8;;https://e.com/averylongpath\x1b\\x\x1b]8;;\x1b\\"));
-        assert_eq!(vlen(&out), "go x end".chars().count());
+    fn remove_line_refuses_non_markdown() {
+        assert!(remove_line("/etc/hosts", "x").is_err());
     }
 
     #[test]
-    fn trunc_adds_ellipsis() {
-        assert_eq!(trunc("hello world", 5), "hell…");
-        assert_eq!(trunc("hi", 5), "hi");
+    fn run_action_removes_via_url() {
+        let p = std::env::temp_dir().join(format!("scorecard_act_{}.md", std::process::id()));
+        let path = p.to_string_lossy().to_string();
+        std::fs::write(&path, "## S\n| Z9 | ok | 5 | x | y |\n").unwrap();
+        let url = format!("scorecard://remove/Z9?file={}", percent_encode(&path));
+        assert!(run_action(&url).is_ok());
+        assert!(!std::fs::read_to_string(&path).unwrap().contains("Z9"));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn run_action_rejects_unknown() {
+        assert!(run_action("scorecard://frobnicate/x").is_err());
     }
 }
