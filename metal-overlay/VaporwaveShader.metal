@@ -303,15 +303,22 @@ fragment float4 vaporwave_fragment(
     float glitchThreshold = mix(0.95, 0.15, purpleActive);
 
     // Combine layers - moire from interference
-    float glitchStrength = step(glitchThreshold, r1) * present1 * 0.25 +
-                           step(glitchThreshold, r2) * present2 * 0.25 +
-                           step(glitchThreshold, r3) * present3 * 0.20 +
-                           step(glitchThreshold, rd1) * presentD1 * 0.20 +
-                           step(glitchThreshold, rd2) * presentD2 * 0.15;
+    float glitchStrength = step(glitchThreshold, r1) * present1 * 0.12 +
+                           step(glitchThreshold, r2) * present2 * 0.12 +
+                           step(glitchThreshold, r3) * present3 * 0.10 +
+                           step(glitchThreshold, rd1) * presentD1 * 0.10 +
+                           step(glitchThreshold, rd2) * presentD2 * 0.08;
 
     // Purple scanline glitch with gentle pulse (cheap - one sin)
     float glitchPulse = 0.8 + 0.2 * sin(time * 0.0001);
     float3 glitchColor = neonPurple * glitchStrength * (0.1 + purpleActive * 0.5) * glitchPulse;
+
+    // === FILM GRAIN === (added 2026-06-18: analog-grit shift)
+    // Per-pixel temporal noise — reads as dust/film grain, not as discrete scanlines.
+    // Subtle by design: ~3% luminance perturbation, applied late so it sits on top.
+    float grain = hash(uv * 4096.0 + glitchTime * 0.7) - 0.5;
+    float3 grainColor = float3(grain * 0.03);
+
 
     // === PALETTE ROTATION WITH INTERPOLATION (from original shader) ===
 
@@ -375,7 +382,7 @@ fragment float4 vaporwave_fragment(
     float3 baseTint = float3(0.06, 0.02, 0.10);
 
     // Combine - rays should be visible!
-    float3 finalColor = baseTint + rays * rayColor * 1.0 + purpleAura + glitchColor;
+    float3 finalColor = baseTint + rays * rayColor * 1.0 + purpleAura + glitchColor + grainColor;
 
     // Fade toward top
     finalColor *= 0.4 + (1.0 - uv.y) * 0.6;

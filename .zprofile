@@ -1,30 +1,20 @@
-# Guard against double-sourcing (login shells run .zprofile then .zshrc sources it again)
+# ~/.zprofile — login shell only.
+# Env vars and brew shellenv live in ~/.zshenv (universal).
+# PATH prepends duplicated here because /etc/zprofile runs path_helper
+# BETWEEN .zshenv and .zprofile and demotes user paths. `typeset -U path`
+# in .zshenv dedupes automatically, so these re-prepends promote user
+# paths back to first position without introducing duplicates.
+
 [[ -n "$__ZPROFILE_SOURCED" ]] && return 0
 __ZPROFILE_SOURCED=1
 
-which -s brew 1>/dev/null 2>/dev/null && (
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-)
-
+# Re-prepend user paths so they win over /etc/paths.d entries.
+# Order: last prepended = highest priority.
 export PATH="$HOME/go/bin:$PATH"
 export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
 export PATH="$HOME/Library/Python/3.9/bin:$PATH"
-
-# Rust/Cargo
-[[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
-
-export STARSHIP_LOG=error
-# Note: starship init moved to .zshrc (needs zle which isn't available in .zprofile)
-
-export CLICOLOR=1
-
-# Claude Code experimental features
-export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-
-# Default editor (vim for quick edits, can override per-project)
-export EDITOR="vim"
-export VISUAL="vim"
+export PATH="$HOME/.local/bin:$PATH"
 
 # Fallback ls aliases (if eza not available)
 if ! command -v eza &>/dev/null; then
@@ -32,8 +22,3 @@ if ! command -v eza &>/dev/null; then
   alias ll="ls -lG"
   alias lh="ls -lhG"
 fi
-export PATH="$HOME/.local/bin:$PATH"
-
-
-# pi.dev (pi-coding-agent)
-export PI_TELEMETRY=0

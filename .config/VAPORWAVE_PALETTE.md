@@ -24,6 +24,9 @@ Canonical color definitions for the vaporwave theme across all tools.
 | **Neon Purple** | `#ab60ed` | ![#ab60ed](https://img.shields.io/badge/%23ab60ed-%23ab60ed?style=flat-square) | 171, 96, 237 | Regex, special |
 | **Soft Purple** | `#c080d0` | ![#c080d0](https://img.shields.io/badge/%23c080d0-%23c080d0?style=flat-square) | 192, 128, 208 | Punctuation, ANSI magenta |
 
+| **Rust** | `#6a3d2e` | ![#6a3d2e](https://img.shields.io/badge/%236a3d2e-%236a3d2e?style=flat-square) | 106, 61, 46 | Stale / dormant / cooling state (e.g. expired bd items, old PRs, idle indicators) |
+| **Tar** | `#1a0e0a` | ![#1a0e0a](https://img.shields.io/badge/%231a0e0a-%231a0e0a?style=flat-square) | 26, 14, 10 | Deep-dim background panels, inactive overlay regions |
+
 ## ANSI 16-Color Palette
 
 | # | Name | Hex | Swatch | Notes |
