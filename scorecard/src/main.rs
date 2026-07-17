@@ -584,6 +584,24 @@ fn run_action(url: &str) -> Result<String, String> {
         other => Err(format!("unknown action: {}", other)),
     }
 }
+/// List the current line items in `file` as markdown, for agents to diff
+/// against what they wrote (the user may have removed some via the ✕ close box).
+fn list_items(file: &str) -> Result<String, String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("read {}: {}", file, e))?;
+    let doc = parse(&content);
+    let mut out = String::new();
+    for s in &doc.sections {
+        for cr in &s.crits {
+            let groups = if cr.groups.is_empty() {
+                String::new()
+            } else {
+                format!(" · groups: {}", cr.groups.join(", "))
+            };
+            out.push_str(&format!("- `{}` {} — {}{}\n", cr.id, cr.name, cr.sev.label(), groups));
+        }
+    }
+    Ok(out)
+}
 fn notify(msg: &str) {
     let _ = std::process::Command::new("osascript")
         .arg("-e")
@@ -1086,6 +1104,14 @@ Each row shows a ✕ close box linking to scorecard://remove/<id>. Register the
 scheme once (macOS): `scorecard install-handler` (uninstall-handler to remove).
 Clicking removes that row — and every row sharing its topic group — from the file.
 
+## It's live — re-check what remains
+
+The scorecard is shared state: the user removes items by clicking a row's ✕
+(which deletes that row and any rows sharing its group). If you are tracking work
+you wrote here, do not assume your items survived — periodically re-read what
+remains. `scorecard list [file]` prints the current items as markdown (id, name,
+state); diff it against what you wrote to see what the user dropped.
+
 ## Compose well
 
 - Scope to the user's surface: only what they own, drive, are blocked on, or must
@@ -1096,6 +1122,12 @@ Clicking removes that row — and every row sharing its topic group — from the
   much it matters — the one real gap earns its whole line, routine solids get a
   few words. Uniform-length notes flatten the signal.
 - Honest severities; real content only; no names or PII in anything shareable.
+- Anchor each item to a larger concept: when the line has horizontal room, name
+  the ticket theme, repo, or system it belongs to (`[IGA-3293]`, `pqprime`,
+  `MLS`) so it skims fast.
+- No past tense: DONE / COMPLETED / COMMITTED / MERGED items do not belong — the
+  scorecard tracks what is live and ahead, not a changelog. (A `solid` *state* is
+  fine — a live thing going well; a purely finished item is clutter, drop it.)
 
 ## Preserve-on-write
 
@@ -1106,6 +1138,23 @@ Before writing a new status.md, move the old one aside with a datestamp:
 fn main() {
     let argv: Vec<String> = env::args().skip(1).collect();
     match argv.first().map(|s| s.as_str()) {
+        Some("list") => {
+            let file = argv.get(1).cloned().unwrap_or_else(|| {
+                env::var("SCORECARD_FILE").unwrap_or_else(|_| {
+                    format!("{}/.config/scorecard/status.md", env::var("HOME").unwrap_or_default())
+                })
+            });
+            match list_items(&file) {
+                Ok(md) => {
+                    print!("{}", md);
+                    exit(0);
+                }
+                Err(e) => {
+                    eprintln!("scorecard: {}", e);
+                    exit(1);
+                }
+            }
+        }
         Some("prime") => {
             print!("{}", PRIME);
             exit(0);
@@ -1184,6 +1233,7 @@ fn main() {
             eprintln!("       scorecard --action scorecard://remove/<id>?file=<path>");
             eprintln!("       scorecard install-handler | uninstall-handler | prime");
             eprintln!("       scorecard install-agents | uninstall-agents");
+            eprintln!("       scorecard list [file.md]");
             exit(0);
         } else if a.starts_with("scorecard://") {
             action = Some(a);
@@ -1384,5 +1434,17 @@ note: two at-risk gates in review
         let cleared = remove_block(&withb);
         assert!(!cleared.contains(AGENTS_BEGIN));
         assert!(cleared.contains("foo"));
+    }
+
+    #[test]
+    fn list_items_emits_markdown() {
+        let p = std::env::temp_dir().join(format!("scorecard_list_{}.md", std::process::id()));
+        let path = p.to_string_lossy().to_string();
+        std::fs::write(&path, "## S\n| D1 | risk | 3 | Ship it | note | grp:x |\n| D2 | ok | 5 | Other | n |\n").unwrap();
+        let md = list_items(&path).unwrap();
+        assert!(md.contains("`D1`") && md.contains("Ship it") && md.contains("groups: x"));
+        assert!(md.contains("`D2`"));
+        assert!(md.lines().all(|l| l.is_empty() || l.starts_with("- ")));
+        let _ = std::fs::remove_file(&path);
     }
 }

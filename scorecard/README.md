@@ -9,6 +9,8 @@ scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>
 scorecard --action scorecard://remove/<id>?file=<path>
 scorecard install-handler | uninstall-handler        # macOS URL-scheme handler
 scorecard prime                                       # agent-facing primer
+scorecard list [file]                                 # remaining items as markdown
+scorecard install-agents | uninstall-agents           # point harnesses at prime
 ```
 
 `--width`/`--height` fall back to `$COLUMNS`/`$LINES`. Width is clamped 84–170.
@@ -116,6 +118,15 @@ macOS notification.
 `scorecard prime` prints an agent-facing primer — what the tool is, the schema,
 groups, modes, actions, and the write/preserve convention. It's the canonical
 "how to use this" text; point agents at it.
+
+## Listing remaining items
+
+`scorecard list [file]` prints the current line items (default
+`~/.config/scorecard/status.md`) as a markdown list — id, name, state, groups.
+Because items can be removed (via the ✕), an agent tracking work it wrote should
+re-run this periodically and diff against what it wrote. `prime` tells agents to
+do exactly that, and to keep items forward-looking (no finished/past-tense
+entries) and anchored to a ticket/repo/system when there's room.
 
 ## Teaching agents
 
