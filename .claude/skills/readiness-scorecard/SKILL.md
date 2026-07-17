@@ -92,7 +92,8 @@ the header/`---` rows are ignored:
 
 `state` → color/pill: `solid`/`ok`/`done` = green SOLID · `risk`/`at-risk`/
 anything else = gold AT RISK · `gap`/`crit`/`blocked`/`fail` = red GAP. The tiles
-row (solid / at-risk / gap / at-zero counts) is computed automatically.
+row (solid / at-risk / gap / at-zero counts) is computed automatically. Keep the
+`id` column **unique** — it's also the anchor the row's ✕ close box removes by.
 
 A `## Callouts` (or `Notes`/`Banners`) section holds two-cell rows rendered as
 labelled banners — put the single most important thing, the next actions, and any
