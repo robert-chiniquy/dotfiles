@@ -23,6 +23,8 @@
 | protogen | .proto files, gRPC, codegen (hub + references/) |
 | documentation | Writing or reviewing docs (hub + references/) |
 | subagent-prompt-review | Before Agent() / sqfan dispatch / scheduled remote agents; vet prompts |
+| agent-worktree-status | Monitoring background agent worktrees: one pre-authorized status command; liveness before kill/restart |
+| gestalt-consistency-review | Reviewer persona: behavior that's correct + documented but the odd one out — convention drift, asymmetric API, abandoned migration |
 | calendaring | Multi-month personal master schedule: travel, parenting, camps, conferences |
 | tactical-sitrep | One named milestone + hard deadline → calibrated A/B/C readiness call + one most-pressing action |
 

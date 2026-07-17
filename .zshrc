@@ -425,7 +425,6 @@ fi
 
 # ripgrep with colors
 if command -v rg &>/dev/null; then
-  export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
 fi
 
 # direnv
@@ -985,13 +984,11 @@ if command -v fzf &>/dev/null; then
   
   # Load fzf keybindings
   [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-  [[ -f /opt/homebrew/opt/fzf/shell/key-bindings.zsh ]] && source /opt/homebrew/opt/fzf/shell/key-bindings.zsh
+  [[ -t 0 && -f /opt/homebrew/opt/fzf/shell/key-bindings.zsh ]] && source /opt/homebrew/opt/fzf/shell/key-bindings.zsh
 fi
 
-export HOMEBREW_NO_ENV_HINTS="true"
 
 # === Passive tool improvements (no workflow changes) ===
-export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
 export STARSHIP_LOG="error"  # Silence starship warnings
 
 # Colored compiler output
@@ -1004,7 +1001,7 @@ export JQ_COLORS='1;35:0;35:0;36:0;36:0;33:1;35:1;35'
 export MANPAGER="less -R --use-color"
 
 # Make parallel builds by default (use all cores)
-export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
+export MAKEFLAGS="-j$(/usr/sbin/sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
 # fd defaults (ignore common junk)
 export FD_OPTIONS="--hidden --follow --exclude .git --exclude node_modules --exclude vendor"
@@ -1080,9 +1077,6 @@ export GIT_PS1_SHOWDIRTYSTATE=
 export GIT_PS1_SHOWUNTRACKEDFILES=
 
 # === Homebrew speedups ===
-export HOMEBREW_NO_AUTO_UPDATE=1
-export HOMEBREW_NO_INSTALL_CLEANUP=1
-export HOMEBREW_NO_ANALYTICS=1
 
 # === Atuin (history backend) + fzf (UI) ===
 if command -v atuin &>/dev/null; then
@@ -1697,3 +1691,18 @@ ulimit -n 10240
 # Added by codebase-memory-mcp install
 export PATH="/Users/rch/.local/bin:$PATH"
 export PATH="/opt/homebrew/sbin:$PATH"
+
+# >>> grok installer >>>
+export PATH="$HOME/.grok/bin:$PATH"
+fpath=(~/.grok/completions/zsh $fpath)
+autoload -Uz compinit && compinit -C
+# <<< grok installer <<<
+
+# === scorecard: readiness TUI on a new interactive window ===
+# Renders $SCORECARD_FILE (default ~/.config/scorecard/status.md) if it exists.
+# Disable: export SCORECARD_GREETING=0   ·   point elsewhere: export SCORECARD_FILE=<path>
+if [[ -o interactive && -t 1 && "${SCORECARD_GREETING:-1}" != 0 ]] && command -v scorecard &>/dev/null; then
+  _sc_file="${SCORECARD_FILE:-$HOME/.config/scorecard/status.md}"
+  [[ -r "$_sc_file" ]] && scorecard --width "$COLUMNS" "$_sc_file"
+  unset _sc_file
+fi

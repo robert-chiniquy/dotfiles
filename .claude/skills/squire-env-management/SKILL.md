@@ -35,14 +35,24 @@ Squire provisions ephemeral dev environments with an in-env agent (OpenCode, not
 ### Create an env (fire-and-forget)
 
 ```bash
-squire new <name> --prompt "Implement feature X in pkg/foo"
+squire new <name> --no-attach --model opus --prompt "Implement feature X in pkg/foo"
 ```
 
-The agent starts working immediately. `--prompt` is the instruction for OpenCode inside the env.
+`--prompt` delivers an initial instruction fire-and-forget: it is sent once the env is ready, so for a single-repo task whose repo is in the image (or clonable in-env, e.g. c1) you do NOT need the manual OpenCode API dance below. `--no-attach` creates the env without opening its TUI (scripted/parallel). `--model` pins the agent model at creation.
 
-CLI flags: `--image`, `--no-open`, `--prompt`, `--timeout`
+Common `squire new` flags (verify with `squire new --help` — the set moves):
+- `--no-attach` — create without attaching to the TUI. Older CLIs called this `--no-open`.
+- `--attach` — attach to the TUI after sending the prompt.
+- `-m, --model` — `opus` | `sonnet` | `haiku` | a full model ID. Pass `opus` to pin an approved model.
+- `-p, --prompt` — initial fire-and-forget prompt.
+- `-f, --flavor` — env size: `xxsmall|xsmall|small|medium|large|xlarge` (default `small`).
+- `--git-branch` — branch to check out on startup.
+- `--image` — image ID/slug (overrides `default_image`).
+- `--skip-sync` / `--skip-build` / `--skip-services` — skip git reset / build_cmd / service startup at boot.
+- `--timeout` — how long to wait for the env to be ready (default `5m0s`).
+- `--codex-effort` — reasoning effort, codex harness only.
 
-The API supports additional fields not yet exposed by the CLI: Model, Flavor, GitBranch, SkipGitSync, SkipBuild, SkipServices. The gateway MCP `create_env` tool (localhost:9877 inside a container) exposes these options if you need them from within an env.
+(Verified against the CLI 2026-07-14. `--model`/`--flavor`/`--git-branch`/`--skip-*` used to be API-only; they are now on the CLI. The gateway MCP `create_env` tool at localhost:9877 still exposes the same options from within an env.)
 
 ### List envs
 
@@ -162,7 +172,7 @@ For other repos, the workflow is:
 
 1. **Create the env** (without a prompt):
    ```bash
-   squire new my-feature --no-open
+   squire new my-feature --no-attach
    ```
 
 2. **Clone via git bundle** (NOT via `git clone` URL):
@@ -816,7 +826,7 @@ Available inside the container for service and environment management:
 
 ## Gateway MCP (inside env only)
 
-The gateway MCP `create_env` tool is accessible from within an env and exposes additional options not in the CLI: `model`, `flavor`, `git_branch`. Use this for env-to-env delegation when one agent needs to spin up sub-environments.
+The gateway MCP `create_env` tool is accessible from within an env and exposes creation options (`model`, `flavor`, `git_branch`) for env-to-env delegation when one agent needs to spin up sub-environments. (These are now also on the `squire new` CLI as `--model`/`--flavor`/`--git-branch`; use the MCP form only from within an env.)
 
 ## Common Mistakes
 
@@ -835,7 +845,7 @@ The gateway MCP `create_env` tool is accessible from within an env and exposes a
 - **Polling loop wastes cycles probing dead envs** — add `if env status=stopped, report and stop polling that env` to the polling prompt. Otherwise the cron keeps SSHing into stopped envs and only sees error messages.
 - **Agent introduces or references types that live in a sibling repo and ships only the CLI/UI side** — for Latchkey work this happens because the CLI lives in `latchkey-client-shells`, the SDK in `latchkey-client-sdk`, the proto in `latchkey-proto`, the MLS adapter in `latchkey-mls-core`, and the desktop in `latchkey-desktop`. The `[patch]` table the agent committed into `Cargo.toml` (pointing at sibling working trees in `/data/squire/src/`) papered over the gap inside the env, but the missing exports / proto field changes never landed upstream. On a clean clone the consumer fails to compile. Brief the in-env agent explicitly: when a change requires modifying a sibling repo (a new SDK type, a proto field rename, a new MLS adapter method), either (a) make the sibling change in the same dispatch and produce commits against both repos' branches, or (b) stop at the boundary and document the required sibling change in the status note instead of papering over it with a local `[patch]`. The agent must not commit a `[patch]` table that resolves to sibling working trees — that always represents a missing upstream change. For Latchkey specifically, name the canonical repo roots in the prompt so the agent can navigate them: `/data/squire/src/latchkey-client-shells`, `/data/squire/src/latchkey-client-sdk`, `/data/squire/src/latchkey-proto`, `/data/squire/src/latchkey-mls-core`, `/data/squire/src/latchkey-desktop`, `/data/squire/src/c1`.
 - **Piping binary data through `squire ssh`** — SSH via squire mangles binary. The pipe `cat file | squire ssh <id> -- "cat > dest"` corrupts non-UTF-8 content. Use `scp <file> <env>.squire:/path` instead.
-- **Forgetting `--no-open`** — without it, `squire new` opens the TUI immediately. Use `--no-open` for scripted/parallel workflows.
+- **Forgetting `--no-attach`** — without it, `squire new` attaches to the agent TUI. Use `--no-attach` for scripted/parallel workflows. (Older CLIs called this flag `--no-open`; current builds reject `--no-open` with "unknown flag".)
 - **Missing quotes around SSH commands** — `squire ssh <id> -- cd /foo && bar` runs `bar` locally. Always quote: `squire ssh <id> -- "cd /foo && bar"`.
 - **Stale bd lock from crashed subagents** — if a subagent held the beads DB lock and crashed, `bd` fails with "another process holds the exclusive lock". Fix: `rm /path/to/.beads/embeddeddolt/.lock` (verify no process holds it with `lsof` first).
 - **Workspace directory** — OpenCode's working directory defaults to `/data/squire/src`. Older images pre-cloned c1 there; newer images may launch with an empty `src/`. Verify with `ls /data/squire/src/` before dispatching; clone c1 (or any other repo) into its canonical path before sending the prompt. Your prompt must name the full path to the repo (e.g. `/data/squire/src/c1` or `/data/squire/src/occult`). The `directory` field in the session object shows where the agent is actually working.
