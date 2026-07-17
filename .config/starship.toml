@@ -1,6 +1,6 @@
 add_newline = false
 
-format = "$character$all"
+format = "${custom.prompt_accent}$character$all"
 right_format = "$git_branch$git_status$rust"
 
 [line_break]
@@ -53,3 +53,14 @@ style = "blink yellow"
 # Removed: custom.git_diff_line_count (2 git commands per prompt, redundant with git_status !count)
 # Removed: custom.tokei_rust (runs tokei on every prompt in Rust repos)
 
+
+[direnv]
+disabled = false
+
+# Falls back to hot pink #ff00f8 if PROMPT_ACCENT is unset (script default).
+
+[custom.prompt_accent]
+description = "Prompt char colored by PROMPT_ACCENT env var (from direnv .envrc)"
+command = "$HOME/repo/dotfiles/bin/prompt-char"
+when = "true"
+format = "$output"
