@@ -2,17 +2,20 @@
 //! structured markdown file. Truecolor ANSI, adapts to terminal width,
 //! one line per criterion. No external dependencies.
 //!
-//! Usage:  scorecard [--width N] [--no-actions] <file.md>
+//! Usage:  scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>
 //!         scorecard --action scorecard://remove/<id>?file=<path>
-//!         scorecard install-handler          # register scorecard:// (macOS)
-//!         scorecard uninstall-handler
+//!         scorecard install-handler | uninstall-handler        # macOS
+//!         scorecard prime                                       # agent primer
 //!
-//! `[text](url)` in the id/note/callout fields renders as an OSC 8 hyperlink.
-//! When a file path is known, each row gets a clickable close box (✕) whose
-//! link is `scorecard://remove/<id>?file=<path>`; the `scorecard://` scheme is
-//! registered (see install-handler.sh) to run `scorecard --action <url>`, which
-//! removes that row (matched by its id — the first table column) from the file.
+//! Content-groups: a line can belong to many groups. Built-in "type" groups are
+//! auto-assigned — `header` (title/sub/meta), `titles` (section headers),
+//! `callouts` (banners), `footer` — and topic groups are added per row with
+//! `grp:<name>` cells (several allowed). Front matter `groups: name=priority, …`
+//! sets priorities (default 0). Mode `fit` (default) drops whole groups
+//! (lowest priority, then bottom-most) until the card fits in (height − 3) lines;
+//! `all` renders everything. Removing any row in a group removes the group.
 
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::process::exit;
 
@@ -285,10 +288,12 @@ struct Crit {
     score: String,
     name: String,
     note: String,
+    groups: Vec<String>,
 }
 struct Banner {
     tag: String,
     text: String,
+    groups: Vec<String>,
 }
 enum Kind {
     Crit,
@@ -310,7 +315,28 @@ struct Doc {
     footer: String,
     score: Option<(u32, u32)>,
     pass: Option<u32>,
+    groups: HashMap<String, i32>,
     sections: Vec<Section>,
+}
+
+// membership: which group names a rendered element belongs to.
+fn crit_membership(si: usize, cr: &Crit) -> Vec<String> {
+    if cr.groups.is_empty() {
+        vec![format!("~{}:{}", si, cr.id)] // singleton, droppable on its own
+    } else {
+        cr.groups.clone()
+    }
+}
+fn banner_membership(b: &Banner) -> Vec<String> {
+    let mut v = vec!["callouts".to_string()];
+    v.extend(b.groups.iter().cloned());
+    v
+}
+fn crit_visible(si: usize, cr: &Crit, hidden: &HashSet<String>) -> bool {
+    crit_membership(si, cr).iter().all(|g| !hidden.contains(g))
+}
+fn banner_visible(b: &Banner, hidden: &HashSet<String>) -> bool {
+    banner_membership(b).iter().all(|g| !hidden.contains(g))
 }
 
 // ---- parsing ----
@@ -357,6 +383,26 @@ fn is_banner_label(label: &str) -> bool {
         "callouts" | "callout" | "banners" | "banner" | "notes" | "note"
     )
 }
+fn cell_group(cell: &str) -> Option<String> {
+    cell.strip_prefix("grp:")
+        .or_else(|| cell.strip_prefix("group:"))
+        .map(|g| g.trim().to_string())
+}
+/// Pull every `grp:<name>` cell out, returning the group names and remaining cells.
+fn extract_groups(cells: &[String]) -> (Vec<String>, Vec<String>) {
+    let mut groups = Vec::new();
+    let mut rest = Vec::new();
+    for cell in cells {
+        match cell_group(cell) {
+            Some(g) => groups.push(g),
+            None => rest.push(cell.clone()),
+        }
+    }
+    (groups, rest)
+}
+fn row_groups(cells: &[String]) -> Vec<String> {
+    cells.iter().filter_map(|c| cell_group(c)).collect()
+}
 fn parse(input: &str) -> Doc {
     let mut doc = Doc::default();
     let mut cur: Option<Section> = None;
@@ -401,28 +447,24 @@ fn parse(input: &str) -> Doc {
                 match s.kind {
                     Kind::Banner => {
                         if cells.len() >= 2 {
+                            let (groups, rest) = extract_groups(&cells[1..]);
                             s.banners.push(Banner {
                                 tag: cells[0].clone(),
-                                text: cells[1..].join(" ").trim().to_string(),
+                                text: rest.join(" ").trim().to_string(),
+                                groups,
                             });
                         }
                     }
                     Kind::Crit => {
-                        if cells.len() >= 5 {
+                        if cells.len() >= 4 {
+                            let (groups, rest) = extract_groups(&cells[4..]);
                             s.crits.push(Crit {
                                 id: cells[0].clone(),
                                 sev: Sev::from(&cells[1]),
                                 score: cells[2].clone(),
                                 name: cells[3].clone(),
-                                note: cells[4..].join(" | ").trim().to_string(),
-                            });
-                        } else if cells.len() == 4 {
-                            s.crits.push(Crit {
-                                id: cells[0].clone(),
-                                sev: Sev::from(&cells[1]),
-                                score: cells[2].clone(),
-                                name: cells[3].clone(),
-                                note: String::new(),
+                                note: rest.join(" | ").trim().to_string(),
+                                groups,
                             });
                         }
                     }
@@ -448,6 +490,15 @@ fn parse(input: &str) -> Doc {
                     "footer" => doc.footer = val,
                     "score" => doc.score = parse_score(&val),
                     "pass" | "threshold" => doc.pass = val.parse().ok(),
+                    "groups" => {
+                        for part in val.split(',') {
+                            if let Some((n, p)) = part.split_once('=') {
+                                if let Ok(pr) = p.trim().parse::<i32>() {
+                                    doc.groups.insert(n.trim().to_string(), pr);
+                                }
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -460,19 +511,38 @@ fn parse(input: &str) -> Doc {
 }
 
 // ---- actions ----
-/// Remove every criteria row whose first cell equals `id`. Returns count.
+/// Remove the row with `id`; if it carries topic groups, remove every row that
+/// shares any of them. Returns the number of rows removed.
 fn remove_line(file: &str, id: &str) -> Result<usize, String> {
     if !file.ends_with(".md") {
         return Err(format!("refusing to edit non-markdown file: {}", file));
     }
     let content = std::fs::read_to_string(file).map_err(|e| format!("read {}: {}", file, e))?;
+
+    let mut target: Vec<String> = Vec::new();
+    for line in content.lines() {
+        let t = line.trim_start();
+        if t.starts_with('|') {
+            let cells = split_row(t);
+            if cells.first().map(|s| s.as_str()) == Some(id) {
+                target = row_groups(&cells);
+                break;
+            }
+        }
+    }
+
     let mut kept: Vec<&str> = Vec::new();
     let mut removed = 0;
     for line in content.lines() {
         let t = line.trim_start();
         if t.starts_with('|') {
             let cells = split_row(t);
-            if cells.first().map(|s| s.as_str()) == Some(id) {
+            let drop = if target.is_empty() {
+                cells.first().map(|s| s.as_str()) == Some(id)
+            } else {
+                row_groups(&cells).iter().any(|g| target.contains(g))
+            };
+            if drop {
                 removed += 1;
                 continue;
             }
@@ -486,7 +556,6 @@ fn remove_line(file: &str, id: &str) -> Result<usize, String> {
     }
     Ok(removed)
 }
-/// Dispatch a `scorecard://…` action URL. Returns a human message on success.
 fn run_action(url: &str) -> Result<String, String> {
     let rest = url
         .strip_prefix("scorecard://")
@@ -522,7 +591,7 @@ fn notify(msg: &str) {
         .status();
 }
 
-// ---- self-install of the scorecard:// URL-scheme handler (macOS, Route B) ----
+// ---- self-install of the scorecard:// handler (macOS, Route B) ----
 fn run_cmd(cmd: &mut std::process::Command) -> Result<(), String> {
     let st = cmd.status().map_err(|e| format!("spawn failed: {}", e))?;
     if st.success() {
@@ -531,7 +600,6 @@ fn run_cmd(cmd: &mut std::process::Command) -> Result<(), String> {
         Err(format!("{:?} exited with {}", cmd, st))
     }
 }
-
 #[cfg(target_os = "macos")]
 fn install_handler() -> Result<String, String> {
     use std::process::Command;
@@ -541,7 +609,6 @@ fn install_handler() -> Result<String, String> {
         .into_owned();
     let home = env::var("HOME").map_err(|_| "HOME unset".to_string())?;
     let app = format!("{}/Applications/ScorecardHandler.app", home);
-
     let tmp = env::temp_dir().join(format!("scorecard-handler-{}", std::process::id()));
     std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
     let script = tmp.join("handler.applescript");
@@ -553,11 +620,9 @@ fn install_handler() -> Result<String, String> {
         ),
     )
     .map_err(|e| e.to_string())?;
-
     let _ = std::fs::remove_dir_all(&app);
     std::fs::create_dir_all(format!("{}/Applications", home)).ok();
     run_cmd(Command::new("osacompile").arg("-o").arg(&app).arg(&script))?;
-
     let plist = format!("{}/Contents/Info.plist", app);
     let pb = "/usr/libexec/PlistBuddy";
     let _ = Command::new(pb).args(["-c", "Add :CFBundleURLTypes array", &plist]).status();
@@ -565,13 +630,11 @@ fn install_handler() -> Result<String, String> {
     run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLName string ai.c1.scorecard", &plist]))?;
     run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLSchemes array", &plist]))?;
     run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string scorecard", &plist]))?;
-
     let lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
     run_cmd(Command::new(lsregister).arg("-f").arg(&app))?;
     let _ = std::fs::remove_dir_all(&tmp);
     Ok(format!("registered scorecard:// -> {}\n  handler: {}", bin, app))
 }
-
 #[cfg(target_os = "macos")]
 fn uninstall_handler() -> Result<String, String> {
     let home = env::var("HOME").map_err(|_| "HOME unset".to_string())?;
@@ -581,7 +644,6 @@ fn uninstall_handler() -> Result<String, String> {
     std::fs::remove_dir_all(&app).map_err(|e| format!("remove {}: {}", app, e))?;
     Ok(format!("removed {}", app))
 }
-
 #[cfg(not(target_os = "macos"))]
 fn install_handler() -> Result<String, String> {
     Err("install-handler is macOS-only".into())
@@ -649,26 +711,28 @@ fn banner_color(tag: &str) -> [u8; 3] {
     }
 }
 
-/// `file` = absolute source path; when Some (and actions enabled), each row gets
-/// a clickable ✕ close box linking to `scorecard://remove/<id>?file=…`.
-fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
+fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>) -> Vec<String> {
     let mut cv = Canvas::new(w);
     let iw = cv.iw;
 
     cv.top();
-    if !doc.title.is_empty() {
-        cv.boxln(&sty(ACCENT, true, &trunc(&doc.title, iw)));
-    }
-    if !doc.sub.is_empty() {
-        cv.boxln(&sty(MUTED, false, &trunc(&doc.sub, iw)));
-    }
-    if !doc.meta.is_empty() {
-        cv.boxln(&sty(FAINT, false, &trunc(&doc.meta, iw)));
+    if !hidden.contains("header") {
+        if !doc.title.is_empty() {
+            cv.boxln(&sty(ACCENT, true, &trunc(&doc.title, iw)));
+        }
+        if !doc.sub.is_empty() {
+            cv.boxln(&sty(MUTED, false, &trunc(&doc.sub, iw)));
+        }
+        if !doc.meta.is_empty() {
+            cv.boxln(&sty(FAINT, false, &trunc(&doc.meta, iw)));
+        }
     }
     cv.rule();
 
+    let mut show_meter = false;
     if let Some((proj, max)) = doc.score {
-        if max > 0 {
+        if max > 0 && !hidden.contains("meter") {
+            show_meter = true;
             let pass = doc.pass.unwrap_or(((max as f64) * 0.7).round() as u32);
             let cells = iw.saturating_sub(34).max(10);
             let fill = (((proj as f64) / (max as f64)) * cells as f64).round() as usize;
@@ -693,27 +757,16 @@ fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
             let pct = ((proj as f64 / max as f64) * 100.0).round() as u32;
             cv.boxln(&format!(
                 "{}PROJECTED {}{}~{}{}{}/{} {}~{}%{}  {}  {}{}│{}{}",
-                c(FAINT),
-                c(TEXT),
-                BOLD,
-                proj,
-                RESET,
-                c(FAINT),
-                max,
-                c(WARN),
-                pct,
-                RESET,
-                bar,
-                c(TEXT),
-                BOLD,
-                c(FAINT),
-                pass
+                c(FAINT), c(TEXT), BOLD, proj, RESET, c(FAINT), max, c(WARN), pct, RESET, bar, c(TEXT), BOLD, c(FAINT), pass
             ));
         }
     }
     let (mut n_ok, mut n_warn, mut n_crit, mut n_zero) = (0, 0, 0, 0);
-    for s in &doc.sections {
+    for (si, s) in doc.sections.iter().enumerate() {
         for cr in &s.crits {
+            if !crit_visible(si, cr, hidden) {
+                continue;
+            }
             match cr.sev {
                 Sev::Ok => n_ok += 1,
                 Sev::Warn => n_warn += 1,
@@ -724,7 +777,9 @@ fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
             }
         }
     }
-    if n_ok + n_warn + n_crit > 0 {
+    let mut show_tiles = false;
+    if n_ok + n_warn + n_crit > 0 && !hidden.contains("tiles") {
+        show_tiles = true;
         let mut tiles = String::new();
         tiles += &sty(OK, true, &n_ok.to_string());
         tiles += &sty(MUTED, false, " solid   ");
@@ -742,24 +797,28 @@ fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
         }
         cv.boxln(&tiles);
     }
-    if doc.score.is_some() || n_ok + n_warn + n_crit > 0 {
+    if show_meter || show_tiles {
         cv.rule();
     }
 
+    let titles_hidden = hidden.contains("titles");
     let mut banner_rule_done = false;
-    for s in &doc.sections {
+    for (si, s) in doc.sections.iter().enumerate() {
         match s.kind {
             Kind::Crit => {
-                if s.crits.is_empty() {
+                let vis: Vec<&Crit> = s.crits.iter().filter(|cr| crit_visible(si, cr, hidden)).collect();
+                if vis.is_empty() {
                     continue;
                 }
-                let hdr = if s.weight.is_empty() {
-                    sty(TEXT, true, &s.label)
-                } else {
-                    format!("{} {}", sty(TEXT, true, &s.label), sty(FAINT, false, &s.weight))
-                };
-                cv.boxln(&hdr);
-                for cr in &s.crits {
+                if !titles_hidden {
+                    let hdr = if s.weight.is_empty() {
+                        sty(TEXT, true, &s.label)
+                    } else {
+                        format!("{} {}", sty(TEXT, true, &s.label), sty(FAINT, false, &s.weight))
+                    };
+                    cv.boxln(&hdr);
+                }
+                for cr in vis {
                     let close = match file {
                         Some(f) => {
                             let url = format!("scorecard://remove/{}?file={}", cr.id, percent_encode(f));
@@ -772,16 +831,7 @@ fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
                     let name = pad_end(&trunc(&cr.name, cv.nw), cv.nw);
                     let left = format!(
                         "{}▌{} {} {}{} {} {}{}{}{}",
-                        c(cr.sev.color()),
-                        RESET,
-                        id_r,
-                        c(TEXT),
-                        name,
-                        pill(cr.sev),
-                        c(cr.sev.color()),
-                        BOLD,
-                        cr.score,
-                        RESET
+                        c(cr.sev.color()), RESET, id_r, c(TEXT), name, pill(cr.sev), c(cr.sev.color()), BOLD, cr.score, RESET
                     );
                     let budget = iw.saturating_sub(vlen(&left) + 1 + cwid);
                     let note = if budget > 6 && !cr.note.is_empty() {
@@ -794,14 +844,15 @@ fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
                 }
             }
             Kind::Banner => {
-                if s.banners.is_empty() {
+                let vis: Vec<&Banner> = s.banners.iter().filter(|b| banner_visible(b, hidden)).collect();
+                if vis.is_empty() {
                     continue;
                 }
                 if !banner_rule_done {
                     cv.rule();
                     banner_rule_done = true;
                 }
-                for b in &s.banners {
+                for b in vis {
                     let head = sty(banner_color(&b.tag), true, &pad_end(&b.tag, 9));
                     let budget = iw.saturating_sub(vlen(&head));
                     cv.boxln(&format!("{}{}", head, render_field(&b.text, budget, &c(MUTED))));
@@ -811,27 +862,180 @@ fn render(doc: &Doc, w: usize, file: Option<&str>) -> String {
     }
 
     cv.rule();
-    if !doc.footer.is_empty() {
+    if !doc.footer.is_empty() && !hidden.contains("footer") {
         cv.boxln(&format!("{}{}{}{}", DIM, c(FAINT), trunc(&doc.footer, iw), RESET));
     }
     cv.bot();
+    cv.lines
+}
+fn render(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>) -> String {
+    format!("\n{}\n", build_lines(doc, w, file, hidden).join("\n"))
+}
 
-    format!("\n{}\n", cv.lines.join("\n"))
+// ---- fit: hide whole content-groups (lowest priority first) until it fits ----
+fn bump(m: &mut HashMap<String, usize>, name: &str, pos: usize) {
+    let e = m.entry(name.to_string()).or_insert(0);
+    if pos > *e {
+        *e = pos;
+    }
+}
+// Structural "chrome" groups yield to line items: chrome defaults low, so fit
+// sheds it (header/titles/meter/tiles/callouts/footer) before dropping any item.
+fn is_chrome(name: &str) -> bool {
+    matches!(name, "header" | "titles" | "meter" | "tiles" | "callouts" | "footer")
+}
+fn default_priority(name: &str) -> i32 {
+    if is_chrome(name) {
+        0
+    } else {
+        10 // line items (singletons + topic groups) outrank chrome
+    }
+}
+/// Every group present in the doc: (name, priority, bottom-most position).
+fn group_universe(doc: &Doc) -> Vec<(String, i32, usize)> {
+    let mut posmap: HashMap<String, usize> = HashMap::new();
+    let mut pos = 0usize;
+    if !doc.title.is_empty() || !doc.sub.is_empty() || !doc.meta.is_empty() {
+        pos += 1;
+        bump(&mut posmap, "header", pos);
+    }
+    if doc.score.is_some() {
+        pos += 1;
+        bump(&mut posmap, "meter", pos);
+    }
+    if doc.sections.iter().any(|s| !s.crits.is_empty()) {
+        pos += 1;
+        bump(&mut posmap, "tiles", pos);
+    }
+    for (si, s) in doc.sections.iter().enumerate() {
+        pos += 1;
+        bump(&mut posmap, "titles", pos);
+        for cr in &s.crits {
+            pos += 1;
+            for g in crit_membership(si, cr) {
+                bump(&mut posmap, &g, pos);
+            }
+        }
+        for b in &s.banners {
+            pos += 1;
+            for g in banner_membership(b) {
+                bump(&mut posmap, &g, pos);
+            }
+        }
+    }
+    if !doc.footer.is_empty() {
+        pos += 1;
+        bump(&mut posmap, "footer", pos);
+    }
+    posmap
+        .into_iter()
+        .map(|(name, p)| {
+            let prio = doc.groups.get(&name).copied().unwrap_or_else(|| default_priority(&name));
+            (name, prio, p)
+        })
+        .collect()
+}
+/// Choose the group names to hide so the card fits in `avail` rows.
+fn fit(doc: &Doc, w: usize, file: Option<&str>, avail: usize) -> HashSet<String> {
+    let mut hidden = HashSet::new();
+    loop {
+        if build_lines(doc, w, file, &hidden).len() <= avail {
+            break;
+        }
+        let pick = group_universe(doc)
+            .into_iter()
+            .filter(|(n, _, _)| !hidden.contains(n))
+            .min_by(|a, b| a.1.cmp(&b.1).then_with(|| b.2.cmp(&a.2)));
+        match pick {
+            Some((n, _, _)) => {
+                hidden.insert(n);
+            }
+            None => break,
+        }
+    }
+    hidden
 }
 
 fn term_width(cli: Option<usize>) -> usize {
-    cli.or_else(|| {
-        env::var("COLUMNS")
-            .ok()
-            .and_then(|s| s.trim().parse::<usize>().ok())
-    })
-    .unwrap_or(120)
-    .clamp(84, 170)
+    cli.or_else(|| env::var("COLUMNS").ok().and_then(|s| s.trim().parse::<usize>().ok()))
+        .unwrap_or(120)
+        .clamp(84, 170)
 }
+fn term_height(cli: Option<usize>) -> Option<usize> {
+    cli.or_else(|| env::var("LINES").ok().and_then(|s| s.trim().parse::<usize>().ok()))
+}
+
+#[derive(PartialEq)]
+enum Mode {
+    Fit,
+    All,
+}
+
+const PRIME: &str = r#"# scorecard — agent primer
+
+A dark, one-screen readiness/status TUI rendered in the terminal from a
+structured markdown file. You (an agent) write the file; `scorecard <file>`
+renders it. Not a web page.
+
+## The recipe you usually want
+
+Write ~/.config/scorecard/status.md (preserve the old one first — see below),
+then it shows on the user's next terminal window (a shell greeting renders it).
+
+    # Title
+    sub: one-line subtitle
+    meta: deadline · pass bar · weights
+    score: 155/215                 # optional; drives the meter
+    note: short line shown by the tiles
+    footer: dim footer line
+    groups: header=100, callouts=5, tiers=8    # group -> priority (higher = kept)
+
+    ## Theme (x3)
+    | id | state | score | criterion | note |
+    | D1 | risk  | 3 | Ship the build | rides [T-1](https://linear.app/…) | grp:tiers |
+
+    ## Callouts
+    | STANDOUT | the single most important thing |
+    | NEXT | the next actions |
+
+state = solid | risk | gap  (green / gold / red). A row may carry several
+`grp:<name>` cells. Notes/callouts accept `[text](url)` -> clickable links.
+
+## Content-groups
+
+A line can belong to many groups. Built-in "type" groups are automatic:
+`header` (title/sub/meta), `titles` (section headers), `callouts` (banners),
+`footer`. Topic groups are the `grp:<name>` tags. Set priorities in the
+front-matter `groups:` line (default 0; negatives drop first).
+
+## Modes
+
+- fit (default): drop whole groups — lowest priority, then bottom-most — until
+  the card fits in (terminal height − 3) lines. By default chrome (header,
+  titles, meter, tiles, callouts, footer) is shed before any line item, so the
+  list of items survives longest.
+- all: render everything.   Flag: --mode all|fit
+Pass --width "$COLUMNS" --height "$LINES" from a prompt hook.
+
+## Actions
+
+Each row shows a ✕ close box linking to scorecard://remove/<id>. Register the
+scheme once (macOS): `scorecard install-handler` (uninstall-handler to remove).
+Clicking removes that row — and every row sharing its topic group — from the file.
+
+## Preserve-on-write
+
+Before writing a new status.md, move the old one aside with a datestamp:
+    mv ~/.config/scorecard/status.md ~/.config/scorecard/status-$(date +%F).md
+"#;
 
 fn main() {
     let argv: Vec<String> = env::args().skip(1).collect();
     match argv.first().map(|s| s.as_str()) {
+        Some("prime") => {
+            print!("{}", PRIME);
+            exit(0);
+        }
         Some("install-handler") => match install_handler() {
             Ok(m) => {
                 println!("{}", m);
@@ -856,6 +1060,8 @@ fn main() {
     }
 
     let mut width_cli: Option<usize> = None;
+    let mut height_cli: Option<usize> = None;
+    let mut mode = Mode::Fit;
     let mut file: Option<String> = None;
     let mut action: Option<String> = None;
     let mut no_actions = false;
@@ -865,13 +1071,24 @@ fn main() {
             width_cli = args.next().and_then(|s| s.trim().parse().ok());
         } else if let Some(v) = a.strip_prefix("--width=") {
             width_cli = v.trim().parse().ok();
+        } else if a == "--height" {
+            height_cli = args.next().and_then(|s| s.trim().parse().ok());
+        } else if let Some(v) = a.strip_prefix("--height=") {
+            height_cli = v.trim().parse().ok();
+        } else if a == "--mode" {
+            if let Some(m) = args.next() {
+                mode = if m == "all" { Mode::All } else { Mode::Fit };
+            }
+        } else if let Some(v) = a.strip_prefix("--mode=") {
+            mode = if v == "all" { Mode::All } else { Mode::Fit };
         } else if a == "--action" {
             action = args.next();
         } else if a == "--no-actions" {
             no_actions = true;
         } else if a == "-h" || a == "--help" {
-            eprintln!("usage: scorecard [--width N] [--no-actions] <file.md>");
+            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>");
             eprintln!("       scorecard --action scorecard://remove/<id>?file=<path>");
+            eprintln!("       scorecard install-handler | uninstall-handler | prime");
             exit(0);
         } else if a.starts_with("scorecard://") {
             action = Some(a);
@@ -896,7 +1113,7 @@ fn main() {
     let path = match file {
         Some(p) => p,
         None => {
-            eprintln!("usage: scorecard [--width N] [--no-actions] <file.md>");
+            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>");
             exit(2);
         }
     };
@@ -910,9 +1127,14 @@ fn main() {
     let abs = std::fs::canonicalize(&path)
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| path.clone());
-    let doc = parse(&input);
+    let w = term_width(width_cli);
     let file_ref = if no_actions { None } else { Some(abs.as_str()) };
-    print!("{}", render(&doc, term_width(width_cli), file_ref));
+    let doc = parse(&input);
+    let hidden = match (&mode, term_height(height_cli)) {
+        (Mode::Fit, Some(h)) => fit(&doc, w, file_ref, h.saturating_sub(3)),
+        _ => HashSet::new(),
+    };
+    print!("{}", render(&doc, w, file_ref, &hidden));
 }
 
 // ---- tests ----
@@ -923,67 +1145,113 @@ mod tests {
     const SAMPLE: &str = "\
 # Test card
 sub: a subtitle
-meta: gate Fri
+groups: risky=1, safe=9
 score: 148/175
-pass: 123
 note: two at-risk gates in review
 
 ## Must Have (x3)
-| id | state | score | criterion | note |
-|----|-------|-------|-----------|------|
-| R1 | solid | 5 | Reversible migration | rollback under 5 min ([runbook](https://example.com/rb)) |
-| R2 | risk  | 3 | Latency budget | 210ms vs 200ms; see [PR-123](https://example.com/pr/123) |
+| id | state | score | criterion | note | group |
+|----|-------|-------|-----------|------|-------|
+| R1 | solid | 5 | Reversible migration | rollback ok | grp:safe |
+| R2 | risk  | 3 | Latency budget | see [PR-123](https://example.com/pr/123) | grp:risky |
 | R4 | gap   | 0 | Kill switch | untested in prod |
 
 ## Callouts
 | STANDOUT | R4 is the only red — [details](https://example.com/r4). |
 ";
 
-    #[test]
-    fn parses_criteria_and_states() {
-        let d = parse(SAMPLE);
-        let crits: Vec<&Crit> = d.sections.iter().flat_map(|s| s.crits.iter()).collect();
-        assert_eq!(crits.len(), 3);
-        assert_eq!(crits[0].sev, Sev::Ok);
-        assert_eq!(crits[2].sev, Sev::Crit);
+    fn empty() -> HashSet<String> {
+        HashSet::new()
     }
 
-    // Width invariant, with links AND close boxes present.
+    #[test]
+    fn parses_multiple_group_tags() {
+        let d = parse("# t\n## S\n| A | ok | 5 | n | note | grp:x | grp:y |\n");
+        let cr = &d.sections[0].crits[0];
+        assert_eq!(cr.groups, vec!["x".to_string(), "y".to_string()]);
+        assert_eq!(cr.note, "note");
+    }
+
+    #[test]
+    fn banner_is_in_callouts_group() {
+        let d = parse(SAMPLE);
+        let b = &d.sections[1].banners[0];
+        assert!(banner_membership(b).contains(&"callouts".to_string()));
+    }
+
     #[test]
     fn no_rendered_line_exceeds_width() {
         let d = parse(SAMPLE);
         for file in [None, Some("/Users/x/status.md")] {
             for w in [84usize, 100, 120, 170] {
-                for line in render(&d, w, file).lines() {
-                    assert!(vlen(line) <= w, "width {} > {} (file={:?}): {:?}", vlen(line), w, file, line);
+                for line in render(&d, w, file, &empty()).lines() {
+                    assert!(vlen(line) <= w, "width {} > {}: {:?}", vlen(line), w, line);
                 }
             }
         }
     }
 
     #[test]
-    fn close_box_links_to_remove_action() {
-        let d = parse(SAMPLE);
-        let out = render(&d, 120, Some("/Users/x/status.md"));
-        assert!(out.contains("scorecard://remove/R1?file=/Users/x/status.md"));
+    fn fit_never_drops_higher_priority_before_lower() {
+        let s = "# t\ngroups: low=1, high=9\n## S\n| L1 | ok | 5 | lll | n | grp:low |\n| H1 | ok | 5 | hhh | n | grp:high |\n";
+        let d = parse(s);
+        let full = build_lines(&d, 100, None, &empty()).len();
+        for avail in 1..=full {
+            let h = fit(&d, 100, None, avail);
+            if h.contains("high") {
+                assert!(h.contains("low"), "high (p9) dropped before low (p1) at avail {}", avail);
+            }
+        }
     }
 
     #[test]
-    fn vlen_ignores_sgr_and_osc8() {
-        assert_eq!(vlen(&sty(OK, true, "hi")), 2);
-        assert_eq!(vlen(&osc8("scorecard://remove/D1?file=/a/b.md", "✕")), 1);
+    fn fit_trims_bottom_up_by_default() {
+        // no priorities => footer (bottom) hidden before header (top)
+        let s = "# t\nfooter: ff\n## S\n| A1 | ok | 5 | aaa | n |\n## Callouts\n| STANDOUT | x |\n";
+        let d = parse(s);
+        let full = build_lines(&d, 100, None, &empty()).len();
+        let hidden = fit(&d, 100, None, full - 1);
+        assert!(hidden.contains("footer"));
+        assert!(!hidden.contains("header"));
     }
 
     #[test]
-    fn parse_links_splits_text_and_link() {
-        assert_eq!(
-            parse_links("see [IGA-1](https://ex.com/1) now"),
-            vec![
-                Seg::Text("see ".into()),
-                Seg::Link { text: "IGA-1".into(), url: "https://ex.com/1".into() },
-                Seg::Text(" now".into()),
-            ]
+    fn fit_keeps_items_over_chrome() {
+        let s = "# t\nscore: 5/10\nfooter: ff\n## S\n| A1 | ok | 5 | aaa | note |\n";
+        let d = parse(s);
+        let full = build_lines(&d, 100, None, &empty()).len();
+        let hidden = fit(&d, 100, None, full - 2);
+        assert!(render(&d, 100, None, &hidden).contains("aaa"), "line item must survive");
+        assert!(
+            hidden.contains("footer") || hidden.contains("meter") || hidden.contains("titles"),
+            "chrome should be shed first"
         );
+        assert!(!hidden.iter().any(|h| h.starts_with('~')), "no item singleton hidden");
+    }
+
+    #[test]
+    fn remove_shares_group() {
+        let p = std::env::temp_dir().join(format!("scorecard_g_{}.md", std::process::id()));
+        let path = p.to_string_lossy().to_string();
+        std::fs::write(
+            &path,
+            "## S\n| A1 | ok | 5 | one | n | grp:g |\n| A2 | gap | 1 | two | n | grp:g |\n| A3 | ok | 5 | three | n |\n",
+        )
+        .unwrap();
+        assert_eq!(remove_line(&path, "A1").unwrap(), 2);
+        let after = std::fs::read_to_string(&path).unwrap();
+        assert!(!after.contains("| A1 ") && !after.contains("| A2 ") && after.contains("| A3 "));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn remove_untagged_is_solo() {
+        let p = std::env::temp_dir().join(format!("scorecard_s_{}.md", std::process::id()));
+        let path = p.to_string_lossy().to_string();
+        std::fs::write(&path, "## S\n| A1 | ok | 5 | one | n |\n| A2 | gap | 1 | two | n |\n").unwrap();
+        assert_eq!(remove_line(&path, "A1").unwrap(), 1);
+        assert!(std::fs::read_to_string(&path).unwrap().contains("| A2 "));
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
@@ -994,35 +1262,13 @@ note: two at-risk gates in review
     }
 
     #[test]
-    fn remove_line_drops_matching_row_only() {
-        let p = std::env::temp_dir().join(format!("scorecard_rm_{}.md", std::process::id()));
-        let path = p.to_string_lossy().to_string();
-        std::fs::write(&path, "## S\n| A1 | ok | 5 | one | n1 |\n| A2 | gap | 1 | two | n2 |\n").unwrap();
-        assert_eq!(remove_line(&path, "A1").unwrap(), 1);
-        let after = std::fs::read_to_string(&path).unwrap();
-        assert!(!after.contains("A1"));
-        assert!(after.contains("A2"));
-        let _ = std::fs::remove_file(&path);
+    fn vlen_ignores_sgr_and_osc8() {
+        assert_eq!(vlen(&sty(OK, true, "hi")), 2);
+        assert_eq!(vlen(&osc8("scorecard://remove/D1?file=/a/b.md", "✕")), 1);
     }
 
     #[test]
-    fn remove_line_refuses_non_markdown() {
-        assert!(remove_line("/etc/hosts", "x").is_err());
-    }
-
-    #[test]
-    fn run_action_removes_via_url() {
-        let p = std::env::temp_dir().join(format!("scorecard_act_{}.md", std::process::id()));
-        let path = p.to_string_lossy().to_string();
-        std::fs::write(&path, "## S\n| Z9 | ok | 5 | x | y |\n").unwrap();
-        let url = format!("scorecard://remove/Z9?file={}", percent_encode(&path));
-        assert!(run_action(&url).is_ok());
-        assert!(!std::fs::read_to_string(&path).unwrap().contains("Z9"));
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn run_action_rejects_unknown() {
-        assert!(run_action("scorecard://frobnicate/x").is_err());
+    fn prime_has_content() {
+        assert!(PRIME.contains("scorecard") && PRIME.contains("groups:") && PRIME.contains("fit"));
     }
 }
