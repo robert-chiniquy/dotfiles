@@ -1703,6 +1703,6 @@ autoload -Uz compinit && compinit -C
 # Disable: export SCORECARD_GREETING=0   ·   point elsewhere: export SCORECARD_FILE=<path>
 if [[ -o interactive && -t 1 && "${SCORECARD_GREETING:-1}" != 0 ]] && command -v scorecard &>/dev/null; then
   _sc_file="${SCORECARD_FILE:-$HOME/.config/scorecard/status.md}"
-  [[ -r "$_sc_file" ]] && scorecard --width "$COLUMNS" "$_sc_file"
+  [[ -r "$_sc_file" ]] && scorecard --width "$COLUMNS" --height "$LINES" "$_sc_file"
   unset _sc_file
 fi
