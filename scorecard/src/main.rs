@@ -1112,6 +1112,11 @@ you wrote here, do not assume your items survived — periodically re-read what
 remains. `scorecard list [file]` prints the current items as markdown (id, name,
 state); diff it against what you wrote to see what the user dropped.
 
+And prune proactively: if you notice an item has gone stale — a branch that
+merged, a ticket that closed, work that finished — just remove it, no need to
+ask. Drop the row from the file, or run
+`scorecard --action scorecard://remove/<id>?file=<path>`.
+
 ## Compose well
 
 - Scope to the user's surface: only what they own, drive, are blocked on, or must
