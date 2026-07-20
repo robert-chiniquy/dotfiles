@@ -792,9 +792,25 @@ fn banner_color(tag: &str) -> [u8; 3] {
     }
 }
 
+fn crit_column_widths(doc: &Doc, hidden: &HashSet<String>, id_budget: usize) -> (usize, usize) {
+    let mut id_width = 1;
+    let mut score_width = 1;
+    for (si, section) in doc.sections.iter().enumerate() {
+        for cr in &section.crits {
+            if !crit_visible(si, cr, hidden) {
+                continue;
+            }
+            id_width = id_width.max(seg_vlen(&parse_links(&cr.id)).min(id_budget));
+            score_width = score_width.max(cr.score.chars().count());
+        }
+    }
+    (id_width, score_width)
+}
+
 fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>) -> Vec<String> {
     let mut cv = Canvas::new(w);
     let iw = cv.iw;
+    let (id_width, score_width) = crit_column_widths(doc, hidden, cv.nw);
 
     cv.top();
     if !hidden.contains("header") {
@@ -908,11 +924,15 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
                         None => String::new(),
                     };
                     let cwid = vlen(&close);
-                    let id_r = render_field(&cr.id, cv.nw, &format!("{}{}", c(cr.sev.color()), BOLD));
+                    let id_r = pad_end(
+                        &render_field(&cr.id, id_width, &format!("{}{}", c(cr.sev.color()), BOLD)),
+                        id_width,
+                    );
                     let name = pad_end(&trunc(&cr.name, cv.nw), cv.nw);
+                    let score = pad_end(&cr.score, score_width);
                     let left = format!(
                         "{}▌{} {} {}{} {} {}{}{}{}",
-                        c(cr.sev.color()), RESET, id_r, c(TEXT), name, pill(cr.sev), c(cr.sev.color()), BOLD, cr.score, RESET
+                        c(cr.sev.color()), RESET, id_r, c(TEXT), name, pill(cr.sev), c(cr.sev.color()), BOLD, score, RESET
                     );
                     let budget = iw.saturating_sub(vlen(&left) + 1 + cwid);
                     let note = if budget > 6 && !cr.note.is_empty() {
@@ -1339,6 +1359,32 @@ note: two at-risk gates in review
                 }
             }
         }
+    }
+
+    #[test]
+    fn criterion_columns_align_for_mixed_id_and_score_widths() {
+        let d = parse(
+            "# t\n## S\n| A | risk | 5 | alpha | first justification |\n| LONG-ID | risk | 100 | beta | second justification |\n",
+        );
+        let rendered = render(&d, 120, None, &empty());
+        let first = rendered
+            .lines()
+            .find(|line| line.contains("first justification"))
+            .unwrap();
+        let second = rendered
+            .lines()
+            .find(|line| line.contains("second justification"))
+            .unwrap();
+
+        let column = |line: &str, needle: &str| {
+            let byte = line.find(needle).unwrap();
+            vlen(&line[..byte])
+        };
+        assert_eq!(column(first, "AT RISK"), column(second, "AT RISK"));
+        assert_eq!(
+            column(first, "first justification"),
+            column(second, "second justification")
+        );
     }
 
     #[test]
