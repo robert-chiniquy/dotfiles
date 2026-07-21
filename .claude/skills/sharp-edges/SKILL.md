@@ -9,258 +9,82 @@ allowed-tools:
 
 # Sharp Edges Analysis
 
-Evaluates whether APIs, configurations, and interfaces are resistant to developer misuse. Identifies designs where the "easy path" leads to insecurity.
+Find designs where the easy path leads to insecurity. Secure usage must be the path of least resistance; if correct use requires reading docs carefully or remembering special rules, the API has failed. Not for implementation bugs or business-logic flaws — this is design review.
 
-## When to Use
+Reject these rationalizations; they don't excuse a footgun:
+- "It's documented" — docs affect severity, never excuse the design
+- "Advanced users need flexibility" — most advanced usage is copy-paste; hide primitives behind safe high-level APIs
+- "Nobody would do that" — assume maximum developer confusion
+- "It's just a config option / developer's responsibility" — config is code; validate it, reject dangerous combinations
+- "Backwards compatibility" — insecure defaults can't be grandfathered; deprecate loudly
 
-- Reviewing API or library design decisions
-- Auditing configuration schemas for dangerous options
-- Evaluating cryptographic API ergonomics
-- Assessing authentication/authorization interfaces
-- Reviewing any code that exposes security-relevant choices to developers
+## Taxonomy
 
-## When NOT to Use
+### 1. Algorithm/mode selection
+Parameters named `algorithm`, `mode`, `cipher`, `hash_type`; enums/strings selecting primitives. Canonical: JWT — attacker-controlled header selects `"alg": "none"`, or RS256→HS256 confusion turns the RSA public key into the HMAC secret. Root cause: untrusted input controls a security decision. Also: `hash($algorithm, $password)` accepts `"crc32"`; `password_hash($p, PASSWORD_DEFAULT)` offers no choice — good.
 
-- Implementation bugs (use standard code review)
-- Business logic flaws (use domain-specific analysis)
-- Performance optimization (different concern)
+### 2. Dangerous defaults and magic values
+Probe every security parameter with `0`, `""`, `null`, `[]`, `-1`:
+- `lifetime=0` — accept-all or expire-immediately?
+- `session_timeout: -1` — never expire?
+- empty key/password that bypasses the check
+- boolean defaults that disable security
 
-## Core Principle
+Is the default the most secure option? Can any single value disable security entirely?
 
-**The pit of success**: Secure usage should be the path of least resistance. If developers must understand cryptography, read documentation carefully, or remember special rules to avoid vulnerabilities, the API has failed.
+### 3. Primitive vs. semantic types
+Same raw type (`bytes`, `string`, `[]byte`) for keys, nonces, ciphertexts, signatures — parameters swappable with no type error. Libsodium vs Halite: `sodium_crypto_box($msg, $nonce, $keypair)` lets you swap nonce/keypair or reuse nonces; `Crypto::seal($msg, new EncryptionPublicKey($key))` makes the wrong key a type error.
 
-## Rationalizations to Reject
-
-| Rationalization | Why It's Wrong | Required Action |
-|-----------------|----------------|-----------------|
-| "It's documented" | Developers don't read docs under deadline pressure | Make the secure choice the default or only option |
-| "Advanced users need flexibility" | Flexibility creates footguns; most "advanced" usage is copy-paste | Provide safe high-level APIs; hide primitives |
-| "It's the developer's responsibility" | Blame-shifting; you designed the footgun | Remove the footgun or make it impossible to misuse |
-| "Nobody would actually do that" | Developers do everything imaginable under pressure | Assume maximum developer confusion |
-| "It's just a configuration option" | Config is code; wrong configs ship to production | Validate configs; reject dangerous combinations |
-| "We need backwards compatibility" | Insecure defaults can't be grandfather-claused | Deprecate loudly; force migration |
-
-## Sharp Edge Categories
-
-### 1. Algorithm/Mode Selection Footguns
-
-APIs that let developers choose algorithms invite choosing wrong ones.
-
-**The JWT Pattern** (canonical example):
-- Header specifies algorithm: attacker can set `"alg": "none"` to bypass signatures
-- Algorithm confusion: RSA public key used as HMAC secret when switching RS256→HS256
-- Root cause: Letting untrusted input control security-critical decisions
-
-**Detection patterns:**
-- Function parameters like `algorithm`, `mode`, `cipher`, `hash_type`
-- Enums/strings selecting cryptographic primitives
-- Configuration options for security mechanisms
-
-**Example - PHP password_hash allowing weak algorithms:**
-```php
-// DANGEROUS: allows crc32, md5, sha1
-password_hash($password, PASSWORD_DEFAULT); // Good - no choice
-hash($algorithm, $password); // BAD: accepts "crc32"
-```
-
-### 2. Dangerous Defaults
-
-Defaults that are insecure, or zero/empty values that disable security.
-
-**The OTP Lifetime Pattern:**
-```python
-# What happens when lifetime=0?
-def verify_otp(code, lifetime=300):  # 300 seconds default
-    if lifetime == 0:
-        return True  # OOPS: 0 means "accept all"?
-        # Or does it mean "expired immediately"?
-```
-
-**Detection patterns:**
-- Timeouts/lifetimes that accept 0 (infinite? immediate expiry?)
-- Empty strings that bypass checks
-- Null values that skip validation
-- Boolean defaults that disable security features
-- Negative values with undefined semantics
-
-**Questions to ask:**
-- What happens with `timeout=0`? `max_attempts=0`? `key=""`?
-- Is the default the most secure option?
-- Can any default value disable security entirely?
-
-### 3. Primitive vs. Semantic APIs
-
-APIs that expose raw bytes instead of meaningful types invite type confusion.
-
-**The Libsodium vs. Halite Pattern:**
-
-```php
-// Libsodium (primitives): bytes are bytes
-sodium_crypto_box($message, $nonce, $keypair);
-// Easy to: swap nonce/keypair, reuse nonces, use wrong key type
-
-// Halite (semantic): types enforce correct usage
-Crypto::seal($message, new EncryptionPublicKey($key));
-// Wrong key type = type error, not silent failure
-```
-
-**Detection patterns:**
-- Functions taking `bytes`, `string`, `[]byte` for distinct security concepts
-- Parameters that could be swapped without type errors
-- Same type used for keys, nonces, ciphertexts, signatures
-
-**The comparison footgun:**
+The comparison lookalike:
 ```go
-// Timing-safe comparison looks identical to unsafe
-if hmac == expected { }           // BAD: timing attack
-if hmac.Equal(mac, expected) { }  // Good: constant-time
-// Same types, different security properties
+if hmac == expected { }          // timing attack
+if hmac.Equal(mac, expected) { } // constant-time
 ```
+Same types, different security properties.
 
-### 4. Configuration Cliffs
+### 4. Configuration cliffs
+- boolean flags that disable security entirely
+- unvalidated strings: `verify_ssl: fasle` — typo silently truthy?
+- dangerous combinations accepted silently: `auth_required: true` + `bypass_auth_for_health_checks: true` + `health_check_path: "/"`
+- environment variables that override security settings
+- constructor params with good defaults but no validation — `$hashAlgo = 'sha256'` still accepts `md5`; a default is not a validator. See [config-patterns.md](references/config-patterns.md#unvalidated-constructor-parameters).
 
-One wrong setting creates catastrophic failure, with no warning.
+### 5. Silent failures
+- verify functions that return bool where sibling APIs throw — return value silently ignored
+- `if not key: return True` — missing key skips verification
+- default values substituted on parse errors
+- verification that "succeeds" on malformed input
 
-**Detection patterns:**
-- Boolean flags that disable security entirely
-- String configs that aren't validated
-- Combinations of settings that interact dangerously
-- Environment variables that override security settings
-- Constructor parameters with sensible defaults but no validation (callers can override with insecure values)
+### 6. Stringly-typed security
+Permissions/roles/scopes as comma-joined strings (`permissions += ",admin"`) instead of enums/sets; SQL, commands, and URLs built by concatenation.
 
-**Examples:**
-```yaml
-# One typo = disaster
-verify_ssl: fasle  # Typo silently accepted as truthy?
+## Adversaries
 
-# Magic values
-session_timeout: -1  # Does this mean "never expire"?
+Evaluate each developer choice point against three:
+- **Scoundrel** — controls config: can they disable security, downgrade algorithms, inject values?
+- **Lazy developer** — copy-pastes the first example found: is it secure? Do error messages steer toward safe usage?
+- **Confused developer** — can they swap parameters or pick the wrong key/mode by accident? Are failures loud?
 
-# Dangerous combinations accepted silently
-auth_required: true
-bypass_auth_for_health_checks: true
-health_check_path: "/"  # Oops
-```
+Validate each finding: write the minimal misuse and confirm it creates a real vulnerability.
 
-```php
-// Sensible default doesn't protect against bad callers
-public function __construct(
-    public string $hashAlgo = 'sha256',  // Good default...
-    public int $otpLifetime = 120,       // ...but accepts md5, 0, etc.
-) {}
-```
+## Severity
 
-See [config-patterns.md](references/config-patterns.md#unvalidated-constructor-parameters) for detailed patterns.
-
-### 5. Silent Failures
-
-Errors that don't surface, or success that masks failure.
-
-**Detection patterns:**
-- Functions returning booleans instead of throwing on security failures
-- Empty catch blocks around security operations
-- Default values substituted on parse errors
-- Verification functions that "succeed" on malformed input
-
-**Examples:**
-```python
-# Silent bypass
-def verify_signature(sig, data, key):
-    if not key:
-        return True  # No key = skip verification?!
-
-# Return value ignored
-signature.verify(data, sig)  # Throws on failure
-crypto.verify(data, sig)     # Returns False on failure
-# Developer forgets to check return value
-```
-
-### 6. Stringly-Typed Security
-
-Security-critical values as plain strings enable injection and confusion.
-
-**Detection patterns:**
-- SQL/commands built from string concatenation
-- Permissions as comma-separated strings
-- Roles/scopes as arbitrary strings instead of enums
-- URLs constructed by joining strings
-
-**The permission accumulation footgun:**
-```python
-permissions = "read,write"
-permissions += ",admin"  # Too easy to escalate
-
-# vs. type-safe
-permissions = {Permission.READ, Permission.WRITE}
-permissions.add(Permission.ADMIN)  # At least it's explicit
-```
-
-## Analysis Workflow
-
-### Phase 1: Surface Identification
-
-1. **Map security-relevant APIs**: authentication, authorization, cryptography, session management, input validation
-2. **Identify developer choice points**: Where can developers select algorithms, configure timeouts, choose modes?
-3. **Find configuration schemas**: Environment variables, config files, constructor parameters
-
-### Phase 2: Edge Case Probing
-
-For each choice point, ask:
-- **Zero/empty/null**: What happens with `0`, `""`, `null`, `[]`?
-- **Negative values**: What does `-1` mean? Infinite? Error?
-- **Type confusion**: Can different security concepts be swapped?
-- **Default values**: Is the default secure? Is it documented?
-- **Error paths**: What happens on invalid input? Silent acceptance?
-
-### Phase 3: Threat Modeling
-
-Consider three adversaries:
-
-1. **The Scoundrel**: Actively malicious developer or attacker controlling config
-   - Can they disable security via configuration?
-   - Can they downgrade algorithms?
-   - Can they inject malicious values?
-
-2. **The Lazy Developer**: Copy-pastes examples, skips documentation
-   - Will the first example they find be secure?
-   - Is the path of least resistance secure?
-   - Do error messages guide toward secure usage?
-
-3. **The Confused Developer**: Misunderstands the API
-   - Can they swap parameters without type errors?
-   - Can they use the wrong key/algorithm/mode by accident?
-   - Are failure modes obvious or silent?
-
-### Phase 4: Validate Findings
-
-For each identified sharp edge:
-
-1. **Reproduce the misuse**: Write minimal code demonstrating the footgun
-2. **Verify exploitability**: Does the misuse create a real vulnerability?
-3. **Check documentation**: Is the danger documented? (Documentation doesn't excuse bad design, but affects severity)
-4. **Test mitigations**: Can the API be used safely with reasonable effort?
-
-If a finding seems questionable, return to Phase 2 and probe more edge cases.
-
-## Severity Classification
-
-| Severity | Criteria | Examples |
-|----------|----------|----------|
-| Critical | Default or obvious usage is insecure | `verify: false` default; empty password allowed |
-| High | Easy misconfiguration breaks security | Algorithm parameter accepts "none" |
-| Medium | Unusual but possible misconfiguration | Negative timeout has unexpected meaning |
-| Low | Requires deliberate misuse | Obscure parameter combination |
+| Severity | Criteria |
+|----------|----------|
+| Critical | Default or obvious usage is insecure (`verify: false` default; empty password accepted) |
+| High | Easy misconfiguration breaks security (`algorithm` accepts "none") |
+| Medium | Unusual but possible misconfiguration (negative timeout means never-expire) |
+| Low | Requires deliberate misuse |
 
 ## References
 
-**By category:**
+By category:
+- Cryptographic APIs: [references/crypto-apis.md](references/crypto-apis.md)
+- Configuration patterns: [references/config-patterns.md](references/config-patterns.md)
+- Authentication/session: [references/auth-patterns.md](references/auth-patterns.md)
+- Case studies (OpenSSL, GMP, etc.): [references/case-studies.md](references/case-studies.md)
 
-- **Cryptographic APIs**: See [references/crypto-apis.md](references/crypto-apis.md)
-- **Configuration Patterns**: See [references/config-patterns.md](references/config-patterns.md)
-- **Authentication/Session**: See [references/auth-patterns.md](references/auth-patterns.md)
-- **Real-World Case Studies**: See [references/case-studies.md](references/case-studies.md) (OpenSSL, GMP, etc.)
-
-**By language** (general footguns, not crypto-specific):
+By language (general footguns, not crypto-specific):
 
 | Language | Guide |
 |----------|-------|
@@ -276,17 +100,4 @@ If a finding seems questionable, return to Phase 2 and probe more edge cases.
 | Python | [references/lang-python.md](references/lang-python.md) |
 | Ruby | [references/lang-ruby.md](references/lang-ruby.md) |
 
-See also [references/language-specific.md](references/language-specific.md) for a combined quick reference.
-
-## Quality Checklist
-
-Before concluding analysis:
-
-- [ ] Probed all zero/empty/null edge cases
-- [ ] Verified defaults are secure
-- [ ] Checked for algorithm/mode selection footguns
-- [ ] Tested type confusion between security concepts
-- [ ] Considered all three adversary types
-- [ ] Verified error paths don't bypass security
-- [ ] Checked configuration validation
-- [ ] Constructor params validated (not just defaulted) - see [config-patterns.md](references/config-patterns.md#unvalidated-constructor-parameters)
+Combined quick reference: [references/language-specific.md](references/language-specific.md)

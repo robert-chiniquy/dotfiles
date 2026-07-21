@@ -135,64 +135,68 @@
     ],
     "defaultMode": "acceptEdits"
   },
-  "model": "opus[1m]",
+  "model": "fable",
   "hooks": {
     "PreCompact": [
       {
+        "matcher": "",
         "hooks": [
           {
-            "command": "bd prime",
-            "type": "command"
+            "type": "command",
+            "command": "bd prime"
           }
-        ],
-        "matcher": ""
+        ]
       }
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash",
         "hooks": [
           {
-            "command": "/Users/rch/.claude/hooks/block-cd.sh",
-            "type": "command"
+            "type": "command",
+            "command": "/Users/rch/.claude/hooks/block-cd.sh"
           },
           {
-            "command": "/Users/rch/.claude/hooks/block-subagent-destructive.sh",
-            "type": "command"
+            "type": "command",
+            "command": "/Users/rch/.claude/hooks/block-subagent-destructive.sh"
           },
           {
-            "command": "/Users/rch/.claude/hooks/rtk-rewrite.sh",
-            "type": "command"
+            "type": "command",
+            "command": "/Users/rch/.claude/hooks/rtk-rewrite.sh"
           }
-        ],
-        "matcher": "Bash"
+        ]
       },
       {
+        "matcher": "Grep|Glob|Read|Search",
         "hooks": [
           {
-            "command": "~/.claude/hooks/cbm-code-discovery-gate",
-            "type": "command"
+            "type": "command",
+            "command": "~/.claude/hooks/cbm-code-discovery-gate"
           }
-        ],
-        "matcher": "Grep|Glob|Read|Search"
+        ]
       }
     ],
     "SessionStart": [
       {
+        "matcher": "",
         "hooks": [
           {
-            "command": "bd prime",
-            "type": "command"
+            "type": "command",
+            "command": "bd prime"
           },
           {
-            "command": "~/.claude/hooks/cbm-session-reminder",
-            "type": "command"
+            "type": "command",
+            "command": "~/.claude/hooks/cbm-session-reminder"
           },
           {
-            "command": "sqfan prime --brief",
-            "type": "command"
+            "type": "command",
+            "command": "sqfan prime --brief"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/large-transcript-warn"
           }
-        ],
-        "matcher": ""
+        ]
       }
     ]
   },
@@ -204,7 +208,7 @@
     "claude-hud@claude-hud": true,
     "gopls-lsp@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": false,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true
