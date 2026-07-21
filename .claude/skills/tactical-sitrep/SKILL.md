@@ -5,131 +5,45 @@ description: Tactical situation report scoped to ONE proximate goal with a hard 
 
 # Tactical Sitrep
 
-## Overview
+One milestone, one target date, one calibrated A/B/C answer to "are we landing this on time?" Harsh scope: only items that ship-or-don't-ship at that deadline — not the next milestone, not the long tail. Two milestones = two sitreps, run in series. Also useful after landing a substantial commit cluster, to verify it moved the milestone the way expected.
 
-A sitrep is the opposite of an orient. Orient is gestaltic — sweep everything, surface trajectory, present the world. Sitrep is proximate — pick one goal, ignore everything else, answer "are we landing this on time?" in calibrated form.
-
-Sitreps are about HARSH SCOPE. A sitrep for an alpha milestone does not look at the downstream audit, does not look at the launch beyond it, does not enumerate the long tail. Only the items that ship-or-don't-ship at the deadline in question.
-
-Run a sitrep when the user names a specific deadline (milestone, demo, release, audit kick-off) and wants a current read on landing it. Do not run a sitrep as a general status check; use a project orient skill for that.
-
-## When to use
-
-- User names a specific milestone with a known target date ("alpha", "early access", "the demo", "the launch", "the audit", "Friday's freeze").
-- User asks a calibrated A/B/C question about a deadline ("am I behind / on track / ahead?").
-- A deadline is approaching and the user wants to know if any in-flight work is silently failing.
-- After landing a substantial commit cluster, to verify it moved the milestone needle the way expected.
-
-## When NOT to use
-
-- General "what's the state of the project" questions — use orient.
-- "What should I work on next" with no time pressure — use a backlog sweep.
-- Single-PR status check — use pr-pass or `gh pr view` directly.
-- Strategic planning, scope decisions, prioritization across milestones — different skill family.
+Not this skill: general project state (orient), "what next" with no time pressure (backlog sweep), single-PR status (pr-pass / `gh pr view`), prioritization across milestones.
 
 ## Workflow
 
-### Phase 1 — Pin the goal
+1. **Pin the goal.** State goal name, target date, days remaining (compute from today).
 
-Identify exactly one milestone, with one target date and one in-scope ticket query. Do not let the user's question drift you into broader scope. If they ask "am I on track for Alpha and EAP?" — that's two sitreps; run them separately, in series.
+2. **Enumerate scope** from the authoritative tracker via a milestone-filtered query. Per item: id, title, status, assignee, priority, last-updated. Items marked Duplicate / Won't fix / Deferred, or unassigned low-priority with no signs of life: list separately as "effectively descoped" and exclude from the in-scope count.
 
-State explicitly: the goal name, the target date, and the number of days remaining (compute from `today`).
+3. **Pull real-world signals per item** (parallel subagent fan-out if more than ~3 items). The tracker says what state the work *claims* to be in; these say whether the claim holds:
+   - PR state: number, draft, mergeStateStatus, mergeable, last-push timestamp, last 3 commit messages.
+   - CI: pass/fail/pending check counts; first failing job name.
+   - Review: latest reviewer + state; approved vs CHANGES_REQUESTED.
+   - Comment cadence: review-thread comments in the last 7 days (silent = stalled signal).
+   - Blocker hints in the PR body ("Blocked on Y", "Requires bumping X").
+   - Chains: one tracker item spanning coordinated PRs across repos. `proto → SDK → shells → server` is four ordered merges — report it as such, never as 1 item.
+   - If the user has wiki / chat / knowledge-base sources, fan out another subagent for recent activity on the same items + assignees. Risks raised in chat but never ticketed are the highest-value signal a sitrep surfaces.
 
-### Phase 2 — Enumerate scope from the authoritative tracker
+4. **Cross-reference tracker claim vs reality**; surface every mismatch:
+   - "In Review": does the PR exist, non-draft, CI green, reviewer assigned? Draft + no reviewer = aspirational.
+   - "Done": merged, or only approved? Approved + green + mergeable is one click from merged, but unmerged is not landed. Deployed where the milestone needs it?
+   - "Backlog" / low-priority: recent pushes to a related branch by that author override the label.
+   - Headline metric ("8% complete"): does it weight the must-ship items, or count low-priority items equally? Decompose if needed.
 
-Pull the in-scope items from the canonical tracker for this project. For ticketing-system-tracked work, query the milestone directly (e.g. via the ticketing system's MCP integration or CLI). For local-tracker work, the equivalent milestone-filtered list command.
+5. **A/B/C call.** One letter, no hedge; nuance goes in the reasoning bullets (1-2, citing step-4 state). If sub-tracks diverge (engineering ready, decisions blocked), the decisive sub-track's letter is the headline.
+   - **A — Behind**: will miss at current cadence, OR a must-ship item has no path to landing in time. Language: "Behind on calendar-load. Reason: <item or decision with no landing path>. Most pressing: <action>."
+   - **B — Roughly on track**: every in-scope item has a plausible landing path; residual risk is execution/coordination, not unknown work. Language: "Roughly on track. All in-scope items have plausible landing paths. Primary risk: <execution / coordination / review-velocity risk>. Most pressing: <action>."
+   - **C — Ahead**: landing faster than the timeline requires; buffer exists. Language: "Ahead. Buffer of <N> days at current cadence. Most pressing: <protect-buffer action — usually 'don't add scope'>."
 
-Capture per item: identifier, title, status, assignee, priority, last-updated. **Do not enumerate every field; you need just enough to drive Phase 3.**
+   "B-leaning-A" is not calibrated; pick one. "Tight but doable" is B with risk noted — if tight means will-miss, it is A.
 
-If a tracker item is marked "Duplicate", "Won't fix", "Deferred", or low-priority/unassigned with no signs of life, list it separately as "effectively descoped" and exclude from the in-scope count.
+6. **Single most calendar-pressing action.** Exactly one: the action that, if not taken in the next 48 hours, most narrows the path to landing. Name the artifact, not the author. It may not be a PR at all — auditor bookings, vendor commitments, regulatory filings live on no PR board; watch for them whenever the milestone implies one. Fuller punch-list only on request.
 
-### Phase 3 — Pull real-world signals per in-scope item
+## Output
 
-This is the heart of the sitrep. The tracker tells you what state the work *claims* to be in. Real-world signals tell you whether that claim holds.
-
-For each in-scope item, fetch (parallel-fan-out via subagents if more than ~3 items):
-
-- **PR state**: number, draft, mergeStateStatus, mergeable, last-push timestamp, last 3 commit messages.
-- **CI**: total checks + pass/fail/pending counts; first failing job name.
-- **Review state**: latest review's reviewer + state; whether the PR is approved or has CHANGES_REQUESTED.
-- **Comment cadence**: review-thread comments in the last 7 days. Stale threads = stalled signal.
-- **Blocker hints in the PR body** ("Requires bumping X", "Blocked on Y", "Waiting on Z").
-- **Chains**: does this single tracker item correspond to multiple coordinated PRs across multiple repos? If so, list each.
-
-When chains exist, the tracker's "1 item in review" is misleading. A chain of `proto → SDK → shells → server` is four merges in a specific order; report it as such.
-
-If the user has additional sources (wiki design docs, chat threads, internal knowledge base), fan out a third subagent to pull recent activity from those for the same set of items + assignees. Risks raised in chat but not yet ticketed are the highest-value signal a sitrep can surface; they are *the* reason to look beyond the tracker.
-
-### Phase 4 — Cross-reference: tracker claim vs. real-world state
-
-For each item, compare:
-
-- Tracker says "In Review" — does the PR actually exist, is it not-draft, is CI green, are there reviewers? If draft + no reviewer, "In Review" is aspirational.
-- Tracker says "Done" — is the PR actually merged, or only approved? Has it deployed to where the milestone needs it?
-- Tracker says "Backlog" or low-priority — is anyone actually working on it? Recent pushes to a related branch under that author would override the tracker label.
-- Headline metric ("8% complete") — does it weight the load-bearing items, or count low-priority items equally? Decompose if needed.
-
-Surface mismatches explicitly. The user will trust the tracker less after this skill runs than before; that is the intent.
-
-### Phase 5 — Synthesize the A/B/C call
-
-Produce a single calibrated label:
-
-- **A — Behind**: the deadline will be missed at current cadence, OR has a load-bearing item with no path to landing in time.
-- **B — Roughly on track**: all in-scope items have plausible landing paths; the risk is in execution and coordination, not in unknown work.
-- **C — Ahead**: items are landing faster than the timeline requires; buffer exists.
-
-Do not hedge. If the answer is A, say A. If it is B, say B. If two sub-tracks are at different states (e.g. "engineering ready, decisions blocked"), call out the decisive sub-track and give that one's letter as the headline.
-
-For each letter, give the *specific* reason in one or two bullets, citing the cross-referenced state from Phase 4.
-
-### Phase 6 — Identify the single most calendar-pressing action
-
-End with one action that has the highest leverage. Not three, not five. One. The criterion is: which action, if not taken in the next 48 hours, most narrows the path to landing the milestone?
-
-Examples by shape (genericized — name the artifact, not the author):
-
-- "Review and merge the in-review SDK PR. It is mergeable with zero reviews on it, and N downstream items are sequenced behind it."
-- "Book the auditor. <N> days to kick-off-by. No PR can move this calendar item; it is a phone call."
-- "Decide the gating policy-default question. One in-review server PR cannot land safely until this is resolved, and two more items are sequenced behind that."
-
-Only follow with a fuller punch-list if the user asks for it.
-
-## Output discipline
-
-- Tight tables, not paragraphs.
-- Cite specific PR / issue / commit IDs for every claim.
-- **Every PR mentioned gets a footnote URL.** When the sitrep is written to a doc, each PR referenced (by `#number` or `repo#number`) must carry a numbered footnote linking to its full URL, collected in a `## PR references` footnote block at the bottom. The inline text stays terse (`c1#18648`); the footnote carries the clickable `https://github.com/<owner>/<repo>/pull/<number>`. One footnote per distinct PR; reuse the same marker if a PR is cited more than once. This applies to the written doc, not to a quick inline chat reply.
-- One A/B/C call, headline, no hedge.
-- No bold-item + list clutter.
-- No effort estimates, no headcount language.
-- No emojis.
-- Lead with the answer (A/B/C); reasoning under it; one action at the bottom.
-
-## Common Mistakes
-
-- **Broadening scope under pressure.** When the picture looks complicated, the temptation is to widen scope to feel comprehensive. Don't. A sitrep for one milestone that ends up talking about the next milestone has failed.
-- **Trusting "In Review" without verification.** The tracker says In Review; the PR is in draft, has no reviewers, has 0 comments in 7 days. That is not In Review in any operationally useful sense.
-- **Counting items, not chains.** When one tracker item corresponds to coordinated PRs across multiple repos (proto + SDK + shells + server, for example), the work is N× the count. Don't report it as 1.
-- **Confusing approved with merged.** Approved + CI green + mergeable is *one click* from merged. But while it sits unmerged, the milestone is not landed. Don't conflate.
-- **Skipping the chat-side surface.** Wiki design docs, chat threads, in-flight design questions that have not been ticketed are the highest-value source for "what will surprise us." Always check.
-- **Hedging the A/B/C call.** "B-leaning-A" is not a calibrated answer. Pick one. The reasoning bullets can carry nuance.
-- **Listing more than one calendar-pressing action.** Three actions = no action. Pick the most-leveraged one; the user will ask for more if they want it.
-- **Citing "today's progress" against a multi-week timeline.** Today's work is not a calibration anchor for a milestone; the deadline is. A great work day doesn't move you off A.
-- **Forgetting the "no decision" calendar pressure.** Auditor bookings, vendor commitments, regulatory filings are calendar items that *do not* live on a PR board. Watch for them when the milestone implies one.
-- **Incurious about your own subagents.** A sitrep includes itself. If a subagent you fanned out has been running materially longer than its siblings (a useful rule of thumb: > 5× the median sibling latency) and is now blocking your synthesis, report that explicitly: time elapsed, expected baseline, likely cause (MCP timeout / rate limit / search-then-fetch loop / token exhaustion), and the cost of continuing to wait. "Still running, no notification" is not a sitrep — it is the absence of one. When in doubt, ping the agent with SendMessage; if it does not respond on its next tool round, treat that as confirmation it is wedged, TaskStop it, and synthesize from the partial data with the gap stated explicitly.
-
-## Calibration: A/B/C language
-
-Use this language consistently when called for a calibrated read:
-
-- **A — Behind**: "Behind on calendar-load. Reason: <specific work item or decision with no landing path>. Most pressing: <action>."
-- **B — Roughly on track**: "Roughly on track. All in-scope items have plausible landing paths. Primary risk: <execution / coordination / review-velocity risk>. Most pressing: <action>."
-- **C — Ahead**: "Ahead. Buffer of <N> days at current cadence. Most pressing: <protect-buffer action — usually 'don't add scope'>."
-
-Do not use "tight but doable" as a hedge to avoid A. "Tight but doable" is B with risk noted; if "tight" actually means "will miss," it is A.
-
-## Output template
+- Lead with the letter; reasoning under it; the one action at the bottom.
+- Tight tables, not paragraphs. Cite specific PR / issue / commit IDs for every claim.
+- **Footnote rule** (written docs, not quick inline chat replies): every PR cited gets a numbered footnote with its full `https://github.com/<owner>/<repo>/pull/<number>` URL, collected in a `## PR references` block at the bottom. Inline text stays terse (`c1#18648`). One footnote per distinct PR; reuse the marker on repeat citations.
 
 ```
 # Sitrep — <milestone name> (<target date>, <N> days)
@@ -140,12 +54,10 @@ Do not use "tight but doable" as a hedge to avoid A. "Tight but doable" is B wit
 
 | ID | Title | Tracker status | Real-world state | Risk |
 |---|---|---|---|---|
-| ... | ... | ... | ... | ... |
 
 ## Cross-reference findings
 
-- <mismatch 1: tracker vs reality>
-- <mismatch 2>
+- <mismatch: tracker vs reality>
 
 ## Most calendar-pressing action
 
@@ -153,21 +65,16 @@ Do not use "tight but doable" as a hedge to avoid A. "Tight but doable" is B wit
 
 ## What this sitrep deliberately did not look at
 
-<list of out-of-scope items, so the user knows what was excluded>
+<out-of-scope items, so the user knows what was excluded>
 
 ## PR references
 
 [^1]: https://github.com/<owner>/<repo>/pull/<number>
-[^2]: https://github.com/<owner>/<repo>/pull/<number>
 ```
 
-## Iterating this skill
+## Common Mistakes
 
-When a sitrep surfaces a class of mismatch not yet listed in [Common Mistakes](#common-mistakes), add it. Examples worth watching for:
+- **Anchoring on today's progress.** A great work day is not a calibration anchor against a multi-week timeline; the deadline is. It doesn't move you off A.
+- **Incurious about your own subagents.** A sitrep includes itself. If a fanned-out subagent runs > ~5× the median sibling latency and blocks synthesis, report it: elapsed time, baseline, likely cause (MCP timeout / rate limit / search-then-fetch loop / token exhaustion), cost of waiting. Ping it via SendMessage; no response on its next tool round = wedged — TaskStop it and synthesize from partial data with the gap stated explicitly.
 
-- A tracker item that decomposes into N coordinated artifacts (chain pattern).
-- A "started" item that has not been pushed to in >5 days.
-- A milestone where the in-scope item count does not match the rolled-up tracker count (definition mismatch).
-- A calendar-pressing item that lives in a calendar tool, not a code tracker.
-
-Each addition makes future sitreps more calibrated by default.
+When a sitrep surfaces a mismatch class not yet listed here, add it.

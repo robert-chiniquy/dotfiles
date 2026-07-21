@@ -18,13 +18,6 @@ tags:
   - multi-agent
   - guardrails
   - agentic
-platforms:
-  claude-code: { context: auto, invoke: automatic }
-  codex: { invoke: automatic }
-  cursor: { invoke: /large-scale-refactor }
-  copilot: { invoke: /large-scale-refactor }
-  qoder-quest: { scenario: "Code with Spec", environment: remote }
-  factory-droid: { invoke: automatic }
 activation_patterns:
   - "refactor * across"
   - "migrate * to"
@@ -40,452 +33,68 @@ activation_patterns:
 
 # large-scale-refactor
 
-> **Core constraint**: This skill activates when any task will touch 50 or more files,
-> run for longer than one agent session, or be parallelized across multiple agent
-> instances. Once active, **the rules below are non-negotiable**. The agent must not
-> deviate from the defined task scope under any circumstances, including when it
-> identifies what appears to be a related improvement opportunity.
+Activates when a task will touch 50+ files, run longer than one agent session, or be parallelized across instances. Once active, task scope is locked: no deviation, even for apparent related improvements.
 
----
+## Spec gate
 
-## § 1 — BEFORE ANY WORK BEGINS: The Spec Gate
+No execution without a written, human-approved spec. Halt after producing the spec and await explicit approval before writing any code. In parallel mode, the spec is approved before spawning any instances; the approved spec is the canonical context injected into every instance.
 
-Large-scale refactors **must** begin with a written spec. No execution without a
-reviewed spec. This is not optional.
+Spec contents:
+- Task name, date, initiator
+- One concrete paragraph of what the task does
+- IN SCOPE: file types, operations, directories
+- OUT OF SCOPE (do not touch): styling/theming/color tokens, business logic and data transformation behavior, component structure beyond what the task requires, dependencies (beyond `@types/*` for TS migrations), build/CI/deploy configs, and anything not explicitly IN SCOPE
+- Decomposition into atomic, independently reviewable subtasks (each: N files, directory)
+- Acceptance criteria: in-scope files at target state; tests pass or failures are pre-existing and documented; no net-new deps beyond spec; no out-of-scope files modified; one commit/PR per subtask
+- Rollback plan (branch name, revert strategy)
 
-### 1.1 Required Spec Contents
+## Scope enforcement
 
-The agent will produce a spec document (or use the provided one) that includes:
+- One job: the spec. Bugs, improvements, missing tests, perf wins, style issues not in spec — log to `OBSERVATIONS.md` (file | observation | severity) and leave alone. Never act on observations.
+- Substitution test before every change: "If I remove this change from the diff, does the task still fail?" If the task still succeeds without it, do not make the change.
+- No emergent systems unless named in the spec: no new design/theming systems, utility libraries or helper modules, abstractions/base classes/shared components, folder reorganization, build steps/scripts/tooling, config files or env vars, test harnesses, or any file that did not exist before the task (exception: spec-defined outputs, e.g. `.ts` replacing `.js`). If a shared utility is genuinely needed, propose it in OBSERVATIONS.md and halt for approval.
+- No dependency add/remove/upgrade unless spec-listed, or a `@types/*` package in a TS migration.
+- 50-line rule: more than 50 lines of net-new logic for one change (excluding type annotations, renames, reformatting) means scope creep or a task needing architectural discussion. Stop, log, halt for review.
 
-```
-TASK SPEC
-=========
-**Task Name**: [Short identifier, e.g. "js-to-ts-migration"]
-**Date**: [ISO date]
-**Initiator**: [Human who authorized this]
+## Execution
 
-### What This Task Does
-[One paragraph. Be concrete. Example: "Convert all .js files in src/ to .tsx,
-adding explicit TypeScript types. No logic changes, no style changes, no dependency
-additions beyond @types/* packages."]
+- Pilot batch: process the first batch with only 10–20 files, even if the risk level allows more. Never skip — it surfaces spec edge cases and validates the transformation before scaling.
+- One commit/PR per subtask, never combined. Message: `refactor(<subtask-id>): <description>` plus task name, file count, spec ref.
+- File budget per session/instance:
 
-### Explicit Scope Boundary
-**IN SCOPE** (agent may touch):
-- [ ] File types: [e.g., *.js files in src/]
-- [ ] Operations: [e.g., type annotations, import extensions, rename]
-- [ ] Directories: [e.g., src/, tests/ — NOT node_modules, NOT scripts/]
+  | Risk | Max files/session | Review cadence |
+  |------|-------------------|----------------|
+  | Low (type renames, import fixes) | 200 | End of session |
+  | Medium (logic-adjacent refactors) | 50 | Every 25 files |
+  | High (framework migrations, API changes) | 20 | Every 10 files |
 
-**OUT OF SCOPE — DO NOT TOUCH** (agent must not modify):
-- [ ] CSS/styling systems, color tokens, theme configuration
-- [ ] Business logic, algorithms, or data transformation behavior
-- [ ] Component structure beyond what is required by the task
-- [ ] Package.json dependencies (beyond @types/* for TS migrations)
-- [ ] Build configs, CI/CD files, deployment configs
-- [ ] Files in: [list specific directories]
-- [ ] Anything not explicitly listed in IN SCOPE above
+  At budget: commit, push, stop. Human reviews before the next session.
+- Parallel instances: each receives the approved spec as its first system message (overrides in-session reasoning); non-overlapping file sets assigned by directory or explicit list — never "all files matching X" without per-instance assignment; read-only toward shared abstractions (a needed one is flagged and human-created before instances consume it); no communication with or observation of other instances — context contamination between parallel agents is a primary source of emergent behavior. Monitor the first 10 files of any new parallel run for out-of-scope touches.
+- Drift check at the review cadence (default: every 25 files): every changed file in IN SCOPE? new files beyond spec? dependency changes? changes failing the substitution test? new abstractions? Any yes: HALT, surface to human. All no: attach the check log to the commit message.
 
-### Task Decomposition
-[List of atomic subtasks. Each subtask must be independently reviewable.]
-1. Subtask A — affects [N] files in [directory]
-2. Subtask B — affects [N] files in [directory]
-...
+## Human checkpoints
 
-### Acceptance Criteria
-- [ ] All in-scope files match target state
-- [ ] All tests pass (or failures are pre-existing and documented)
-- [ ] No net-new dependencies introduced (beyond spec-allowed)
-- [ ] No files outside the scope boundary were modified
-- [ ] Each subtask produced a separate, reviewable commit or PR
+Hard stops — do not continue until a human explicitly clears them:
+spec gate; drift-check failure; out-of-scope file touched or discovered; new dependency needed; new shared abstraction needed; build/tests fail in a way the spec didn't anticipate; file budget reached; ambiguity about whether a file is in scope (ask, never assume).
 
-### Rollback Plan
-[How to undo this: feature branch name, git revert strategy, etc.]
-```
+Checkpoint message: trigger, context, options (always include abort-and-preserve), recommendation. No changes while awaiting response.
 
-### 1.2 Spec Review Checkpoint
+## Verification per subtask
 
-The agent **must halt** after producing the spec and **wait for human approval**
-before writing a single line of code. Platform-specific:
+Produce `CHANGE_MANIFEST.md`: counts of files modified/created/deleted (created should be 0 for pure refactors), per-file change table, scope-compliance checklist, test results before/after distinguishing new vs pre-existing failures.
 
-- **Qoder Quest**: Use "Code with Spec" scenario. Click `Run Spec` only after human
-  reviews the generated Spec document in the Spec Tab.
-- **Claude Code / Codex**: Output the spec, then explicitly state:
-  > "⏸ SPEC GATE: Please review and reply 'approved' to begin execution, or provide
-  > corrections."
-- **Factory Droid**: Emit spec as first artifact. Do not proceed until `approved`
-  signal is received.
-- **Parallel/batch mode (any platform)**: The spec must be approved before spawning
-  any parallel instances. The approved spec is the canonical context injected into
-  every parallel agent.
-
----
-
-## § 2 — SCOPE ENFORCEMENT RULES
-
-These rules apply to every file touch, every decision, every line of generated code.
-
-### 2.1 The One Task Rule
-
-> **The agent has exactly one job: complete the task defined in the spec.
-> It does not have a second job.**
-
-If the agent notices something that looks like a bug, an improvement opportunity,
- a missing test, a performance gain, a better architecture, or a style inconsistency
- that is **not** in the spec — the correct response is to **log it and leave it alone.**
-
-The agent will maintain a `OBSERVATIONS.md` file in the task working directory:
-
-```
-## Observations (NOT acted upon — logged for human review)
-
-| File | Observation | Severity |
-|------|-------------|----------|
-| src/Button.tsx | Inline styles could use CSS vars | Low |
-| src/api/user.ts | Possible N+1 query in fetchUsers | Medium |
-```
-
-Never act on observations. Log them. Move on.
-
-### 2.2 The Substitution Test
-
-Before touching any file, the agent applies this test:
-
-> "If I remove this change from the diff, does the task still fail?"
-
-If the answer is "no, the task still succeeds without this change" — **do not make
-the change.** Every change must be strictly necessary to complete the defined task.
-
-### 2.3 No Emergent Systems
-
-The agent is explicitly prohibited from creating any of the following unless they
-are explicitly named in the spec:
-
-- New design systems, color systems, or theming engines
-- New utility libraries or helper modules
-- New abstractions, base classes, or shared components
-- New folder structures or directory reorganization
-- New build pipeline steps, scripts, or tooling
-- New configuration files or environment variables
-- New test utilities or test harnesses
-- Any new file that did not exist before the task began (exceptions: spec-defined
-  output files only, e.g., `.ts` replacements for `.js` files in a TS migration)
-
-If the task genuinely requires a new shared utility to be non-repetitive, the agent
-will propose it in `OBSERVATIONS.md` and **halt for human approval** before creating it.
-
-### 2.4 Dependency Lockdown
-
-The agent will not add, remove, or upgrade any dependency unless:
-1. It is explicitly listed in the spec as an allowed dependency change, OR
-2. It is a `@types/*` package required by a TypeScript migration
-
-Any dependency change not meeting these criteria requires an explicit human checkpoint.
-
-### 2.5 Net-New Code Threshold
-
-If completing any single change requires writing more than **50 lines of net-new
-logic** (not counting type annotations, renamed identifiers, or structural
-reformatting), the agent has likely lost the thread.
-
-> **50-line rule**: If you are about to write more than 50 lines of net-new logic
-> to accomplish a refactoring step, stop. Log the situation in `OBSERVATIONS.md`.
-> Halt for human review before proceeding.
-
-This threshold exists because large-scale refactors should primarily *transform*
-existing patterns, not *invent* new ones. Exceeding 50 lines of net-new logic almost
-always indicates scope creep or a task that requires architectural discussion before
-continuing.
-
----
-
-## § 3 — EXECUTION PROTOCOL
-
-### 3.1 Atomic Subtask Commits
-
-> **Pilot Batch Recommendation**: For any new refactor task, process the first
-> batch with only 10–20 files — even if the risk level would normally allow more.
-> This surfaces edge cases in the spec, validates the transformation approach, and
-> lets you refine patterns before scaling to the full codebase. Do not skip the
-> pilot batch.
-
-Each subtask from the spec decomposition must land as its own commit or PR, never
-combined. Commit message format:
-
-```
-refactor(<subtask-id>): <description>
-
-Task: <task-name>
-Files: <N> files in <directory>
-Spec: <link or reference>
-```
-
-This ensures every batch of changes is independently reviewable and independently
-revertable.
-
-### 3.2 File Diff Budget per Session
-
-For any single agent session or parallel agent instance, set a maximum file change
-budget. Recommended defaults:
-
-| Risk Level | Max files per session | Review cadence |
-|------------|----------------------|----------------|
-| Low (type renames, import fixes) | 200 files | End of session |
-| Medium (logic-adjacent refactors) | 50 files | Every 25 files |
-| High (framework migrations, API changes) | 20 files | Every 10 files |
-
-When a session hits its budget, the agent commits, pushes, and **stops**. A human
-reviews before the next session begins.
-
-### 3.3 Parallel Agent Isolation
-
-When running parallel instances (Qoder Remote, Factory Droid batch, Devin playbooks):
-
-1. **Each instance receives the approved spec as its first system message.** This is
-   the canonical North Star that overrides any in-session reasoning.
-2. **Instances are assigned non-overlapping file sets.** No two instances touch the
-   same file. Assign by directory or by explicit file list.
-3. **Instances operate read-only with respect to shared abstractions.** No instance
-   may create a new shared utility, base class, or module. If one is needed, it is
-   flagged and a human creates it before instances consume it.
-4. **Instances do not communicate with or observe each other's output.** Context
-   contamination between parallel agents is a primary source of emergent behavior.
-
-### 3.4 Drift Detection Checkpoint (every N files)
-
-At the cadence defined in § 3.2, or every 25 files if not specified, the agent
-pauses and performs a self-audit:
-
-```
-DRIFT CHECK
-===========
-Files touched so far: [N]
-Task: [task-name]
-
-1. Does every changed file appear in the IN SCOPE list? [yes/no + evidence]
-2. Did I add any new files not defined in the spec? [yes/no + list if yes]
-3. Did I add, remove, or modify any dependency? [yes/no + list if yes]
-4. Did I make any change that fails the Substitution Test (§ 2.2)? [yes/no]
-5. Did I create any new abstraction, utility, or system? [yes/no]
-
-If any answer above is "yes": HALT. Surface to human. Do not continue.
-If all answers are "no": Continue. Attach this log to the commit message.
-```
-
----
-
-## § 4 — HUMAN CHECKPOINTS
-
-Human checkpoints are **hard stops**. The agent does not continue until a human
-explicitly clears the checkpoint. These are not suggestions.
-
-### Mandatory Checkpoint Triggers
-
-| Trigger | Action |
-|---------|--------|
-| Spec gate (§ 1.2) | Halt. Await "approved". |
-| Drift check failure (§ 3.4) | Halt. Surface log. Await clearance. |
-| Any file outside scope boundary discovered | Halt. Report. Await instruction. |
-| Any new dependency required | Halt. Propose. Await approval. |
-| Any new shared abstraction required | Halt. Propose in OBSERVATIONS.md. Await approval. |
-| Build/tests fail in a way the spec didn't anticipate | Halt. Report failure + root cause. Await instruction. |
-| File diff budget reached (§ 3.2) | Stop session. Commit. Await review. |
-| Ambiguity about whether a file is in scope | Halt. Ask. Do not assume. |
-
-### Checkpoint Message Format
-
-```
-⏸ CHECKPOINT — [checkpoint type]
-
-**Trigger**: [What caused this halt]
-**Context**: [Relevant file(s), line(s), or situation]
-**Options**:
-  A. [First option and its implications]
-  B. [Second option and its implications]
-  C. Abort task and preserve current state for human review
-
-**Recommendation**: [Agent's recommendation, briefly]
-
-Awaiting instruction. No changes will be made until a response is received.
-```
-
----
-
-## § 5 — OUTPUT AND VERIFICATION REQUIREMENTS
-
-### 5.1 Change Manifest
-
-Upon completion of each subtask, the agent produces a `CHANGE_MANIFEST.md`:
-
-```
-CHANGE MANIFEST — <subtask-id>
-==============================
-Task: <task-name>
-Completed: <ISO datetime>
-Files modified: <N>
-Files created: <N> (should be 0 for pure refactors)
-Files deleted: <N>
-
-### Modified Files
-| File | Change Type | Lines +/- | Notes |
-|------|-------------|-----------|-------|
-| src/Button.tsx | Type annotation | +12/-3 | Added Props interface |
-...
-
-### Scope Compliance
-- [ ] All modified files were in the IN SCOPE list
-- [ ] No files were created outside spec-defined outputs
-- [ ] No dependencies were added or removed beyond spec-allowed
-- [ ] No new abstractions or systems were created
-- [ ] All drift checks passed (logs attached)
-
-### Test Results
-- Before: [pass/fail count]
-- After: [pass/fail count]
-- New failures: [list or "none"]
-- Pre-existing failures: [list or "none"]
-```
-
-### 5.2 Verification Command Sequence
-
-Before marking any subtask complete, the agent runs and records output of:
+Run and record before marking a subtask complete:
 
 ```bash
-# 1. Dependency check — confirm no unauthorized changes
-git diff HEAD package.json package-lock.json yarn.lock Cargo.toml Gemfile*
-
-# 2. New file audit — confirm no unauthorized new files
-git diff HEAD --name-status | grep "^A"
-
-# 3. Scope boundary check — confirm no out-of-scope files
-git diff HEAD --name-only | grep -v -f .refactor-scope-allowlist
-
-# 4. Test suite
-[platform test command]
-
-# 5. Lint
-[platform lint command]
+git diff HEAD package.json package-lock.json yarn.lock Cargo.toml Gemfile*   # dep check
+git diff HEAD --name-status | grep "^A"                                      # new-file audit
+git diff HEAD --name-only | grep -v -f .refactor-scope-allowlist             # scope check
+# then: test suite, lint
 ```
 
-The `.refactor-scope-allowlist` file is created from the IN SCOPE file list in
-the spec and used as the filter in step 3. Any file appearing in step 3's output
-that is not in the allowlist triggers a checkpoint.
+`.refactor-scope-allowlist` is generated from the spec's IN SCOPE list; any file surviving the scope check triggers a checkpoint.
 
----
+## Cross-session context
 
-## § 6 — CONTEXT PERSISTENCE ACROSS SESSIONS
-
-Long-running tasks frequently span multiple sessions. Context that must survive:
-
-### 6.1 Session Handoff File (`.refactor-session.md`)
-
-The agent writes this file at the end of every session and reads it at the start
-of the next:
-
-```
-REFACTOR SESSION HANDOFF
-========================
-Task: <task-name>
-Last session: <ISO datetime>
-Agent: <model/platform>
-
-### Progress
-- Completed subtasks: [list]
-- In-progress subtask: [current subtask, % complete]
-- Remaining subtasks: [list]
-
-### Files Remaining
-[list of files not yet processed in current subtask]
-
-### State to Carry Forward
-- [Any decisions made this session that affect future sessions]
-- [Any edge cases discovered]
-- [Any files that required special handling and why]
-
-### Active Blockers
-[Anything waiting on human input]
-
-### Spec Ref
-[path or link to approved spec]
-```
-
-This file is committed with each session's changes. It is the handoff protocol
-that ensures a fresh agent context (new session, different model, different
-platform) can resume without drift.
-
-### 6.2 Context Flushing Protocol (Anti-Degradation)
-
-Agent performance degrades measurably as context windows fill with accumulated
-file diffs and intermediate reasoning. To counter this, the agent actively flushes
-context between batches.
-
-**After completing each batch:**
-1. Commit and push all changes.
-2. Write the session handoff file (§ 6.1).
-3. **Discard from active context**: all file diffs, modified file contents, and
-   intermediate reasoning from the completed batch.
-4. **Reload into fresh context**: the approved spec + the latest `.refactor-session.md`
-   + the next batch file list only.
-
-**Flush immediately if any of these signals appear:**
-- Referencing a decision made more than 2 batches ago without first consulting
-  `.refactor-session.md`
-- Uncertainty about the original task without re-reading the spec
-- Making changes that "feel right" based on pattern matching rather than explicit
-  spec compliance
-
----
-
-## § 7 — PLATFORM-SPECIFIC NOTES
-
-### Qoder Quest
-
-- Always use **"Code with Spec"** scenario for tasks triggering this skill.
-- Use **Remote** execution environment for tasks touching > 100 files.
-- The Spec Tab output IS the spec gate (§ 1.2). Do not click "Run Spec" until
-  the human has reviewed the Spec Tab and approved.
-- Use the parallel/Worktree environment for subtask isolation. Assign non-overlapping
-  directories to each Worktree instance.
-- Qoder's built-in "Changed Files Tab" satisfies the change manifest for simple
-  tasks; for complex migrations, `CHANGE_MANIFEST.md` is still required.
-
-### Claude Code / Codex
-
-- Prefix long-running refactor sessions with: `@large-scale-refactor [task-name]`
-- Claude Code's `context: auto` will load this skill automatically when activation
-  patterns match.
-- For Codex deepening sessions on this skill, the deepening scope is limited to
-  the Verification Command Sequence (§ 5.2) and platform-specific notes. Core
-  guardrails (§§ 1–4) are NOT subject to deepening.
-
-### Factory Droid / Devin Playbooks
-
-- The approved spec **must** be injected as the system prompt for every Droid/session
-  instance before task delegation.
-- Batch/playbook tasks must include the file diff budget (§ 3.2) as a hard stop
-  condition in the playbook config.
-- Each parallel Droid instance must receive an explicit non-overlapping file list.
-  Playbooks that operate on "all files matching pattern X" without per-instance
-  assignment are prohibited under this skill.
-- Devin-specific: use the embedded IDE's real-time view to monitor for out-of-scope
-  file touches during the first 10 files of any new playbook run. Catch emergent
-  behavior early.
-
-### GitHub Copilot
-
-- Invoke via `/large-scale-refactor [task-name]` in chat before beginning.
-- Copilot's workspace context must be scoped to the IN SCOPE directories only.
-  Close or exclude out-of-scope directories from the workspace before starting.
-
----
-
-## § 8 — QUICK REFERENCE: WHAT TO DO WHEN YOU'RE UNSURE
-
-| Situation | Action |
-|-----------|--------|
-| "This file might be in scope, I'm not sure" | Ask. Don't touch. |
-| "This would be cleaner if I also refactored X" | Log in OBSERVATIONS.md. Don't touch X. |
-| "Tests are failing and I know how to fix it" | Check if the fix is in spec. If not: halt, report. |
-| "I found a bug while doing this refactor" | Log in OBSERVATIONS.md. Leave the bug alone. |
-| "This approach requires a new shared utility" | Halt. Propose. Wait for approval. |
-| "I could make this faster/better/cleaner" | That is not the task. Log. Move on. |
-| "The spec is ambiguous about this file" | Surface the ambiguity. Await clarification. |
-| "I hit the file budget for this session" | Stop. Commit. Push. Report progress. |
+- `.refactor-session.md`: written at end of every session, read at start of the next, committed with the session's changes. Contents: completed/in-progress/remaining subtasks, files remaining, decisions and edge cases to carry forward, active blockers, spec ref. This is what lets a fresh context (new session, different model) resume without drift.
+- Context flush after each batch (performance degrades as context fills with diffs): commit and push, write the handoff file, discard the batch's diffs and intermediate reasoning, reload only the spec + latest handoff + next batch file list. Flush immediately if: referencing a decision more than 2 batches old without consulting the handoff file; uncertain about the original task without re-reading the spec; making changes that "feel right" by pattern matching rather than explicit spec compliance.

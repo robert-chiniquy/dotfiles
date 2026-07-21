@@ -1,0 +1,17 @@
+#!/bin/sh
+# SessionStart hook: warn when the current session's transcript is very large.
+# Large transcripts make resume + compaction slow and CPU-heavy. This only
+# warns — it never blocks or modifies anything. Threshold via env override.
+THRESHOLD_MB="${LARGE_TRANSCRIPT_MB:-50}"
+
+# Claude Code passes hook context on stdin as JSON; transcript_path is the field.
+input=$(/bin/cat)
+tpath=$(printf '%s' "$input" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
+
+[ -n "$tpath" ] && [ -f "$tpath" ] || exit 0
+bytes=$(/usr/bin/stat -f '%z' "$tpath" 2>/dev/null || echo 0)
+mb=$(( bytes / 1048576 ))
+if [ "$mb" -ge "$THRESHOLD_MB" ]; then
+    printf 'NOTE: this session transcript is %d MB (>= %d MB). Large transcripts slow resume/compaction and raise CPU/memory. Consider starting a fresh session and pointing it at prior work instead of continuing this one.\n' "$mb" "$THRESHOLD_MB"
+fi
+exit 0

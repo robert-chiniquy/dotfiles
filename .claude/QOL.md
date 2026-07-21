@@ -538,3 +538,38 @@ export CARGO_TARGET_DIR="$HOME/.cache/cargo-target"
 Documented in `~/repo/latchkey-project/README.md` under Build And Artifacts. Every Rust build across every checkout and worktree now writes to one shared cache directory. Cargo deduplicates identical `(crate, version, features, rustc, target-triple)` tuples across checkouts. Prevents the disk-crisis pattern of N worktrees × ~2 GB target/ each. Concurrent builds share a lock briefly; in practice imperceptible. Override for one build via `CARGO_TARGET_DIR=./target cargo build`.
 
 Also identified but not yet acted on: `~/repo/c1/.gocache` (4 GB, actively growing) — c1's Makefile / CI scripts explicitly set `GOCACHE=./.gocache` locally, duplicating Go's default `~/Library/Caches/go-build`. Changing that likely affects c1 CI parity; requires understanding why the local cache exists before modifying.
+
+## 2026-07-17: Auto-run disk-emergency on new interactive shell if <4 GB free
+```sh
+~/bin/disk-emergency                            # idempotent, threshold via DISK_EMERGENCY_THRESHOLD_GB
+~/Library/Logs/disk-emergency.log               # rolling log
+```
+`.zshrc` hook fires it on interactive shell start when <4 GB free. Reclaim order (safest first): empty ~/.Trash, remove /private/tmp/c1-*/sqfan-*/lk-*-agent scratch dirs, clear Chrome cache, plaid-lint + clanker-lint caches, stale WirelessDiagnostics_*.tar.gz, gzip Claude transcripts >30d. Never touches repos, Colima, cargo-target, or active caches. macOS notification banner shows before/after GB and warns if still below threshold after reclaim. First smoke test on this session: 33 → 41 GB (+8 GB, 1537 old transcripts gzipped).
+
+## 2026-07-20: c1 worktree GOCACHE hygiene
+```zsh
+# ~/.zshenv
+export GOCACHE="$HOME/Library/Caches/go-build"
+
+# ~/repo/dotfiles/.zshrc (chpwd hook)
+_c1_worktree_envrc_link() {
+    [[ -f .envrc && ! -e .envrc.local && -f .git ]] || return 0
+    [[ -f ~/repo/c1/.envrc.local ]] || return 0
+    /usr/bin/grep -q '\.envrc\.local' .envrc || return 0
+    ln -s ~/repo/c1/.envrc.local .envrc.local
+    direnv allow . >/dev/null 2>&1
+}
+chpwd_functions+=(_c1_worktree_envrc_link)
+```
+`.envrc.local` at ~/repo/c1/ pins GOCACHE to the shared cache. chpwd hook symlinks it into new c1 worktrees automatically on first cd. .zshenv sets it globally too as a fallback. Result: cache no longer scatters into per-worktree build/go-build-cache dirs. Existing worktrees (c1-21070, c1-iga-3173, c1-iga-3176, c1-tt26) already symlinked.
+
+## 2026-07-21: Cap plaid-lint at 6 CPUs via personal shim
+```sh
+# ~/bin/plaid-lint (shadows ~/go/bin/plaid-lint on PATH)
+# identical pattern to the clanker-lint shim: injects --concurrency=6
+# into `plaid-lint run` unless -j/--concurrency given explicitly.
+```
+Context: agents opt into plaid-lint per-invocation (USE_PLAID=1); on a cold cache at default concurrency (0 = all 12 cores) it saturates a 24GB/12-core machine. Sizing guidance from the team thread: ~4GB RAM per vCPU → 6 for this laptop. Both lint engines (clanker, plaid) now capped identically. Override per-call with -j <N>.
+
+## 2026-07-21: Pin LINT_CONCURRENCY=4 in c1/.envrc.local
+c1's `ci/lint_diff.sh` falls back to `nproc || echo 4` on machines without cgroups. nproc isn't installed today (so the fallback is 4), but installing coreutils would silently flip it to 12 on this 12-core box. Pinned explicitly; propagates to all c1 worktrees via the .envrc.local symlinks. Companion to the plaid-lint/clanker-lint -j6 shims (which only apply when no explicit --concurrency is passed; lint_diff.sh passes one).

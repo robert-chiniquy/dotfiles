@@ -6,65 +6,25 @@ description: "Builds and queries multi-language source code graphs for security 
 # Trailmark
 
 Parses source code into a directed graph of functions, classes, calls, and
-semantic metadata for security analysis. Supports 16 languages.
+semantic metadata for security analysis. Static only. One language per graph:
+in polyglot repos, build the full graph per component with the right
+`--language` (FFI boundaries are where bugs cluster — don't sample).
 
-## When to Use
-
-- Mapping call paths from user input to sensitive functions
-- Finding complexity hotspots for audit prioritization
-- Identifying attack surface and entrypoints
-- Understanding call relationships in unfamiliar codebases
-- Security review or audit preparation across polyglot projects
-- Adding LLM-inferred annotations (assumptions, preconditions) to code units
-- Pre-analysis before mutation testing (genotoxic skill) or diagramming
-
-## When NOT to Use
-
-- Single-file scripts where call graph adds no value (read the file directly)
-- Architecture diagrams not derived from code (use the `diagramming-code` skill or draw by hand)
-- Mutation testing triage (use the genotoxic skill, which calls trailmark internally)
-- Runtime behavior analysis (trailmark is static, not dynamic)
-
-## Rationalizations to Reject
-
-| Rationalization | Why It's Wrong | Required Action |
-|-----------------|----------------|-----------------|
-| "I'll just read the source files manually" | Manual reading misses call paths, blast radius, and taint data | Install trailmark and use the API |
-| "Pre-analysis isn't needed for a quick query" | Blast radius, taint, and privilege data are only available after `preanalysis()` | Always run `engine.preanalysis()` before handing off to other skills |
-| "The graph is too large, I'll sample" | Sampling misses cross-module attack paths | Build the full graph; use subgraph queries to focus |
-| "Uncertain edges don't matter" | Dynamic dispatch is where type confusion bugs hide | Account for `uncertain` edges in security claims |
-| "Single-language analysis is enough" | Polyglot repos have FFI boundaries where bugs cluster | Use the correct `--language` flag per component |
-| "Complexity hotspots are the only thing worth checking" | Low-complexity functions on tainted paths are high-value targets | Combine complexity with taint and blast radius data |
-
----
+Mutation testing triage belongs to the genotoxic skill, which calls trailmark
+internally. Run `engine.preanalysis()` before handing off to genotoxic or
+`diagramming-code`.
 
 ## Installation
 
-**MANDATORY:** If `uv run trailmark` fails (command not found, import error,
-ModuleNotFoundError), install trailmark before doing anything else:
-
-```bash
-uv pip install trailmark
-```
-
-**DO NOT** fall back to "manual verification", "manual analysis", or reading
-source files by hand as a substitute for running trailmark. The tool must be
-installed and used programmatically. If installation fails, report the error
-to the user instead of silently switching to manual code reading.
+If `uv run trailmark` fails: `uv pip install trailmark`. Do not fall back to
+manual code reading as a substitute; if installation fails, report the error.
 
 ## Quick Start
 
 ```bash
-# Python (default)
-uv run trailmark analyze --summary {targetDir}
-
-# Other languages
+uv run trailmark analyze --summary {targetDir}          # Python (default)
 uv run trailmark analyze --language rust {targetDir}
-uv run trailmark analyze --language javascript {targetDir}
-uv run trailmark analyze --language go --summary {targetDir}
-
-# Complexity hotspots
-uv run trailmark analyze --complexity 10 {targetDir}
+uv run trailmark analyze --complexity 10 {targetDir}    # complexity hotspots
 ```
 
 ### Programmatic API
@@ -72,8 +32,7 @@ uv run trailmark analyze --complexity 10 {targetDir}
 ```python
 from trailmark.query.api import QueryEngine
 
-# Specify language (defaults to "python")
-engine = QueryEngine.from_directory("{targetDir}", language="rust")
+engine = QueryEngine.from_directory("{targetDir}", language="rust")  # default "python"
 
 engine.callers_of("function_name")
 engine.callees_of("function_name")
@@ -83,48 +42,36 @@ engine.attack_surface()
 engine.summary()
 engine.to_json()
 
-# Run pre-analysis (blast radius, entrypoints, privilege
-# boundaries, taint propagation)
 result = engine.preanalysis()
 
-# Query subgraphs created by pre-analysis
+# Subgraphs exist only after preanalysis()
 engine.subgraph_names()
 engine.subgraph("tainted")
 engine.subgraph("high_blast_radius")
 engine.subgraph("privilege_boundary")
 engine.subgraph("entrypoint_reachable")
 
-# Add LLM-inferred annotations
 from trailmark.models import AnnotationKind
-
 engine.annotate("function_name", AnnotationKind.ASSUMPTION,
                 "input is URL-encoded", source="llm")
-
-# Query annotations (including pre-analysis results)
 engine.annotations_of("function_name")
-engine.annotations_of("function_name",
-                       kind=AnnotationKind.BLAST_RADIUS)
-engine.annotations_of("function_name",
-                       kind=AnnotationKind.TAINT_PROPAGATION)
+engine.annotations_of("function_name", kind=AnnotationKind.BLAST_RADIUS)
 ```
 
 ## Pre-Analysis Passes
 
-**Always run `engine.preanalysis()` before handing off to genotoxic or
-`diagramming-code` skills.** Pre-analysis enriches the graph with four passes:
+Blast radius, taint, and privilege data exist only after
+`engine.preanalysis()`. Four passes:
 
-1. **Blast radius estimation** — counts downstream and upstream nodes per
-   function, identifies critical high-complexity descendants
-2. **Entry point enumeration** — maps entrypoints by trust level, computes
-   reachable node sets
-3. **Privilege boundary detection** — finds call edges where trust levels
-   change (untrusted -> trusted)
-4. **Taint propagation** — marks all nodes reachable from untrusted
-   entrypoints
+1. **Blast radius** — downstream/upstream node counts per function,
+   critical high-complexity descendants
+2. **Entry point enumeration** — entrypoints by trust level, reachable
+   node sets
+3. **Privilege boundary detection** — call edges where trust level changes
+   (untrusted -> trusted)
+4. **Taint propagation** — marks nodes reachable from untrusted entrypoints
 
-Results are stored as annotations and named subgraphs on the graph.
-
-For detailed documentation, see
+Results are stored as annotations and named subgraphs. Details:
 [references/preanalysis-passes.md](references/preanalysis-passes.md).
 
 ## Supported Languages
@@ -156,41 +103,28 @@ For detailed documentation, see
 **Edge kinds:** `calls`, `inherits`, `implements`, `contains`, `imports`
 
 **Edge confidence:** `certain` (direct call, `self.method()`), `inferred`
-(attribute access on non-self object), `uncertain` (dynamic dispatch)
+(attribute access on non-self object), `uncertain` (dynamic dispatch).
+Account for `uncertain` edges in security claims — dynamic dispatch is
+where type confusion bugs hide.
 
-### Per Code Unit
-- Parameters with types, return types, exception types
-- Cyclomatic complexity and branch metadata
-- Docstrings
-- Annotations: `assumption`, `precondition`, `postcondition`, `invariant`,
-  `blast_radius`, `privilege_boundary`, `taint_propagation`
+Per code unit: parameter/return/exception types, cyclomatic complexity and
+branch metadata, docstrings, annotations (`assumption`, `precondition`,
+`postcondition`, `invariant`, `blast_radius`, `privilege_boundary`,
+`taint_propagation`).
 
-### Per Edge
-- Source/target node IDs, edge kind, confidence level
-
-### Project Level
-- Dependencies (imported packages)
-- Entrypoints with trust levels and asset values
-- Named subgraphs (populated by pre-analysis)
+Project level: dependencies (imported packages), entrypoints with trust
+levels and asset values, named subgraphs.
 
 ## Key Concepts
 
-**Declared contract vs. effective input domain:** Trailmark separates what a
+**Declared contract vs. effective input domain:** trailmark separates what a
 function *declares* it accepts from what can *actually reach* it via call
 paths. Mismatches are where vulnerabilities hide:
-- **Widening**: Unconstrained data reaches a function that assumes validation
-- **Safe by coincidence**: No validation, but only safe callers exist today
+- **Widening**: unconstrained data reaches a function that assumes validation
+- **Safe by coincidence**: no validation, but only safe callers exist today
 
-**Edge confidence:** Dynamic dispatch produces `uncertain` edges. Account for
-confidence when making security claims.
+Low-complexity functions on tainted paths are high-value targets — combine
+complexity with taint and blast radius data.
 
-**Subgraphs:** Named collections of node IDs produced by pre-analysis.
-Query with `engine.subgraph("name")`. Available after `engine.preanalysis()`.
-
-## Query Patterns
-
-See [references/query-patterns.md](references/query-patterns.md) for common
-security analysis patterns.
-
-See [references/preanalysis-passes.md](references/preanalysis-passes.md) for
-pre-analysis pass documentation.
+Common security analysis patterns:
+[references/query-patterns.md](references/query-patterns.md).
