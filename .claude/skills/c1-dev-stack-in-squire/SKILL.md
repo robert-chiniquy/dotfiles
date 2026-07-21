@@ -13,24 +13,23 @@ description: >-
 
 # Standing up a c1 dev stack in a Squire env
 
-This is a runbook with all the friction points encoded. Treat it as a script — if you skip steps the stack flaps and you spend an hour debugging postgres unix sockets.
+Runbook — follow as a script; skipped steps make the stack flap.
 
 ## When to use
 
 - Driving the Latchkey CLI (or any c1 client) end-to-end against a real c1
   pub-api over TLS with a real OAuth-minted Bearer.
 - Reproducing pub-api / be-session / be-innkeeper behavior locally.
-- Producing a self-contained env you can hand to a teammate by SSH-forwarding
-  envoy 2443.
+- Producing a self-contained env handed off by SSH-forwarding envoy 2443.
 
 ## Prerequisites
 
 - `squire` CLI authenticated to the gateway (`squire login` if needed).
 - An entry in `/etc/hosts` mapping `127.0.0.1 c1dev.c1.ductone.com` (one-time;
-  needed because c1's pub-auth resolves the tenant from the Host header and
-  the dev tenant is `c1dev` on installation domain `c1.ductone.com`).
-- The default squire image **does not** ship with c1 cloned, despite what the
-  generic squire-env-management skill claims. We clone it manually.
+  pub-auth resolves the tenant from the Host header; the dev tenant is
+  `c1dev` on installation domain `c1.ductone.com`).
+- The default squire image does **not** ship with c1 cloned, despite what the
+  generic squire-env-management skill claims. Clone it manually.
 
 ## Step 1 — create the env
 
@@ -39,14 +38,14 @@ squire new c1-dev --no-open
 # wait until: squire env | grep c1-dev | awk '{print $4}' == "running"
 ```
 
-Avoid `--prompt` / `--open` if you're driving the env from your laptop rather
-than the in-env OpenCode agent.
+Avoid `--prompt` / `--open` if driving the env from your laptop rather than
+the in-env OpenCode agent.
 
 ## Step 2 — clone c1 with the envmgr `git_token` MCP tool
 
-The default-image squire credential helper handles `https://github.com/...`
-URLs after the initial clone, but you need a real token to bootstrap. Pull one
-from the env's MCP gateway at `localhost:9877`:
+The squire credential helper handles `https://github.com/...` URLs after the
+initial clone, but bootstrapping needs a real token from the env's MCP
+gateway at `localhost:9877`:
 
 ```bash
 squire ssh <env> -- 'set -e
@@ -70,7 +69,7 @@ call "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name
 '
 ```
 
-Then clone (depth 50 is plenty; full clone is slow over ~3M files):
+Clone with `--depth 50` (full clone is slow over ~3M files):
 
 ```bash
 TOK=ghs_...
@@ -80,18 +79,18 @@ git -C /data/squire/src/c1 config user.name 'Squire Agent'
 git -C /data/squire/src/c1 remote set-url origin https://github.com/ductone/c1.git"
 ```
 
-Reset the remote URL so the squire credential helper handles future `git push`
-(don't bake the short-lived token into the remote URL — it expires in ~30 min).
+The `remote set-url` matters: the token expires in ~30 min, so don't bake it
+into the remote — the credential helper handles future `git push`.
 
 ## Step 3 — pre-fix two known config bugs
 
-Both are env-image quirks, not c1 bugs. Fix them before `pc/up` so services
-don't burn `max_restarts` and get marked `Skipped`.
+Both are env-image quirks, not c1 bugs. Fix before `pc/up` so services don't
+burn `max_restarts` and get marked `Skipped`.
 
 ### Postgres unix socket lock
 
-Postgres tries to `/run/postgresql/.s.PGSQL.5432.lock` which is root-owned in
-the squire image. Patch process-compose.yaml to point it at `/tmp`:
+Postgres tries `/run/postgresql/.s.PGSQL.5432.lock`, root-owned in the squire
+image. Point it at `/tmp`:
 
 ```bash
 squire ssh <env> -- "mkdir -p /tmp/pg-socket
@@ -102,9 +101,9 @@ sed -i '/-c port=5432/a\\      -c unix_socket_directories=/tmp/pg-socket' \
 ### Innkeeper Zoho client id / secret can't be empty
 
 `gen-env.sh` writes empty strings for the Zoho Manage Engine OAuth provider,
-but the runtime config validation requires `min_len=3`. The other OAuth
-providers have placeholder `abc1234` strings — the Zoho ones don't, so
-innkeeper crashloops on startup. Run after `make pc/init`:
+but runtime config validation requires `min_len=3` (the other providers get
+placeholder `abc1234`; Zoho doesn't), so innkeeper crashloops. Run after
+`make pc/init`:
 
 ```bash
 squire ssh <env> -- "sed -i \
@@ -162,13 +161,12 @@ squire ssh <env> -- "curl -sf http://localhost:8080/processes | \
 ```
 
 Wait until `postgres / valkey / pub-api / pub-auth / be-session / be-vault / be-innkeeper` are
-all `Running` and `ensure: Completed`. The whole bringup takes 1-2 minutes.
+all `Running` and `ensure: Completed`. Bringup takes 1-2 minutes.
 
 ### If `be-innkeeper: Skipped`
 
-If you see this even after the Zoho fix, innkeeper hit `max_restarts=30`
-during the early postgres-flapping period and process-compose gave up. Start
-it manually:
+Even after the Zoho fix, innkeeper can hit `max_restarts=30` during the early
+postgres-flapping period and process-compose gives up. Start it manually:
 
 ```bash
 squire ssh <env> -- "set -a; . /data/squire/src/c1/.dev/env/be-innkeeper.env; set +a;
@@ -177,7 +175,7 @@ nohup /data/squire/src/c1/build/linux_arm64/be-innkeeper/be-innkeeper \
 ```
 
 Then re-run `dev-util ensure` to populate `CrossTenantSettings` (innkeeper's
-init code creates this row on first start; without it, anything that calls
+init creates this row on first start; without it, anything calling
 `tenants.TenantDomain` returns `dynamo: no item found`):
 
 ```bash
@@ -214,9 +212,8 @@ curl -sf -X POST http://localhost:8080/process/restart/pub-api"
 
 ## Step 5 — mint a client_credentials pair
 
-The `dev-util mint-test-client` cmd (PR #17295 / merged) creates a user in the
-target tenant, promotes them to `SystemOwnerRoleId`, and mints a personal
-OAuth2 client. Without this cmd you'd be doing direct postgres inserts.
+`dev-util mint-test-client` creates a user in the target tenant, promotes
+them to `SystemOwnerRoleId`, and mints a personal OAuth2 client.
 
 ```bash
 squire ssh <env> -- "set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a;
@@ -241,14 +238,12 @@ defeats any two-principal flow (share-to-self). For a second principal:
 `--user-email=test-cli-b@dev.local --display-name=test-cli-b`.
 
 The client_id encodes the tenant's installation domain (`c1.ductone.com`
-in this default config). If your env has a different `INNKEEPER_INSTALLATION_DOMAIN`
+in this default config). If the env has a different `INNKEEPER_INSTALLATION_DOMAIN`
 (squire envs sometimes get squire-specific ones like
 `envoy--<env-id>.us-west-2.squire.ductone.com`), the client_id will look
 different and the laptop /etc/hosts entry won't apply.
 
 ## Step 6 — drive a client from your laptop
-
-Three pieces of laptop setup:
 
 ```bash
 # (a) tunnel envoy 2443 — squire's own `tunnel` mangles TLS bytes; use ssh -L
@@ -286,9 +281,8 @@ Why these flags:
 
 ## Smoke test (30s) — is this env still healthy?
 
-Run this when picking up a paused / older env, or when something looks
-off mid-test, before spending 15 min re-bringing-up. Three layers:
-process-compose is alive, OAuth still mints, gRPC still answers.
+Run when picking up a paused/older env or when something looks off mid-test,
+before spending 15 min re-bringing-up.
 
 ```bash
 ENV=<env-name>           # e.g. lk-mint-client
@@ -304,9 +298,8 @@ squire ssh "$ENV" -- '
   curl -ksf https://localhost:2443/healthz/ready && echo "envoy: OK" || echo "envoy: FAIL"
 '
 
-# (2) From the laptop — OAuth round-trip against the SSH-forwarded
-#     envoy. Returns the access_token if pub-auth + dev CA + tunnel
-#     all work end to end.
+# (2) From the laptop — OAuth round-trip against the SSH-forwarded envoy.
+#     Returns the access_token if pub-auth + dev CA + tunnel all work.
 curl -sf --cacert /tmp/c1-dev-ca.pem \
   --resolve c1dev.c1.ductone.com:12443:127.0.0.1 \
   -d grant_type=client_credentials \
@@ -331,25 +324,23 @@ latchkey \
 Failure mapping:
 
 - **(1) any of envoy/pub-api/pub-auth not in `Running`**: process-compose
-  has flapped. Open `pc/attach`, restart the failing service, and
-  consult the Verification chain table below for the usual root
-  causes (postgres unix-socket perms, innkeeper Zoho env, etc.).
-- **(2) returns `error` / `error_description`**: pub-auth path is up
-  but rejecting the credentials. Re-mint with `dev-util mint-test-client`
-  and update CLIENT_ID/CLIENT_SECRET.
-- **(2) curl exits non-zero**: SSH tunnel is dead or `/etc/hosts` lost
-  the `c1dev.c1.ductone.com` mapping. Re-run the laptop setup
-  one-liners above.
-- **(3) succeeds with `{"list":[]}` but you expected vaults**: your
-  principal mints but lacks Latchkey perms — re-check the
-  SystemOwner ServiceRoles + tenant Latchkey FF (Verification table).
-- **(3) fails with `policy_denied (PermissionDenied: ...)`**: same as
-  the previous bullet; you reached pub-api but the role/FF chain is
-  broken.
+  has flapped. Open `pc/attach`, restart the failing service, and consult the
+  Verification chain table for root causes (postgres unix-socket perms,
+  innkeeper Zoho env, etc.).
+- **(2) returns `error` / `error_description`**: pub-auth is up but rejecting
+  the credentials. Re-mint with `dev-util mint-test-client` and update
+  CLIENT_ID/CLIENT_SECRET.
+- **(2) curl exits non-zero**: SSH tunnel is dead or `/etc/hosts` lost the
+  `c1dev.c1.ductone.com` mapping. Re-run the laptop setup one-liners.
+- **(3) succeeds with `{"list":[]}` but you expected vaults**: principal
+  mints but lacks Latchkey perms — re-check the SystemOwner ServiceRoles +
+  tenant Latchkey FF (Verification table).
+- **(3) fails with `policy_denied (PermissionDenied: ...)`**: same as the
+  previous bullet; you reached pub-api but the role/FF chain is broken.
 
 Use `latchkey auth claims` (no extra round-trip) to verify the
-principal/tenant the CLI is scoped to before driving any
-device-register or per-tenant flow.
+principal/tenant the CLI is scoped to before driving any device-register or
+per-tenant flow.
 
 ## Verification chain — what you should see at each step
 
@@ -360,7 +351,7 @@ device-register or per-tenant flow.
 | `dynamo: no item found` (mint-test-client) | be-innkeeper never came up; CrossTenantSettings missing. Restart innkeeper + re-run ensure. |
 | `not_found (5)` from `/auth/v1/token` | Client_id/secret don't match a row in postgres. Re-run mint-test-client. |
 | `oauth2 invalid_client` (CLI) | Same as above; CLI maps OAuth `invalid_client` to `Unauthenticated`. |
-| `policy_denied (PermissionDenied: ...)` | Auth chain works — user just lacks permissions for the specific RPC. `SystemOwnerRoleId`'s `ServiceRoles` list is a hand-rolled allowlist in `pkg/builtin_roles/builtin_roles.go::GetSystemOwner` — newer services aren't in it by default (e.g. Latchkey). Add `latchkey_v1.LatchkeyServiceOwnerRole` (or whichever new service-role) to the slice and rebuild + restart pub-api **and** be-session (be-session is what builds the passport). The persisted role record in dynamo is overlayed by `builtin_roles.ApplyBuiltinAttributes` on every read, so just rebuilding the binaries is enough — no DB migration needed. |
+| `policy_denied (PermissionDenied: ...)` | Auth chain works — user just lacks permissions for the specific RPC. `SystemOwnerRoleId`'s `ServiceRoles` list is a hand-rolled allowlist in `pkg/builtin_roles/builtin_roles.go::GetSystemOwner` — newer services aren't in it by default (e.g. Latchkey). Add `latchkey_v1.LatchkeyServiceOwnerRole` (or whichever new service-role) to the slice and rebuild + restart pub-api **and** be-session (be-session builds the passport). The persisted role record in dynamo is overlayed by `builtin_roles.ApplyBuiltinAttributes` on every read, so rebuilding the binaries is enough — no DB migration needed. |
 | `unauthenticated` | Bearer token invalid or expired (default lifetime is 30 min). Re-run with fresh creds. |
 
 ## Squire-env-specific caveats
@@ -374,30 +365,29 @@ device-register or per-tenant flow.
   jq '.provider.anthropic.whitelist'` first.
 - OpenCode + opus-4-7 will sometimes hit the Anthropic API
   `assistant message prefill` 400 error mid-session and stop streaming. The
-  partial work it did is salvageable — check `git log` and `git ls-remote
-  origin` from the env; if a branch is pushed, drive the rest from outside.
+  partial work is salvageable — check `git log` and `git ls-remote origin`
+  from the env; if a branch is pushed, drive the rest from outside.
 - Each squire env's `INNKEEPER_INSTALLATION_DOMAIN` is set per-env. In
-  cloud-routed envs it's a squire subdomain. In non-cloud-tested envs the
-  default is `c1.ductone.com`. Always check `.dev/env/be-innkeeper.env`
-  before composing tenant URLs.
+  cloud-routed envs it's a squire subdomain; otherwise the default is
+  `c1.ductone.com`. Check `.dev/env/be-innkeeper.env` before composing
+  tenant URLs.
 
 ## Running c1 integration tests in a Squire env (no docker)
 
-This is a different goal from standing up the running stack above. The
-`tests/...` integration suites (e.g. `tests/api_no_uplift`, run in CI as the
-buildkite `go-...-testapinouplift-api-no-uplift` shard) don't need the
-process-compose services — the suite starts the c1 services **in-process**.
-They only need the data backends: postgres, dynamodb-local, temporal, valkey,
-and an S3 endpoint.
+Different goal from the running stack above. The `tests/...` integration
+suites (e.g. `tests/api_no_uplift`, run in CI as the buildkite
+`go-...-testapinouplift-api-no-uplift` shard) don't need the process-compose
+services — the suite starts the c1 services **in-process**. They only need
+the data backends: postgres, dynamodb-local, temporal, valkey, and an S3
+endpoint.
 
 CI runs them with `TEST_TEST_CONTAINER=true`, which spins those up as
 **docker** containers (`ci/integration.sh`). **Squire envs have no docker
 daemon** — neither the base image nor the c1 image — so the testcontainer
-path is dead. Use the docker-less path instead: `TEST_LOCAL_EXEC=true`
-(`pkg/utest/integration.go` → `newLocalResourceClient`), which runs every
-backend as a native binary on PATH. The c1 nix `localdev` devshell already
-provides postgres, temporal, valkey, and java; three things it does **not**
-set up for you:
+path is dead. Use `TEST_LOCAL_EXEC=true` (`pkg/utest/integration.go` →
+`newLocalResourceClient`), which runs every backend as a native binary on
+PATH. The c1 nix `localdev` devshell already provides postgres, temporal,
+valkey, and java; three things it does **not** set up:
 
 1. **DynamoDBLocal.jar** — `newLocalResourceClient.allocateDynamoDB` looks only
    in `/home/dynamodblocal` or `/usr/local/dynamodblocal` (both root-owned).
@@ -430,7 +420,7 @@ nix develop /data/squire/src/c1#localdev --command bash -c '
     ./tests/api_no_uplift/... -run TestAPINoUplift -timeout 25m
 '
 ```
-The buildkite shard name maps directly to this: `TEST_CASE="TestAPINoUplift|api_no_uplift"`
+The buildkite shard name maps directly: `TEST_CASE="TestAPINoUplift|api_no_uplift"`
 → `-run "TestAPINoUplift" ./tests/api_no_uplift/...` (split on the last `|`,
 see `ci/integration.sh`). Launch it detached (`setsid -f ... > log; touch done`)
 and poll the log — `squire ssh` sessions drop on long holds.
@@ -438,12 +428,12 @@ and poll the log — `squire ssh` sessions drop on long holds.
 **Caveat — this does not match CI's postgres.** local-exec uses the devshell's
 native postgres (currently 18.3); buildkite's testcontainer pins ECR
 `postgres:2` (an older major). A test that passes here can still fail in
-buildkite (and vice-versa) when the behavior is postgres-version-dependent —
-e.g. partitioned-table schema handling. So a green local-exec run rules out
-"broken on modern pg / general staleness," but it does **not** clear a
-buildkite failure. To reproduce a version-specific failure you need docker +
-the pinned image (`TEST_TEST_CONTAINER=true` with
-`TEST_TEST_CONTAINER_POSTGRES_IMAGE` set), which means a docker host, not squire.
+buildkite (and vice-versa) when behavior is postgres-version-dependent —
+e.g. partitioned-table schema handling. A green local-exec run rules out
+"broken on modern pg / general staleness" but does **not** clear a buildkite
+failure. Reproducing a version-specific failure needs docker + the pinned
+image (`TEST_TEST_CONTAINER=true` with `TEST_TEST_CONTAINER_POSTGRES_IMAGE`
+set), i.e. a docker host, not squire.
 
 ## Cleanup
 

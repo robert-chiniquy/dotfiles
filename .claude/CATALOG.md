@@ -1,6 +1,6 @@
 # Skills Catalog
 
-20 skills. Always-on skills load at startup. Manual skills load via `/name`.
+21 skills. Always-on skills load at startup. Manual skills load via `/name`.
 
 ---
 
@@ -9,6 +9,7 @@
 | Skill | Description |
 |-------|-------------|
 | dry-engineering | Default voice: code review style, commit messages, explanations |
+| open-work-recap | Coding stopping-point recap: open PRs/tickets/issues (URLs) + a short Next: section; never merged/closed |
 | passive-qol | Proactive environment QoL — passive, automatic, invisible |
 | project-process | Project framework: artifacts, practices, proverbs (hub + references/) |
 
