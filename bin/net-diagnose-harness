@@ -1,0 +1,68 @@
+#!/bin/bash
+# net-diagnose-harness -- gather diagnostics for the specific case:
+# "harness APIs fail on my iPhone hotspot but not GF's / not on Wi-Fi."
+#
+# Run this while ON your iPhone hotspot with a harness call ACTIVELY failing.
+# Output goes to ./net-diagnose-<epoch>.txt in the CWD for later comparison.
+
+set -u
+OUT="./net-diagnose-$(/bin/date +%s).txt"
+
+exec > >(tee "$OUT") 2>&1
+
+sep() { echo; echo "════════════ $1 ════════════"; }
+
+sep "environment"
+/sbin/ifconfig | /usr/bin/awk '/^en[0-9]|inet |mtu/{print}'
+/sbin/route -n get default 2>&1 | /usr/bin/head -10
+echo
+echo "public IP + carrier lookup:"
+/usr/bin/curl -s --max-time 5 https://ipinfo.io/json 2>&1 | /usr/bin/head -20
+
+sep "MTU probe — find the largest packet that gets through"
+# Apple hotspot often needs MTU ≤ 1420 due to LTE/5G overhead + no MSS clamping.
+# Try descending sizes; the first size that DOESN'T get "Message too long" and
+# actually returns a reply is your usable MTU.
+for size in 1472 1450 1420 1400 1380 1350 1300; do
+    reply=$(ping -c 1 -W 2000 -D -s "$size" 1.1.1.1 2>&1)
+    if echo "$reply" | /usr/bin/grep -q "bytes from"; then
+        rtt=$(echo "$reply" | /usr/bin/awk -F'time=' '/time=/{print $2}' | /usr/bin/head -1)
+        printf '  MTU probe s=%d  OK (%s)\n' "$size" "$rtt"
+    else
+        err=$(echo "$reply" | /usr/bin/head -2 | /usr/bin/tail -1)
+        printf '  MTU probe s=%d  FAIL: %s\n' "$size" "$err"
+    fi
+done
+echo "→ note the largest s= that OK'd; effective MTU = that+28."
+
+sep "TLS handshake to each harness endpoint"
+for host in api.anthropic.com api.openai.com; do
+    echo "── $host ──"
+    /usr/bin/curl -s -v -o /dev/null --max-time 15 "https://$host" 2>&1 \
+        | /usr/bin/grep -E '^\* |HTTP/|Timeout|resolve|Connected|TLS|handshake|failed' \
+        | /usr/bin/head -20
+done
+
+sep "IPv6 vs IPv4 — try each explicitly"
+for host in api.anthropic.com api.openai.com; do
+    v4=$(/usr/bin/curl -4 -s -o /dev/null -w '%{http_code} %{time_total}s\n' --max-time 10 "https://$host" 2>&1)
+    v6=$(/usr/bin/curl -6 -s -o /dev/null -w '%{http_code} %{time_total}s\n' --max-time 10 "https://$host" 2>&1)
+    printf '  %-24s  v4=%-20s  v6=%s\n' "$host" "$v4" "$v6"
+done
+
+sep "traceroute to api.anthropic.com — where does the path die?"
+/usr/sbin/traceroute -w 2 -q 1 -m 20 api.anthropic.com 2>&1 | /usr/bin/head -25
+
+sep "DNS resolution timing"
+for host in api.anthropic.com api.openai.com; do
+    /usr/bin/dig +tries=1 +time=3 "$host" 2>&1 | /usr/bin/grep -E 'Query time|SERVER|^;;' | /usr/bin/head -5
+done
+
+sep "ongoing harness sockets"
+NETNUDGE_HARNESSES="claude,opencode,codex,pi,sqfan,node,cursor,ghostty,python" \
+    /Users/rch/bin/netnudge --dry 2>&1 | /usr/bin/tail -30
+
+echo
+echo "═════════════════════════════════"
+echo "captured to: $OUT"
+echo "compare against a good run (e.g. same script on Wi-Fi or GF's hotspot)"

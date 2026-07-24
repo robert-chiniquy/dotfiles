@@ -1,0 +1,32 @@
+#!/bin/bash
+# claude-statusline -- wraps claude-hud and appends active network context
+# so a Wi-Fi/hotspot switch is instantly visible in the prompt gutter.
+set -o pipefail
+
+# Pipe Claude Code's session JSON straight into claude-hud
+input=$(cat)
+plugin_dir=$(/bin/ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | /usr/bin/sort -V | /usr/bin/tail -1)
+hud=$(printf '%s' "$input" | /opt/homebrew/bin/node "${plugin_dir}dist/index.js")
+
+# Current default-route interface + type indicator
+iface=$(/sbin/route -n get default 2>/dev/null | /usr/bin/awk '/interface:/{print $2}')
+netlabel=""
+if [[ -n "$iface" ]]; then
+    ip=$(/usr/sbin/ipconfig getifaddr "$iface" 2>/dev/null)
+    ssid=$(/usr/sbin/networksetup -getairportnetwork "$iface" 2>/dev/null | /usr/bin/awk -F': ' '/Current/{print $2}')
+    # Apple personal hotspot uses 172.20.10.0/28 by convention
+    if [[ "$ip" == 172.20.10.* ]]; then
+        netlabel="[HOTSPOT $iface $ip]"
+    elif [[ -n "$ssid" ]]; then
+        netlabel="[$iface $ssid]"
+    else
+        netlabel="[$iface $ip]"
+    fi
+fi
+
+# Vaporwave palette: cyan for Wi-Fi/wired, hot pink for hotspot (mobile data)
+if [[ "$netlabel" == \[HOTSPOT* ]]; then
+    printf '%s \033[38;2;255;0;153m%s\033[0m\n' "$hud" "$netlabel"
+else
+    printf '%s \033[38;2;92;236;255m%s\033[0m\n' "$hud" "$netlabel"
+fi

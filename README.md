@@ -1,6 +1,41 @@
 ### local dotfiles
 `git clone https://github.com/robert-chiniquy/dotfiles.git && cd dotfiles && ./install.sh`
 
+## New Machine Setup
+
+Full bootstrap for a fresh Mac, in order:
+
+1. **Prerequisites**
+   ```bash
+   xcode-select --install                 # Command Line Tools (git, cc, make)
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+2. **Clone + install** — symlinks every dotfile and runs `brew bundle` off the
+   committed `Brewfile` (CLI tools, casks, taps):
+   ```bash
+   git clone https://github.com/robert-chiniquy/dotfiles.git && cd dotfiles && ./install.sh
+   ```
+3. **Language-toolchain globals** — the `Brewfile` covers Homebrew packages,
+   but tools installed via language toolchains are not in it. After installing
+   the toolchains (rustup, go, node via brew), reinstall your global tools:
+   ```bash
+   rustup default stable
+   # cargo install <your tools>   — see your private migration notes for the list
+   # go install <your tools>@latest
+   # npm i -g <your global CLIs>
+   ```
+4. **Shell** — `.zshenv` (universal env: PATH, GOCACHE, locale) and `.zshrc`
+   (interactive) are symlinked by `install.sh`. Open a new shell to load them.
+   Note: `.zshenv` pins `GOMAXPROCS` and the lint shims pin `--concurrency`
+   to a 12-core box — retune for the new machine's core count.
+5. **Manual / GUI steps** — see "Manual Restores" below (iTerm2 plist, overlay
+   LaunchAgent + Screen Recording permission) and run the macOS `defaults`
+   tweaks from `.claude/QOL.md`.
+6. **Re-auth, don't copy** — credentials do not live in this repo and must be
+   re-established on the new machine: `gh auth login`, `atuin login`, VPN,
+   editor/agent sign-ins, cloud CLIs. Rotate any long-lived tokens rather than
+   transplanting them.
+
 ## Manual Restores
 
 Some configs need manual restore (not symlinked by install.sh):

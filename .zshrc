@@ -1706,3 +1706,27 @@ if [[ -o interactive && -t 1 && "${SCORECARD_GREETING:-1}" != 0 ]] && command -v
   [[ -r "$_sc_file" ]] && scorecard --width "$COLUMNS" --height "$LINES" "$_sc_file"
   unset _sc_file
 fi
+
+# === Disk emergency: on interactive shell start, if <4 GB free, kick off safe reclaims in bg ===
+if [[ -o interactive ]] && [[ -x ~/bin/disk-emergency ]]; then
+    _dwe_avail_gb=$(/bin/df -g /System/Volumes/Data 2>/dev/null | /usr/bin/awk 'NR==2{print $4}')
+    if [[ -n "$_dwe_avail_gb" && "$_dwe_avail_gb" -lt 4 ]]; then
+        print -P "%F{#ff0099}⚠  disk critical: ${_dwe_avail_gb} GB free — running disk-emergency in background%f"
+        (~/bin/disk-emergency &) 2>/dev/null
+    fi
+    unset _dwe_avail_gb
+fi
+
+# === Auto-populate .envrc.local in newly-created c1 worktrees ===
+# Detects: dir has .envrc (that sources .envrc.local) + a .git FILE (worktree marker)
+# + missing .envrc.local + main-checkout .envrc.local exists → symlink + direnv allow.
+_c1_worktree_envrc_link() {
+    [[ -f .envrc && ! -e .envrc.local && -f .git ]] || return 0
+    [[ -f ~/repo/c1/.envrc.local ]] || return 0
+    /usr/bin/grep -q '\.envrc\.local' .envrc 2>/dev/null || return 0
+    /bin/ln -s ~/repo/c1/.envrc.local .envrc.local 2>/dev/null || return 0
+    /opt/homebrew/bin/direnv allow . >/dev/null 2>&1
+    print -P "%F{#5cecff}✓ auto-symlinked .envrc.local → ~/repo/c1/.envrc.local%f"
+}
+chpwd_functions+=(_c1_worktree_envrc_link)
+_c1_worktree_envrc_link 2>/dev/null

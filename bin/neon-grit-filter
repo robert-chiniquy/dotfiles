@@ -1,0 +1,148 @@
+#!/usr/bin/env zsh
+# neon-grit-filter -- apply the neon-grit aesthetic to a single image.
+#
+# Pipeline (ImageMagick 7):
+#   - auto-orient
+#   - composite transparent input against BLACK (so transparency doesn't
+#     flatten to white when the JPG is written)
+#   - modulate → level → sigmoidal S-curve
+#   - tar-tint multiply (#1a0e0a)
+#   - ellipse-mask vignette (corners darken to <floor>%)
+#   - rust into near-blacks (band-pass mask: rust shows only in the
+#     [RUST_BLACK_FLOOR, RUST_DARK_THRESHOLD] luma band)
+#   - rust at edges (radial × not-deep-black gate)
+#   - rust at DEEP-BLACK CORNERS — within the deep-black region only, with
+#     intensity proportional to sub-luma so two near-identical "blacks"
+#     read differently in the corner zones. Stretched-luma × is-deep-black
+#     × radial-edge, with a tighter radius than the previous edge step so
+#     this only fires at the outer corners.
+#   - film-grain overlay
+#   - small unsharp pass
+#
+# Sanity check: refuse output if more than BLACK_REJECT_FRAC of pixels are
+# below BLACK_REJECT_THRESHOLD% luma. Exit 2 → batch wrapper stops lineage.
+
+set -euo pipefail
+
+IN="${1:?usage: neon-grit-filter <input> <output> [light|medium|heavy]}"
+OUT="${2:?usage: neon-grit-filter <input> <output> [light|medium|heavy]}"
+INTENSITY="${3:-medium}"
+
+[[ -r "$IN" ]] || { echo "input not readable: $IN" >&2; exit 1; }
+command -v magick >/dev/null || { echo "ImageMagick 7 (magick) required" >&2; exit 1; }
+
+case "$INTENSITY" in
+    light)
+        BRI=94 SAT=72 BLACK_PT=1 WHITE_PT=98 SIGMOIDAL=3 TAR_PCT=10
+        VIGNETTE_RADIUS_FRAC=0.85 VIGNETTE_SIGMA=80  VIGNETTE_FLOOR=72
+        RUST_BLACK_FLOOR=4 RUST_DARK_THRESHOLD=25
+        RUST_DARK_OPACITY=0.22 RUST_EDGE_OPACITY=0.22 RUST_DEEP_CORNER_OPACITY=0.10
+        GRAIN_ATTEN=0.22 GRAIN_CHUNK=70
+        ;;
+    medium)
+        BRI=88 SAT=55 BLACK_PT=2 WHITE_PT=95 SIGMOIDAL=4 TAR_PCT=18
+        VIGNETTE_RADIUS_FRAC=0.75 VIGNETTE_SIGMA=100 VIGNETTE_FLOOR=48
+        RUST_BLACK_FLOOR=5 RUST_DARK_THRESHOLD=35
+        RUST_DARK_OPACITY=0.42 RUST_EDGE_OPACITY=0.45 RUST_DEEP_CORNER_OPACITY=0.22
+        GRAIN_ATTEN=0.35 GRAIN_CHUNK=50
+        ;;
+    heavy)
+        BRI=78 SAT=38 BLACK_PT=4 WHITE_PT=90 SIGMOIDAL=6 TAR_PCT=28
+        VIGNETTE_RADIUS_FRAC=0.65 VIGNETTE_SIGMA=140 VIGNETTE_FLOOR=28
+        RUST_BLACK_FLOOR=6 RUST_DARK_THRESHOLD=45
+        RUST_DARK_OPACITY=0.60 RUST_EDGE_OPACITY=0.65 RUST_DEEP_CORNER_OPACITY=0.36
+        GRAIN_ATTEN=0.50 GRAIN_CHUNK=40
+        ;;
+    *)
+        echo "unknown intensity: $INTENSITY (use light|medium|heavy)" >&2
+        exit 1
+        ;;
+esac
+
+BLACK_REJECT_THRESHOLD=4
+BLACK_REJECT_FRAC=0.92
+TAR_COLOR='#1a0e0a'
+RUST_COLOR='#6a3d2e'
+
+TMP_OUT=$(mktemp -t neon-grit.XXXXXX).jpg
+trap '/bin/rm -f "$TMP_OUT"' EXIT
+
+magick "$IN" \
+    -auto-orient \
+    -background black -alpha remove -alpha off \
+    -modulate "${BRI},${SAT},100" \
+    -level "${BLACK_PT}%,${WHITE_PT}%,1.0" \
+    +sigmoidal-contrast "${SIGMOIDAL},30%" \
+    \( +clone -fill "$TAR_COLOR" -colorize "${TAR_PCT}%" \) \
+        -compose multiply -composite \
+    \( +clone -fill black -colorize 100 \
+       -fill white -draw "ellipse %[fx:w/2],%[fx:h/2] %[fx:w*${VIGNETTE_RADIUS_FRAC}],%[fx:h*${VIGNETTE_RADIUS_FRAC}] 0,360" \
+       -blur "0x${VIGNETTE_SIGMA}" \
+       -level "${VIGNETTE_FLOOR}%,100%" \) \
+        -compose multiply -composite \
+    -write mpr:base +delete \
+    mpr:base \
+    \( \
+       \( \
+          \( mpr:base -colorspace gray -negate -level "${RUST_DARK_THRESHOLD}%,100%" \) \
+          \( mpr:base -colorspace gray -threshold "${RUST_BLACK_FLOOR}%" \) \
+          -compose multiply -composite \
+          -evaluate multiply "$RUST_DARK_OPACITY" \
+       \) \
+       \( mpr:base -fill "$RUST_COLOR" -colorize 100 \) \
+       +swap \
+       -compose copy_opacity -composite \
+    \) \
+    -compose over -composite \
+    -write mpr:base +delete \
+    mpr:base \
+    \( \
+       \( \
+          \( mpr:base -fill black -colorize 100 \
+             -fill white -draw "ellipse %[fx:w/2],%[fx:h/2] %[fx:w*0.5],%[fx:h*0.5] 0,360" \
+             -blur "0x200" -negate \) \
+          \( mpr:base -colorspace gray -threshold "${RUST_BLACK_FLOOR}%" \) \
+          -compose multiply -composite \
+          -evaluate multiply "$RUST_EDGE_OPACITY" \
+       \) \
+       \( mpr:base -fill "$RUST_COLOR" -colorize 100 \) \
+       +swap \
+       -compose copy_opacity -composite \
+    \) \
+    -compose over -composite \
+    -write mpr:base +delete \
+    mpr:base \
+    \( \
+       \( \
+          \( mpr:base -colorspace gray -level "0%,${RUST_BLACK_FLOOR}%" \) \
+          \( mpr:base -colorspace gray -threshold "${RUST_BLACK_FLOOR}%" -negate \) \
+          -compose multiply -composite \
+          \( mpr:base -fill black -colorize 100 \
+             -fill white -draw "ellipse %[fx:w/2],%[fx:h/2] %[fx:w*0.4],%[fx:h*0.4] 0,360" \
+             -blur "0x180" -negate \) \
+          -compose multiply -composite \
+          -evaluate multiply "$RUST_DEEP_CORNER_OPACITY" \
+       \) \
+       \( mpr:base -fill "$RUST_COLOR" -colorize 100 \) \
+       +swap \
+       -compose copy_opacity -composite \
+    \) \
+    -compose over -composite \
+    \( +clone +noise gaussian -attenuate "$GRAIN_ATTEN" -modulate 100,0,100 \
+       -resize "${GRAIN_CHUNK}%" -resize "$(( 10000 / GRAIN_CHUNK ))%" \) \
+        -compose overlay -composite \
+    -unsharp 0x0.5+0.4+0 \
+    -quality 92 \
+    "$TMP_OUT"
+
+NEAR_BLACK_FRAC=$(magick "$TMP_OUT" -colorspace gray \
+    -threshold "${BLACK_REJECT_THRESHOLD}%" \
+    -format "%[fx:1-mean]" info:)
+
+if (( $(echo "$NEAR_BLACK_FRAC > $BLACK_REJECT_FRAC" | bc -l) )); then
+    printf 'neon-grit-filter: refusing output (%.1f%% pixels below %d%% luma)\n' \
+        "$(echo "$NEAR_BLACK_FRAC * 100" | bc -l)" "$BLACK_REJECT_THRESHOLD" >&2
+    exit 2
+fi
+
+mv "$TMP_OUT" "$OUT"

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Personal wrapper: cap plaid-lint at 6 CPUs (the 4GB-RAM-per-vCPU sizing
+# rule applied to a 24GB machine). Only injects concurrency for the `run`
+# subcommand, and only if -j/--concurrency isn't already specified. Override:
+#   plaid-lint run -j 12   → go full-speed
+#   plaid-lint run -j 2    → go even lighter
+REAL=/Users/rch/go/bin/plaid-lint
+if [ "$1" = "run" ]; then
+    shift
+    case " $* " in
+        *" -j "*|*" --concurrency "*|*" --concurrency="*)
+            exec "$REAL" run "$@" ;;
+    esac
+    exec "$REAL" run --concurrency=6 "$@"
+fi
+exec "$REAL" "$@"

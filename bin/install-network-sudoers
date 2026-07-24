@@ -1,0 +1,39 @@
+#!/bin/sh
+# One-shot installer for BOTH netnudge and peptalk-mtu-watch NOPASSWD rules.
+# Run this in a live TTY (iTerm). One sudo prompt, no more after.
+set -eu
+
+STAGE=./rch-network-sudoers.stage
+/bin/rm -f "$STAGE"
+
+cat >| "$STAGE" <<'SUDO'
+# netnudge + peptalk-mtu-watch: scoped NOPASSWD for network fixes.
+rch ALL=(ALL) NOPASSWD: /usr/sbin/networksetup -setairportpower * on
+rch ALL=(ALL) NOPASSWD: /usr/sbin/networksetup -setairportpower * off
+rch ALL=(ALL) NOPASSWD: /sbin/ifconfig * mtu *
+SUDO
+
+echo "── snippet ──"
+cat "$STAGE"
+
+echo "── validating with visudo ──"
+sudo /usr/sbin/visudo -cf "$STAGE"
+
+echo "── installing /etc/sudoers.d/rch-network (mode 0440 root:wheel) ──"
+sudo /usr/bin/install -m 0440 -o root -g wheel "$STAGE" /etc/sudoers.d/rch-network
+sudo /bin/rm -f /etc/sudoers.d/netnudge   # replaced by rch-network
+/bin/rm -f "$STAGE"
+
+echo "── loading LaunchAgent ──"
+/bin/launchctl unload ~/Library/LaunchAgents/dev.rch.peptalk-mtu-watch.plist 2>/dev/null || true
+/bin/launchctl load   ~/Library/LaunchAgents/dev.rch.peptalk-mtu-watch.plist
+sleep 2
+
+echo "── smoke tests ──"
+sudo -n /sbin/ifconfig en0 mtu 1500 >/dev/null && echo "  sudoers OK (ifconfig mtu prompt-free)"
+sudo -n /usr/sbin/networksetup -setairportpower en0 on >/dev/null && echo "  sudoers OK (netnudge prompt-free)"
+/Users/rch/bin/peptalk-mtu-watch --status
+echo
+echo "installed. Watcher polls every 15s. When you connect to peptalk it will"
+echo "drop MTU to 1400 within ~15s; back to 1500 on any other SSID."
+echo "  live log:  tail -f ~/Library/Logs/peptalk-mtu-watch.log"

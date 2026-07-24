@@ -49,6 +49,7 @@ unlink_if_exists ~/.vimrc
 unlink_if_exists ~/.bash_login
 unlink_if_exists ~/.inputrc
 unlink_if_exists ~/.zprofile
+unlink_if_exists ~/.zshenv
 unlink_if_exists ~/.zshrc
 unlink_if_exists ~/.claude
 unlink_if_exists ~/.gitconfig
@@ -91,6 +92,7 @@ link_if_missing .vimrc ~/.vimrc
 link_if_missing .bash_login ~/.bash_login
 link_if_missing .inputrc ~/.inputrc
 link_if_missing .zprofile ~/.zprofile
+link_if_missing .zshenv ~/.zshenv
 link_if_missing .zshrc ~/.zshrc
 link_if_missing .claude ~/.claude
 link_if_missing .gitconfig ~/.gitconfig

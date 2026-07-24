@@ -1,0 +1,55 @@
+#!/bin/sh
+# One-shot uninstall for netnudge + peptalk-mtu-watch NOPASSWD + LaunchAgent.
+# Reverts the system state added by install-network-sudoers.
+# Leaves ~/bin/{netnudge,peptalk-mtu-watch,claude-statusline,net-diagnose-harness}
+# scripts in place — remove them by hand if you also want them gone (they're
+# harmless when the sudoers rule is absent).
+set -u
+
+echo "── stopping and unloading LaunchAgent ──"
+if [ -f ~/Library/LaunchAgents/dev.rch.peptalk-mtu-watch.plist ]; then
+    /bin/launchctl unload ~/Library/LaunchAgents/dev.rch.peptalk-mtu-watch.plist 2>/dev/null || true
+    /bin/rm -f ~/Library/LaunchAgents/dev.rch.peptalk-mtu-watch.plist
+    echo "  removed ~/Library/LaunchAgents/dev.rch.peptalk-mtu-watch.plist"
+else
+    echo "  (LaunchAgent plist already absent)"
+fi
+
+# Also kill any watcher process that may be running loose
+/usr/bin/pkill -f 'peptalk-mtu-watch$' 2>/dev/null && echo "  killed running peptalk-mtu-watch process" || true
+
+echo
+echo "── removing sudoers file (needs sudo) ──"
+if [ -f /etc/sudoers.d/rch-network ] || [ -f /etc/sudoers.d/netnudge ]; then
+    sudo /bin/rm -f /etc/sudoers.d/rch-network /etc/sudoers.d/netnudge
+    echo "  removed /etc/sudoers.d/{rch-network,netnudge} (if present)"
+else
+    echo "  (sudoers files already absent)"
+fi
+
+echo
+echo "── restoring MTU to 1500 on en0 ──"
+current=$(/sbin/ifconfig en0 2>/dev/null | /usr/bin/awk '/mtu/{for(i=1;i<=NF;i++) if($i=="mtu") print $(i+1); exit}')
+if [ "$current" != "1500" ] && [ -n "$current" ]; then
+    sudo /sbin/ifconfig en0 mtu 1500 && echo "  MTU $current → 1500"
+else
+    echo "  (MTU already 1500)"
+fi
+
+echo
+echo "── smoke test: sudo -n should now FAIL (proves NOPASSWD is gone) ──"
+if sudo -n /sbin/ifconfig en0 mtu 1500 >/dev/null 2>&1; then
+    echo "  WARNING: sudo -n still works — check /etc/sudoers.d/ manually."
+else
+    echo "  OK — sudo now requires password again."
+fi
+
+echo
+echo "uninstalled. Scripts still in ~/bin (harmless):"
+/bin/ls -1 ~/bin/netnudge ~/bin/peptalk-mtu-watch ~/bin/net-diagnose-harness \
+    ~/bin/install-network-sudoers ~/bin/claude-statusline 2>/dev/null | sed 's/^/  /'
+echo "  (remove those with 'rm ~/bin/<name>' if you also want the scripts gone.)"
+echo
+echo "Note: ~/bin/claude-statusline is referenced by ~/.claude/settings.json — if"
+echo "you remove it, also revert statusLine.command in that file to point at"
+echo "the original claude-hud invocation."

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Personal wrapper: cap clanker-lint at half cores (laptop stays responsive).
+# Only injects concurrency for the `run` subcommand, and only if the user
+# hasn't already specified -j/--concurrency. Override:
+#   clanker-lint run -j 12   → go full-speed
+#   clanker-lint run -j 2    → go even lighter
+REAL=/Users/rch/go/bin/clanker-lint
+if [ "$1" = "run" ]; then
+    shift
+    case " $* " in
+        *" -j "*|*" --concurrency "*|*" --concurrency="*)
+            exec "$REAL" run "$@" ;;
+    esac
+    exec "$REAL" run --concurrency=6 "$@"
+fi
+exec "$REAL" "$@"

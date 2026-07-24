@@ -1,0 +1,137 @@
+#!/usr/bin/env zsh
+# prune-white-bg-wallpapers -- find and remove/move images that have a
+# white (or near-white) dominant background. The metric is the mean luma
+# of the four 100×100 corner regions, scaled 0-100. A dark background
+# scores near 0; a true white background scores near 100. Default
+# threshold 50 catches images that clearly read as "white background".
+#
+# Transparency handling: images whose corners have substantial alpha
+# (mean corner alpha < 90%) are skipped entirely — transparent corners
+# are not a "white background" even though they composite to white in
+# most viewers.
+
+set -euo pipefail
+
+DIR="$HOME/Pictures/dynamic-wallpaper"
+MIN_CORNER_LUMA=50
+CORNER_SIZE=100
+ALPHA_TRANSPARENT_THRESHOLD=90
+BIN=10
+HISTOGRAM=0
+DELETE=0
+DRY_RUN=0
+QUIET=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --min-corner-luma=*)       MIN_CORNER_LUMA="${arg#*=}" ;;
+        --corner-size=*)           CORNER_SIZE="${arg#*=}" ;;
+        --alpha-transparent=*)     ALPHA_TRANSPARENT_THRESHOLD="${arg#*=}" ;;
+        --bin=*)                   BIN="${arg#*=}" ;;
+        --histogram)               HISTOGRAM=1 ;;
+        --delete)                  DELETE=1 ;;
+        --dry-run)                 DRY_RUN=1 ;;
+        --quiet)                   QUIET=1 ;;
+        -h|--help)
+            sed -n '1,/^set -euo/p' "$0" | sed '/^set/d; s/^# \{0,1\}//'
+            exit 0 ;;
+        --*) echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)   DIR="$arg" ;;
+    esac
+done
+
+[[ -d "$DIR" ]] || { echo "not a directory: $DIR" >&2; exit 1; }
+command -v magick >/dev/null || { echo "ImageMagick 7 (magick) required" >&2; exit 1; }
+
+DATA=$(mktemp -t whitebg.XXXXXX)
+trap '/bin/rm -f "$DATA"' EXIT
+
+find "$DIR" -maxdepth 1 -type f \
+    \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+       -o -iname '*.webp' -o -iname '*.heic' \) \
+    -print0 | while IFS= read -r -d '' f; do
+    # If the image has an alpha channel with substantial corner transparency,
+    # skip — transparent ≠ white background.
+    has_alpha=$(magick identify -format "%A" "$f" 2>/dev/null)
+    if [[ "$has_alpha" == "Blend" || "$has_alpha" == "True" || "$has_alpha" == "Activate" ]]; then
+        a_nw=$(magick "$f" -alpha extract -gravity NorthWest -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -format "%[fx:mean*100]" info: 2>/dev/null)
+        a_ne=$(magick "$f" -alpha extract -gravity NorthEast -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -format "%[fx:mean*100]" info: 2>/dev/null)
+        a_sw=$(magick "$f" -alpha extract -gravity SouthWest -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -format "%[fx:mean*100]" info: 2>/dev/null)
+        a_se=$(magick "$f" -alpha extract -gravity SouthEast -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -format "%[fx:mean*100]" info: 2>/dev/null)
+        if [[ -n "$a_nw" && -n "$a_ne" && -n "$a_sw" && -n "$a_se" ]]; then
+            mean_alpha=$(/usr/bin/awk -v a="$a_nw" -v b="$a_ne" -v c="$a_sw" -v d="$a_se" 'BEGIN{print (a+b+c+d)/4}')
+            transparent=$(/usr/bin/awk -v m="$mean_alpha" -v t="$ALPHA_TRANSPARENT_THRESHOLD" 'BEGIN{print (m < t) ? 1 : 0}')
+            (( transparent )) && continue
+        fi
+    fi
+
+    # Corner luma, composited over black so any remaining transparency
+    # contributes 0 luma rather than 100.
+    nw=$(magick "$f" -background black -alpha remove -alpha off -gravity NorthWest -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -colorspace gray -format "%[fx:mean*100]" info: 2>/dev/null)
+    ne=$(magick "$f" -background black -alpha remove -alpha off -gravity NorthEast -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -colorspace gray -format "%[fx:mean*100]" info: 2>/dev/null)
+    sw=$(magick "$f" -background black -alpha remove -alpha off -gravity SouthWest -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -colorspace gray -format "%[fx:mean*100]" info: 2>/dev/null)
+    se=$(magick "$f" -background black -alpha remove -alpha off -gravity SouthEast -crop "${CORNER_SIZE}x${CORNER_SIZE}+0+0" +repage -colorspace gray -format "%[fx:mean*100]" info: 2>/dev/null)
+    [[ -z "$nw" || -z "$ne" || -z "$sw" || -z "$se" ]] && continue
+    avg=$(/usr/bin/awk -v a="$nw" -v b="$ne" -v c="$sw" -v d="$se" 'BEGIN{print (a+b+c+d)/4}')
+    printf '%s\t%s\n' "$avg" "$f" >> "$DATA"
+done
+
+count=$(wc -l < "$DATA" | tr -d ' ')
+
+if (( HISTOGRAM )); then
+    printf '%d images scanned (transparent-cornered images excluded)\n\n' "$count"
+    /usr/bin/awk -F'\t' '{print $1}' "$DATA" | sort -g > "${DATA}.s"
+    n=$(wc -l < "${DATA}.s" | tr -d ' ')
+    printf 'percentiles (corner luma %%):\n'
+    for pct in 0 25 50 75 90 95 99 100; do
+        idx=$(( (n * pct + 50) / 100 ))
+        (( idx < 1 )) && idx=1
+        (( idx > n )) && idx=n
+        printf '  p%-3d = %s\n' "$pct" "$(sed -n "${idx}p" "${DATA}.s")"
+    done
+    printf '\nhistogram (%s%% bins):\n' "$BIN"
+    /usr/bin/awk -v bin="$BIN" '
+    { b = int($1 / bin); count[b]++; if (max == "" || b > max) max = b }
+    END {
+        maxct = 0; for (b in count) if (count[b] > maxct) maxct = count[b]
+        for (b = 0; b <= max; b++) {
+            ct = count[b] + 0; if (ct == 0) continue
+            lo = b * bin; hi = (b+1) * bin - 1
+            bar = ""; barlen = int(ct * 40 / maxct)
+            if (barlen < 1) barlen = 1
+            for (i = 0; i < barlen; i++) bar = bar "█"
+            printf "  %3d-%3d  (%3d) %s\n", lo, hi, ct, bar
+        }
+    }' "${DATA}.s"
+    /bin/rm -f "${DATA}.s"
+    exit 0
+fi
+
+REJECT_DIR="${DIR%/}/.rejected"
+[[ $DELETE -eq 0 && $DRY_RUN -eq 0 ]] && mkdir -p "$REJECT_DIR"
+
+total=0; rejected=0; kept=0
+while IFS=$'\t' read -r luma path; do
+    total=$((total + 1))
+    over=$(/usr/bin/awk -v l="$luma" -v t="$MIN_CORNER_LUMA" 'BEGIN{print (l > t) ? 1 : 0}')
+    if (( over )); then
+        rejected=$((rejected + 1))
+        if (( DRY_RUN )); then
+            (( QUIET )) || printf 'WOULD-REJECT  %6.2f  %s\n' "$luma" "$path"
+        elif (( DELETE )); then
+            /bin/rm -f -- "$path"
+            (( QUIET )) || printf 'DELETED       %6.2f  %s\n' "$luma" "$path"
+        else
+            mv -- "$path" "$REJECT_DIR/"
+            (( QUIET )) || printf 'MOVED         %6.2f  %s\n' "$luma" "$path"
+        fi
+    else
+        kept=$((kept + 1))
+    fi
+done < "$DATA"
+
+printf '\nscanned=%d  kept=%d  rejected=%d  min_corner_luma=%s' \
+    "$total" "$kept" "$rejected" "$MIN_CORNER_LUMA"
+(( DRY_RUN )) && printf ' (dry-run)'
+(( DELETE == 0 && DRY_RUN == 0 )) && printf '\nrejected files in: %s' "$REJECT_DIR"
+echo

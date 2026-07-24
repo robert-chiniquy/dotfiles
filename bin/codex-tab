@@ -1,0 +1,37 @@
+#!/bin/bash
+# codex-tab -- launch codex with an iTerm tab title (and badge) set to
+# a chosen name, so you can identify which codex session is in which tab.
+#
+# Codex's TUI doesn't expose the session name in its status line, and its
+# [tui] config offers no user-customizable status fields. This wrapper works
+# around that by setting the terminal tab title + iTerm badge before exec.
+#
+# Usage:
+#   codex-tab <name> [codex args...]         # start new session, tab titled <name>
+#   codex-tab -r <name>                       # resume named/id session, retitle tab
+#
+# Examples:
+#   codex-tab occult-refactor
+#   codex-tab c1-uplift resume --last
+#   codex-tab notes exec "summarize yesterday's PRs"
+
+set -eu
+
+if [ $# -lt 1 ]; then
+    echo "usage: codex-tab <name> [codex-args...]" >&2
+    exit 1
+fi
+
+name=$1; shift
+
+# Tab title (works in every modern terminal — iTerm, Ghostty, Alacritty, etc.)
+printf '\e]0;codex[%s]\a' "$name"
+
+# iTerm-specific: set a big persistent BADGE (visible even when tab isn't focused)
+# and a user variable so iTerm status-line profiles can reference it.
+badge_b64=$(printf 'codex\n%s' "$name" | /usr/bin/base64)
+printf '\e]1337;SetBadgeFormat=%s\a' "$badge_b64"
+uservar_b64=$(printf '%s' "$name" | /usr/bin/base64)
+printf '\e]1337;SetUserVar=codexname=%s\a' "$uservar_b64"
+
+exec codex "$@"

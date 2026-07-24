@@ -1,0 +1,122 @@
+#!/usr/bin/env zsh
+# prune-narrow-wallpapers -- find and remove/move images that are too narrow
+# for the desktop. Independent of the black-image pruner; same I/O shape.
+#
+# Default behavior: MOVE rejects into <dir>/.rejected/.
+# With --delete: permanent removal.
+# With --dry-run: report only.
+# With --histogram: print width distribution + percentiles, no changes.
+#
+# Usage:
+#   prune-narrow-wallpapers [DIR]
+#                           [--min-width=1280]      # below this is rejected
+#                           [--bin=256]             # histogram bin size in px
+#                           [--histogram]           # print histogram and exit
+#                           [--delete]              # remove instead of moving
+#                           [--dry-run]             # report only
+#                           [--quiet]               # only summary line
+
+set -euo pipefail
+
+DIR="$HOME/Pictures/dynamic-wallpaper"
+MIN_WIDTH=1280
+BIN=256
+HISTOGRAM=0
+DELETE=0
+DRY_RUN=0
+QUIET=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --min-width=*)  MIN_WIDTH="${arg#*=}" ;;
+        --bin=*)        BIN="${arg#*=}" ;;
+        --histogram)    HISTOGRAM=1 ;;
+        --delete)       DELETE=1 ;;
+        --dry-run)      DRY_RUN=1 ;;
+        --quiet)        QUIET=1 ;;
+        -h|--help)
+            sed -n '1,/^set -euo/p' "$0" | sed '/^set/d; s/^# \{0,1\}//'
+            exit 0 ;;
+        --*) echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)   DIR="$arg" ;;
+    esac
+done
+
+[[ -d "$DIR" ]] || { echo "not a directory: $DIR" >&2; exit 1; }
+command -v magick >/dev/null || { echo "ImageMagick 7 (magick) required" >&2; exit 1; }
+
+WIDTHS_FILE=$(mktemp -t narrow.XXXXXX)
+trap '/bin/rm -f "$WIDTHS_FILE"' EXIT
+
+find "$DIR" -maxdepth 1 -type f \
+    \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+       -o -iname '*.webp' -o -iname '*.heic' -o -iname '*.tif' \
+       -o -iname '*.tiff' \) \
+    -print0 | xargs -0 magick identify -format $'%w\t%i\n' 2>/dev/null > "$WIDTHS_FILE"
+
+count=$(wc -l < "$WIDTHS_FILE" | tr -d ' ')
+
+if (( HISTOGRAM )); then
+    printf '%d images scanned in %s\n\n' "$count" "$DIR"
+    printf 'percentiles:\n'
+    awk -F'\t' '{print $1}' "$WIDTHS_FILE" | sort -n > "${WIDTHS_FILE}.sorted"
+    n=$(wc -l < "${WIDTHS_FILE}.sorted" | tr -d ' ')
+    for pct in 0 5 10 25 50 75 90 95 100; do
+        idx=$(( (n * pct + 50) / 100 ))
+        (( idx < 1 )) && idx=1
+        (( idx > n )) && idx=n
+        val=$(sed -n "${idx}p" "${WIDTHS_FILE}.sorted")
+        printf '  p%-3d = %s\n' "$pct" "$val"
+    done
+    printf '\nhistogram (%dpx bins):\n' "$BIN"
+    awk -v bin="$BIN" '
+    { b = int($1 / bin); count[b]++; if (b > max) max = b }
+    END {
+        maxct = 0
+        for (b in count) if (count[b] > maxct) maxct = count[b]
+        for (b = 0; b <= max; b++) {
+            ct = count[b] + 0
+            if (ct == 0) continue
+            lo = b * bin
+            hi = (b+1) * bin - 1
+            bar = ""
+            barlen = int(ct * 40 / maxct)
+            if (barlen < 1) barlen = 1
+            for (i = 0; i < barlen; i++) bar = bar "█"
+            printf "  %5d-%-5d  (%3d) %s\n", lo, hi, ct, bar
+        }
+    }' "${WIDTHS_FILE}.sorted"
+    rm -f "${WIDTHS_FILE}.sorted"
+    exit 0
+fi
+
+REJECT_DIR="${DIR%/}/.rejected"
+[[ $DELETE -eq 0 && $DRY_RUN -eq 0 ]] && mkdir -p "$REJECT_DIR"
+
+total=0
+rejected=0
+kept=0
+
+while IFS=$'\t' read -r width path; do
+    total=$((total + 1))
+    if (( width < MIN_WIDTH )); then
+        rejected=$((rejected + 1))
+        if (( DRY_RUN )); then
+            (( QUIET )) || printf 'WOULD-REJECT  %4dpx  %s\n' "$width" "$path"
+        elif (( DELETE )); then
+            rm -f -- "$path"
+            (( QUIET )) || printf 'DELETED       %4dpx  %s\n' "$width" "$path"
+        else
+            mv -- "$path" "$REJECT_DIR/"
+            (( QUIET )) || printf 'MOVED         %4dpx  %s\n' "$width" "$path"
+        fi
+    else
+        kept=$((kept + 1))
+    fi
+done < "$WIDTHS_FILE"
+
+printf '\nscanned=%d  kept=%d  rejected=%d  min_width=%d' \
+    "$total" "$kept" "$rejected" "$MIN_WIDTH"
+(( DRY_RUN )) && printf ' (dry-run)'
+(( DELETE == 0 && DRY_RUN == 0 )) && printf '\nrejected files in: %s' "$REJECT_DIR"
+echo

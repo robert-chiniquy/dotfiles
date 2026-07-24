@@ -1,0 +1,89 @@
+#!/usr/bin/env zsh
+# prune-black-wallpapers -- find and remove/move images that are mostly
+# pure black (typically the over-darkened tail of generational chains, or
+# bad source images). Independent of the neon-grit filter.
+#
+# Default behavior: MOVE rejected images into <dir>/.rejected/ (reversible).
+# With --delete: permanently remove them.
+# With --dry-run: report only, change nothing.
+#
+# Usage:
+#   prune-black-wallpapers [DIR]
+#                          [--threshold-luma=4]      # luma % counted as "near black"
+#                          [--threshold-frac=0.92]   # fraction of pixels at-or-below
+#                          [--delete]                # remove instead of moving
+#                          [--dry-run]               # report only
+#                          [--quiet]                 # only summary line
+
+set -euo pipefail
+
+DIR="$HOME/Pictures/dynamic-wallpaper"
+THRESHOLD_LUMA=4
+THRESHOLD_FRAC=0.92
+DELETE=0
+DRY_RUN=0
+QUIET=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --threshold-luma=*) THRESHOLD_LUMA="${arg#*=}" ;;
+        --threshold-frac=*) THRESHOLD_FRAC="${arg#*=}" ;;
+        --delete)           DELETE=1 ;;
+        --dry-run)          DRY_RUN=1 ;;
+        --quiet)            QUIET=1 ;;
+        -h|--help)
+            sed -n '1,/^set -euo/p' "$0" | sed '/^set/d; s/^# \{0,1\}//'
+            exit 0 ;;
+        --*) echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)   DIR="$arg" ;;
+    esac
+done
+
+[[ -d "$DIR" ]] || { echo "not a directory: $DIR" >&2; exit 1; }
+command -v magick >/dev/null || { echo "ImageMagick 7 (magick) required" >&2; exit 1; }
+
+REJECT_DIR="${DIR%/}/.rejected"
+[[ $DELETE -eq 0 && $DRY_RUN -eq 0 ]] && mkdir -p "$REJECT_DIR"
+
+total=0
+rejected=0
+kept=0
+errors=0
+shopt -s nullglob 2>/dev/null || setopt nullglob
+
+# Process common image types; skip the .rejected subdir itself
+while IFS= read -r -d '' f; do
+    [[ "$f" == *"/.rejected/"* ]] && continue
+    total=$((total + 1))
+
+    near_black=$(magick "$f" -colorspace gray -threshold "${THRESHOLD_LUMA}%" \
+                    -format "%[fx:1-mean]" info: 2>/dev/null) || {
+        errors=$((errors + 1))
+        [[ $QUIET -eq 0 ]] && printf 'ERR  %s\n' "$f"
+        continue
+    }
+
+    if (( $(echo "$near_black > $THRESHOLD_FRAC" | bc -l) )); then
+        rejected=$((rejected + 1))
+        pct=$(printf '%.1f' "$(echo "$near_black * 100" | bc -l)")
+        if [[ $DRY_RUN -eq 1 ]]; then
+            [[ $QUIET -eq 0 ]] && printf 'WOULD-REJECT  %s%%  %s\n' "$pct" "$f"
+        elif [[ $DELETE -eq 1 ]]; then
+            rm -f -- "$f"
+            [[ $QUIET -eq 0 ]] && printf 'DELETED       %s%%  %s\n' "$pct" "$f"
+        else
+            mv -- "$f" "$REJECT_DIR/"
+            [[ $QUIET -eq 0 ]] && printf 'MOVED         %s%%  %s\n' "$pct" "$f"
+        fi
+    else
+        kept=$((kept + 1))
+    fi
+done < <(find "$DIR" -maxdepth 1 -type f \
+            \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+               -o -iname '*.webp' -o -iname '*.heic' -o -iname '*.tif' \
+               -o -iname '*.tiff' \) -print0)
+
+printf '\nscanned=%d  kept=%d  rejected=%d  errors=%d' "$total" "$kept" "$rejected" "$errors"
+[[ $DRY_RUN -eq 1 ]] && printf ' (dry-run)'
+[[ $DELETE -eq 0 && $DRY_RUN -eq 0 ]] && printf '\nrejected files in: %s' "$REJECT_DIR"
+echo
