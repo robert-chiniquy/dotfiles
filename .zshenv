@@ -47,7 +47,7 @@ export CARGO_TARGET_DIR="$HOME/.cache/cargo-target"
 # (sqfan agent, worktree with stale env) points it at a per-batch dir.
 export GOCACHE="$HOME/Library/Caches/go-build"
 
-# Cap Go runtime threads machine-wide (12-core/24GB box): leaves headroom
+# Cap Go runtime threads (tuned low for headroom; 15-core/48GB box): leaves headroom
 # when multiple agents compile/lint simultaneously. Per-invocation override:
 # GOMAXPROCS=12 <cmd>.
-export GOMAXPROCS=8
+export GOMAXPROCS=6
