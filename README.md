@@ -28,10 +28,20 @@ Full bootstrap for a fresh Mac, in order:
    (interactive) are symlinked by `install.sh`. Open a new shell to load them.
    Note: `.zshenv` pins `GOMAXPROCS` and the lint shims pin `--concurrency`
    to a 12-core box — retune for the new machine's core count.
-5. **Manual / GUI steps** — see "Manual Restores" below (iTerm2 plist, overlay
+5. **Applications** — GUI apps are casks in the `Brewfile`, so `brew bundle`
+   (step 2) installs them: iTerm2, VS Code, Cursor, Chrome, 1Password,
+   Rectangle, Slack, Notion, Linear, Spotify, Zoom, Twingate, GitHub Desktop,
+   JetBrains Toolbox, Hammerspoon, Karabiner, Übersicht, Ghostty, and more.
+   - **VS Code** — extensions + settings are captured under `.config/vscode/`.
+     Restore with: `~/.config/vscode/restore.sh` (installs all extensions from
+     `extensions.txt`, symlinks `settings.json`).
+   - **App Store apps** (not in Brewfile): Xcode, Keynote/Numbers/Pages —
+     install from the App Store, or `brew install mas` then script them.
+   - **Internal apps** (not public casks): install from their internal sources.
+6. **Manual / GUI steps** — see "Manual Restores" below (iTerm2 plist, overlay
    LaunchAgent + Screen Recording permission) and run the macOS `defaults`
    tweaks from `.claude/QOL.md`.
-6. **Re-auth, don't copy** — credentials do not live in this repo and must be
+7. **Re-auth, don't copy** — credentials do not live in this repo and must be
    re-established on the new machine: `gh auth login`, `atuin login`, VPN,
    editor/agent sign-ins, cloud CLIs. Rotate any long-lived tokens rather than
    transplanting them.
