@@ -21,6 +21,11 @@
 #
 # The emitted restore script is self-contained and portable: run it on this or
 # another Mac (session IDs only resolve where the transcripts exist).
+#
+# Known limitation: sessions are matched to tabs by cwd + harness. Two tabs in
+# the SAME cwd running the SAME harness both resolve to that cwd's newest
+# transcript — they can't be told apart by cwd alone. Review the restore
+# script and fix any duplicate --resume IDs by hand before relying on it.
 
 set -euo pipefail
 
@@ -69,15 +74,20 @@ claude_sid_for() {
   [ -n "$f" ] || return 1
   basename "$f" .jsonl
 }
-# newest codex rollout whose recorded cwd matches → session uuid
+# newest codex rollout whose recorded cwd matches → session uuid.
+# codex records "cwd":"<path>" on line 1 of each rollout-*.jsonl. The trailing
+# quote in the fixed-string pattern anchors the match so /…/occult does not
+# match /…/occult-wt-correctness.
 codex_sid_for() {
   local cwd="$1" f
-  # rollout filenames end in <uuid>.jsonl; the cwd is recorded in the head
-  f=$(/usr/bin/find "$HOME/.codex/sessions" -name 'rollout-*.jsonl' -type f 2>/dev/null \
-      | /usr/bin/xargs -I{} /bin/sh -c '/usr/bin/head -c 4000 "{}" | /usr/bin/grep -ql "\"cwd\":\"'"$cwd"'\"" && /usr/bin/stat -f "%m %N" "{}"' 2>/dev/null \
+  f=$(/usr/bin/grep -rlF --include='rollout-*.jsonl' "\"cwd\":\"${cwd}\"" \
+        "$HOME/.codex/sessions" 2>/dev/null \
+      | /usr/bin/xargs /usr/bin/stat -f '%m %N' 2>/dev/null \
       | /usr/bin/sort -rn | /usr/bin/head -1 | /usr/bin/awk '{print $2}')
   [ -n "$f" ] || return 1
-  basename "$f" .jsonl | /usr/bin/sed -E 's/^rollout-[0-9T:-]+-//'
+  # rollout-YYYY-MM-DDTHH-MM-SS-<uuid>.jsonl → <uuid>
+  basename "$f" .jsonl \
+    | /usr/bin/sed -E 's/^rollout-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}-//'
 }
 # foreground harness on a tty device
 harness_on() {
