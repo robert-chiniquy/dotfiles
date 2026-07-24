@@ -1,0 +1,153 @@
+#!/usr/bin/env zsh
+# wallpaper-apply-neon-grit -- apply the neon-grit filter to every image in
+# ~/Pictures/dynamic-wallpaper/, writing results back into the same dir as a
+# new "generation."
+#
+# Each run produces the next generation: g0 (originals) → g1 → g2 → … up to a
+# cap. The batch processes every file present, including previous generations,
+# so the population accumulates over multiple runs and the visual treatment
+# compounds. Eventually the filter reaches a fixpoint (perceptual change
+# between gN and gN+1 falls below the threshold); files past the cap or
+# detected as fixed are not re-processed.
+#
+# This compounding is intentional — multi-generation photocopy degradation is
+# part of the aesthetic.
+#
+# Naming convention:
+#   mountain.jpg               # generation 0 (untouched original)
+#   mountain.g1.jpg            # processed once
+#   mountain.g3.jpg            # processed three times
+#   mountain.fixpoint.jpg      # stopped because gN ≈ gN+1
+#
+# Usage:
+#   wallpaper-apply-neon-grit                       # default medium, advance one gen
+#   wallpaper-apply-neon-grit heavy                 # heavy intensity, advance one gen
+#   wallpaper-apply-neon-grit medium --max 8        # raise the cap (default 6)
+#   wallpaper-apply-neon-grit --detect-fixpoint     # check RMSE; rename to .fixpoint
+#                                                   #   when delta to source falls under threshold
+#   wallpaper-apply-neon-grit --purge               # delete every .g*.jpg / .fixpoint.jpg, leave originals
+#   wallpaper-apply-neon-grit --status              # show generation distribution
+
+set -euo pipefail
+
+DIR="$HOME/Pictures/dynamic-wallpaper"
+FILTER="$(dirname "$(readlink -f "$0")")/neon-grit-filter"
+INTENSITY=medium
+MAX_GEN=6
+DETECT_FIXPOINT=0
+PURGE=0
+STATUS=0
+FIXPOINT_RMSE_THRESHOLD=300
+
+args=("$@")
+i=1
+while (( i <= ${#args} )); do
+    arg="${args[$i]}"
+    case "$arg" in
+        light|medium|heavy) INTENSITY="$arg" ;;
+        --max)              i=$((i+1)); MAX_GEN="${args[$i]}" ;;
+        --max=*)            MAX_GEN="${arg#*=}" ;;
+        --detect-fixpoint)  DETECT_FIXPOINT=1 ;;
+        --purge)            PURGE=1 ;;
+        --status)           STATUS=1 ;;
+        --help|-h) sed -n '2,32p' "$0"; exit 0 ;;
+        *) echo "unknown arg: $arg" >&2; exit 1 ;;
+    esac
+    i=$((i+1))
+done
+
+[[ -d "$DIR" ]] || { echo "dir not found: $DIR" >&2; exit 1; }
+[[ -x "$FILTER" ]] || { echo "filter not executable: $FILTER" >&2; exit 1; }
+
+gen_of() {
+    local name="${1##*/}"
+    if [[ "$name" == *.fixpoint.* ]]; then echo -1; return; fi
+    if [[ "$name" =~ \.g([0-9]+)\. ]]; then echo "${match[1]}"; return; fi
+    echo 0
+}
+
+stem_of() {
+    local name="${1##*/}"
+    name="${name%.*}"
+    name="${name%.fixpoint}"
+    name="${name%.g<->}"
+    name="${name%%.g[0-9]*}"
+    echo "$name"
+}
+
+if (( STATUS )); then
+    echo "Generation distribution in $DIR:"
+    typeset -A counts
+    for f in "$DIR"/*.{png,jpg,jpeg,heic,PNG,JPG,JPEG,HEIC}(N); do
+        g=$(gen_of "$f")
+        counts[$g]=$(( ${counts[$g]:-0} + 1 ))
+    done
+    for g in -1 0 1 2 3 4 5 6 7 8; do
+        if [[ -n "${counts[$g]:-}" ]]; then
+            label="g${g}"
+            [[ "$g" == "-1" ]] && label="fixpoint"
+            [[ "$g" == "0" ]] && label="g0 (originals)"
+            printf '  %-20s %d\n' "$label" "${counts[$g]}"
+        fi
+    done
+    exit 0
+fi
+
+if (( PURGE )); then
+    echo "Purging generated images (g1+ and .fixpoint) from $DIR…"
+    deleted=0
+    for f in "$DIR"/*.{png,jpg,jpeg,heic,PNG,JPG,JPEG,HEIC}(N); do
+        g=$(gen_of "$f")
+        if (( g != 0 )); then rm -f "$f"; deleted=$((deleted + 1)); fi
+    done
+    echo "removed $deleted generated images; originals untouched"
+    exit 0
+fi
+
+total=0; produced=0; skipped_cap=0; skipped_fixed=0; fixpoint_promoted=0; errors=0
+TMPDIR_NG=$(mktemp -d)
+trap 'rm -rf "$TMPDIR_NG"' EXIT
+
+for src in "$DIR"/*.{png,jpg,jpeg,heic,PNG,JPG,JPEG,HEIC}(N); do
+    total=$((total + 1))
+    g=$(gen_of "$src")
+
+    if (( g < 0 )); then skipped_fixed=$((skipped_fixed + 1)); continue; fi
+    if (( g >= MAX_GEN )); then skipped_cap=$((skipped_cap + 1)); continue; fi
+
+    stem=$(stem_of "$src")
+    next_g=$((g + 1))
+    out="$DIR/${stem}.g${next_g}.jpg"
+
+    if [[ -f "$out" ]]; then
+        skipped_cap=$((skipped_cap + 1))
+        continue
+    fi
+
+    printf 'g%d→g%d  %-50s ' "$g" "$next_g" "${stem:0:50}"
+
+    tmp="$TMPDIR_NG/${stem}.g${next_g}.jpg"
+    if ! "$FILTER" "$src" "$tmp" "$INTENSITY" 2>/dev/null; then
+        errors=$((errors + 1)); echo "FAIL"; continue
+    fi
+
+    if (( DETECT_FIXPOINT )); then
+        rmse=$(magick compare -metric RMSE "$src" "$tmp" null: 2>&1 | awk '{print int($1)}')
+        if [[ -n "$rmse" && "$rmse" -lt "$FIXPOINT_RMSE_THRESHOLD" ]]; then
+            mv "$tmp" "$DIR/${stem}.fixpoint.jpg"
+            fixpoint_promoted=$((fixpoint_promoted + 1))
+            echo "FIXPOINT (rmse=$rmse)"
+            continue
+        fi
+        echo "ok  rmse=$rmse"
+    else
+        echo "ok"
+    fi
+
+    mv "$tmp" "$out"
+    produced=$((produced + 1))
+done
+
+echo
+printf 'total=%d  produced=%d  skipped_cap=%d  skipped_fixpoint=%d  fixpoint_promoted=%d  errors=%d\n' \
+    "$total" "$produced" "$skipped_cap" "$skipped_fixed" "$fixpoint_promoted" "$errors"

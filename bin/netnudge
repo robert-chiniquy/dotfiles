@@ -1,0 +1,84 @@
+#!/bin/sh
+# netnudge -- force stale sockets to fail after switching networks.
+# Symptom: agents / long-lived HTTPS keep-alives hang for ~2 min after
+# a Wi-Fi ↔ hotspot switch even though ping / browsers work.
+# Cause: keep-alive sockets bound to old interface's IP; packets go out
+# a dead route until TCP retry exhausts.
+# Fix: cycle the Wi-Fi interface → OS RSTs bound sockets → HTTP clients
+# reconnect immediately on the new interface.
+#
+# Usage:
+#   netnudge           # cycle en0, print before/after harness sockets
+#   netnudge en5       # cycle a specific interface
+#   netnudge --list    # show wireless interfaces
+#   netnudge --dry     # skip the cycle; just print current harness sockets
+#
+# Harnesses probed for network state (add more via NETNUDGE_HARNESSES):
+#   claude, opencode, codex, pi, sqfan, node, cursor, ghostty, python
+# Override:
+#   NETNUDGE_HARNESSES="claude,opencode,mycli" netnudge
+
+set -eu
+
+HARNESSES=${NETNUDGE_HARNESSES:-claude,opencode,codex,pi,sqfan,node,cursor,ghostty,python}
+
+if [ "${1:-}" = "--list" ] || [ "${1:-}" = "-l" ]; then
+    /usr/sbin/networksetup -listallhardwareports | /usr/bin/awk '/Wi-Fi/{getline; print}'
+    exit 0
+fi
+
+DRY=0
+if [ "${1:-}" = "--dry" ] || [ "${1:-}" = "-n" ]; then
+    DRY=1
+    shift 2>/dev/null || true
+fi
+
+INTERFACE=${1:-en0}
+
+# Print a compact take of established network sockets held by known harnesses.
+# Uses lsof; -w silences warnings, -n avoids DNS, -P avoids port-name lookup.
+take_lsof() {
+    label=$1
+    echo "── $label harness sockets (via lsof) ──"
+    # Turn comma list into -c pattern args
+    args=""
+    OLDIFS=$IFS
+    IFS=,
+    for h in $HARNESSES; do
+        args="$args -c $h"
+    done
+    IFS=$OLDIFS
+    # -a AND: connections that are network AND from one of the named commands
+    # -iTCP filters to TCP sockets, -sTCP:ESTABLISHED to only live ones
+    # awk trims to the useful columns and sorts by pid
+    /usr/sbin/lsof -w -n -P -iTCP -sTCP:ESTABLISHED -a $args 2>/dev/null \
+        | /usr/bin/awk 'NR==1 || NR>1' \
+        | /usr/bin/awk 'NR==1 {printf "%-14s %-6s %-6s %s\n","COMMAND","PID","FD","LOCAL→REMOTE"; next}
+                        {printf "%-14s %-6s %-6s %s\n",$1,$2,$4,$9}' \
+        | /usr/bin/head -40
+    count=$(/usr/sbin/lsof -w -n -P -iTCP -sTCP:ESTABLISHED -a $args 2>/dev/null | /usr/bin/wc -l | /usr/bin/tr -d ' ')
+    [ "$count" -gt 0 ] && count=$((count - 1))   # drop header
+    echo "── ($count established harness sockets)"
+    echo
+}
+
+echo "netnudge: interface=$INTERFACE"
+echo
+take_lsof "BEFORE"
+
+if [ "$DRY" -eq 1 ]; then
+    echo "netnudge: --dry set; skipping cycle."
+    exit 0
+fi
+
+echo "netnudge: cycling $INTERFACE (no sudo prompt if /etc/sudoers.d/netnudge is installed)"
+sudo /usr/sbin/networksetup -setairportpower "$INTERFACE" off
+sleep 2
+sudo /usr/sbin/networksetup -setairportpower "$INTERFACE" on
+echo "netnudge: $INTERFACE back up. Waiting 5s for harnesses to reconnect..."
+sleep 5
+echo
+
+take_lsof "AFTER"
+echo "netnudge: done. Sockets bound to the pre-cycle IP should be gone;"
+echo "         any new ones are the harnesses reconnecting on the new interface."

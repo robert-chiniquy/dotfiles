@@ -1,0 +1,104 @@
+#!/bin/bash
+# peptalk-mtu-watch -- when Wi-Fi is on SSID "peptalk", drop MTU to 1400
+# (works around iOS hotspot MSS-clamping / effective-MTU issue). Restores
+# MTU 1500 on any other network. Polls every POLL_INTERVAL seconds.
+# Notifies via macOS notification on peptalk enter/leave transitions.
+#
+# Usage:
+#   peptalk-mtu-watch            # daemon mode (used by LaunchAgent)
+#   peptalk-mtu-watch --once     # single check-and-adjust
+#   peptalk-mtu-watch --status   # print current SSID / MTU
+#   peptalk-mtu-watch --stop     # kill any running watcher
+
+set -u
+TARGET_SSID="peptalk"
+INTERFACE="en0"
+PEPTALK_MTU=1400
+DEFAULT_MTU=1500
+POLL_INTERVAL=15
+LOG=~/Library/Logs/peptalk-mtu-watch.log
+STATE=~/Library/Caches/peptalk-mtu-watch.ssid
+
+/bin/mkdir -p "$(dirname "$LOG")" "$(dirname "$STATE")"
+
+now() { /bin/date +'%Y-%m-%d %H:%M:%S'; }
+log() { printf '[%s] %s\n' "$(now)" "$*" >> "$LOG"; }
+
+get_ssid() {
+    /usr/sbin/networksetup -getairportnetwork "$INTERFACE" 2>/dev/null \
+        | /usr/bin/awk -F': ' '/Current/{print $2}'
+}
+get_mtu() {
+    /sbin/ifconfig "$INTERFACE" 2>/dev/null \
+        | /usr/bin/awk '/mtu/{for(i=1;i<=NF;i++) if($i=="mtu") print $(i+1); exit}'
+}
+set_mtu() {
+    local desired=$1 current
+    current=$(get_mtu)
+    if [ -n "$current" ] && [ "$current" != "$desired" ]; then
+        if sudo -n /sbin/ifconfig "$INTERFACE" mtu "$desired" 2>>"$LOG"; then
+            log "MTU $current → $desired (SSID=$(get_ssid))"
+            return 0
+        else
+            log "MTU change FAILED (sudo -n) — install sudoers rule."
+            return 1
+        fi
+    fi
+    return 0   # no change needed = success
+}
+notify() {
+    local title=$1 msg=$2
+    /usr/bin/osascript -e "display notification \"$msg\" with title \"$title\"" 2>/dev/null
+}
+check_and_adjust() {
+    local ssid target prev
+    ssid=$(get_ssid)
+    prev=""
+    [ -f "$STATE" ] && prev=$(/bin/cat "$STATE" 2>/dev/null)
+
+    if [ "$ssid" = "$TARGET_SSID" ]; then
+        target=$PEPTALK_MTU
+    else
+        target=$DEFAULT_MTU
+    fi
+
+    local mtu_result=0
+    set_mtu "$target" || mtu_result=1
+
+    # Detect transition and notify
+    if [ "$ssid" != "$prev" ]; then
+        if [ "$ssid" = "$TARGET_SSID" ]; then
+            if [ "$mtu_result" -eq 0 ]; then
+                notify "peptalk detected" \
+                    "MTU 1400 applied on $INTERFACE. If harnesses hang, disconnect Twingate via menu bar."
+            else
+                notify "peptalk detected — MTU FAILED" \
+                    "Run install-network-sudoers in iTerm. See PEPTALK_HOTSPOT_TROUBLESHOOTING.md."
+            fi
+        elif [ "$prev" = "$TARGET_SSID" ]; then
+            notify "left peptalk" \
+                "MTU restored to 1500 on $INTERFACE."
+        fi
+        # Update state file
+        printf '%s' "$ssid" >| "$STATE"
+    fi
+}
+
+case "${1:-daemon}" in
+    --once)   check_and_adjust; exit 0 ;;
+    --status)
+        echo "SSID: $(get_ssid)"
+        echo "MTU:  $(get_mtu)"
+        echo "target-SSID: $TARGET_SSID"
+        echo "peptalk MTU: $PEPTALK_MTU"
+        echo "last-seen SSID: $(/bin/cat "$STATE" 2>/dev/null)"
+        exit 0 ;;
+    --stop)   /usr/bin/pkill -f 'peptalk-mtu-watch$' 2>/dev/null; exit 0 ;;
+    daemon)
+        log "watcher started (poll=${POLL_INTERVAL}s target=$TARGET_SSID iface=$INTERFACE)"
+        while true; do
+            check_and_adjust
+            sleep "$POLL_INTERVAL"
+        done
+        ;;
+esac
