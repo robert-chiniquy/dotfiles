@@ -1,0 +1,29 @@
+#!/bin/sh
+# One-shot: install /etc/sudoers.d/netnudge with visudo validation.
+# Run this in your live iTerm (needs TTY for sudo password prompt).
+# After this, netnudge runs with no prompt forever.
+set -eu
+
+STAGE=$(/usr/bin/mktemp -t netnudge-sudoers.XXXXXX)
+trap '/bin/rm -f "$STAGE"' EXIT
+
+cat >| "$STAGE" <<'INNER'
+# Allow rch to cycle Wi-Fi interfaces without a sudo prompt.
+# Used by ~/bin/netnudge to force stale-socket cleanup after
+# a network switch (Wi-Fi ↔ hotspot / SSID change / VPN toggle).
+# Scoped tightly: only setairportpower on|off, one interface arg.
+rch ALL=(ALL) NOPASSWD: /usr/sbin/networksetup -setairportpower * on
+rch ALL=(ALL) NOPASSWD: /usr/sbin/networksetup -setairportpower * off
+INNER
+
+echo "── snippet ──"
+cat "$STAGE"
+echo "── validating ──"
+sudo /usr/sbin/visudo -c -f "$STAGE"
+
+echo "── installing to /etc/sudoers.d/netnudge (mode 0440, root:wheel) ──"
+sudo /usr/bin/install -m 0440 -o root -g wheel "$STAGE" /etc/sudoers.d/netnudge
+
+echo "── smoke test: sudo -n (should succeed without password) ──"
+sudo -n /usr/sbin/networksetup -setairportpower en0 on
+echo "OK — netnudge is now prompt-free."

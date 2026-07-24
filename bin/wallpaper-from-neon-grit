@@ -1,0 +1,46 @@
+#!/usr/bin/env zsh
+# wallpaper-from-neon-grit -- generate N wallpapers in the neon-grit aesthetic
+# and drop them into the dynamic-wallpaper rotation pool that Hammerspoon picks
+# from every 30s.
+#
+# Closes the loop between the neon-grit-image-style skill (~/.claude/skills/)
+# and the live desktop: same aesthetic that's applied to one-off generated
+# images, now feeding the wallpaper cycle.
+#
+# Usage:
+#   wallpaper-from-neon-grit [count]    # default 3
+#
+# Prerequisites: an image-generation tool reachable from CLI. This script does
+# NOT pick one for you — it prints a prompt + invocation pattern. The user's
+# job is to wire it to whatever generator they prefer (e.g. claude desktop's
+# image tool via apple-script, an `op://` secret for an API, a local sd/flux
+# pipeline, etc.). The skill content drives the prompt; the runner is yours.
+
+set -euo pipefail
+COUNT="${1:-3}"
+DEST="$HOME/Pictures/dynamic-wallpaper"
+mkdir -p "$DEST"
+
+# Prompt assembled from the neon-grit-image-style skill's "Prompt assembly
+# pattern" section. Aspect ratio + no-text constraint baked in for wallpapers
+# specifically.
+PROMPT='Create a 16:9 wallpaper-grade image of an abstract underground space — empty
+warehouse interior, hallway, server room, rooftop with city behind, freight
+elevator, dim alley, or analogous post-industrial setting. No people unless
+incidental silhouettes. Apply a dark underground hacker/counterculture aesthetic
+with grungy warehouse textures, sparse post-cyberpunk space, torn-paper collage
+details, and neo-expressionist street-art marks. Use low-key cinematic lighting,
+charcoal/oil-black and dirty-ivory tones, neon magenta/cyan/yellow accents, and
+vivid focal highlights. Cinematic breathing room — composed for desktop wallpaper
+use behind windows. No readable text anywhere. No goofy expressions. No clean
+corporate look. No green Matrix rain.'
+
+echo "=== generator prompt (paste into your image tool of choice) ==="
+echo "$PROMPT"
+echo
+echo "=== save destination ==="
+echo "$DEST/neon-grit-<short-slug>-$(date +%Y%m%d-%H%M%S).png"
+echo "(Hammerspoon's wallpaperTimer picks up new .png/.jpg/.jpeg/.heic files on next tick.)"
+echo
+echo "=== current rotation pool ==="
+ls -1 "$DEST" | wc -l | xargs -I{} echo '{} images currently in rotation'

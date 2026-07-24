@@ -1,0 +1,107 @@
+#!/bin/bash
+# disk-emergency -- runs when < THRESHOLD_GB free on the data volume.
+# Idempotent, non-destructive to source-of-truth material. Safe to invoke
+# repeatedly. Logs to ~/Library/Logs/disk-emergency.log.
+#
+# Order of reclaim (fastest + safest first):
+#   1. Empty ~/.Trash
+#   2. /private/tmp/c1-*-cache-style scratch dirs (sqfan/agent leftovers)
+#   3. Chrome cache
+#   4. plaid-lint / clanker-lint caches
+#   5. Stale WirelessDiagnostics_*.tar.gz in Downloads
+#   6. Old (>30 day) claude session transcripts gzipped in place
+#
+# NEVER touches: git repos, Colima, ~/.cache/cargo-target, active work.
+
+set -u
+THRESHOLD_GB=${DISK_EMERGENCY_THRESHOLD_GB:-4}
+LOG=~/Library/Logs/disk-emergency.log
+/bin/mkdir -p "$(dirname "$LOG")"
+
+now() { /bin/date +'%Y-%m-%d %H:%M:%S'; }
+log() { printf '[%s] %s\n' "$(now)" "$*" | /usr/bin/tee -a "$LOG" >&2; }
+
+avail_gb() {
+    /bin/df -g /System/Volumes/Data 2>/dev/null | /usr/bin/awk 'NR==2{print $4}'
+}
+
+before=$(avail_gb)
+[ -z "$before" ] && { log "df failed, aborting"; exit 1; }
+
+if [ "$before" -ge "$THRESHOLD_GB" ]; then
+    exit 0   # not an emergency
+fi
+
+log "── EMERGENCY: $before GB free (< ${THRESHOLD_GB} GB threshold) — starting reclaim ──"
+
+# 1. Trash
+if [ "$(/bin/ls -A ~/.Trash 2>/dev/null | /usr/bin/head -1)" ]; then
+    /bin/rm -rf ~/.Trash/* ~/.Trash/.[!.]* 2>/dev/null
+    log "  emptied ~/.Trash"
+fi
+
+# 2. /private/tmp c1-* / sqfan-* / occult-*-cache scratch dirs
+for pat in 'c1-*-cache' 'c1-*-gocache' 'c1-*-go-cache' 'sqfan-*' 'occult-*-gocache' 'occult-*-go-cache' 'lk-*-agent'; do
+    for d in /private/tmp/$pat; do
+        [ -d "$d" ] && /bin/rm -rf "$d" 2>/dev/null && log "  rm $d"
+    done
+done
+
+# 3. Chrome cache
+if [ -d ~/Library/Caches/Google ]; then
+    /bin/rm -rf ~/Library/Caches/Google 2>/dev/null && log "  cleared Chrome cache"
+fi
+
+# 4. Linter caches
+for d in ~/Library/Caches/plaid-lint ~/Library/Caches/clanker-lint; do
+    if [ -d "$d" ]; then
+        /bin/rm -rf "$d" 2>/dev/null && log "  cleared $(basename "$d") cache"
+    fi
+done
+
+# 5. Stale wireless-diag downloads
+for f in ~/Downloads/WirelessDiagnostics_*.tar.gz; do
+    [ -f "$f" ] && /bin/rm -f "$f" 2>/dev/null && log "  rm $(basename "$f")"
+done
+
+# 6. Gzip old Claude transcripts (>30d)
+if [ -d ~/.claude/projects ]; then
+    old_count=$(/usr/bin/find ~/.claude/projects -type f -name '*.jsonl' -mtime +30 2>/dev/null | /usr/bin/wc -l | /usr/bin/tr -d ' ')
+    if [ "${old_count:-0}" -gt 0 ]; then
+        /usr/bin/find ~/.claude/projects -type f -name '*.jsonl' -mtime +30 -exec /usr/bin/gzip {} + 2>/dev/null
+        log "  gzipped $old_count old transcripts"
+    fi
+fi
+
+
+# 7. Prune non-default, non-pinned rustup toolchains
+if command -v rustup >/dev/null 2>&1; then
+    default_tc=$(~/.cargo/bin/rustup default 2>/dev/null | /usr/bin/awk "{print \$1}")
+    # Collect toolchains pinned by rust-toolchain.toml under ~/repo
+    pinned=$(/usr/bin/grep -rh "^channel" ~/repo/*/rust-toolchain.toml ~/repo/*/rust-toolchain 2>/dev/null \
+        | /usr/bin/awk -F\" "{print \$2}" | /usr/bin/sort -u)
+    ~/.cargo/bin/rustup toolchain list 2>/dev/null | /usr/bin/awk "{print \$1}" | while read tc; do
+        [ -z "$tc" ] && continue
+        [ "$tc" = "$default_tc" ] && continue
+        # Skip if this toolchain matches a pinned channel (channel could be a prefix like 1.93.0)
+        keep=0
+        for p in $pinned; do
+            case "$tc" in "$p"*) keep=1; break;; esac
+        done
+        [ "$keep" = "1" ] && continue
+        ~/.cargo/bin/rustup toolchain uninstall "$tc" >/dev/null 2>&1 && log "  removed rustup toolchain $tc"
+    done
+fi
+
+sync
+after=$(avail_gb)
+reclaim=$((after - before))
+log "── done: ${before} GB → ${after} GB (reclaimed ${reclaim} GB) ──"
+
+# Notify (banner + log line)
+/usr/bin/osascript -e "display notification \"reclaimed ${reclaim} GB — now ${after} GB free\" with title \"disk-emergency ran\"" 2>/dev/null
+
+if [ "$after" -lt "$THRESHOLD_GB" ]; then
+    log "  WARNING: still below threshold. Manual action needed (Colima, Go cache, repos)."
+    /usr/bin/osascript -e "display notification \"still ${after} GB free after reclaim. Manual intervention needed.\" with title \"disk-emergency: still critical\"" 2>/dev/null
+fi

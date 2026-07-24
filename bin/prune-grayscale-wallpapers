@@ -1,0 +1,114 @@
+#!/usr/bin/env zsh
+# prune-grayscale-wallpapers -- find and remove/move images that are purely
+# (or nearly) black-and-white with no chromatic content. Chroma is measured
+# as |R-G| + |G-B| + |R-B| averaged over the image, scaled ×100. Pure B&W
+# images score near 0; colorful images score 5+. Default threshold 1.0
+# catches the truly desaturated outputs while sparing intended low-sat work.
+#
+# Usage:
+#   prune-grayscale-wallpapers [DIR]
+#                              [--max-chroma=1.0]    # below this is rejected
+#                              [--bin=0.2]           # histogram bin size
+#                              [--histogram]         # print histogram and exit
+#                              [--delete]            # remove instead of moving
+#                              [--dry-run]           # report only
+#                              [--quiet]             # only summary line
+
+set -euo pipefail
+
+DIR="$HOME/Pictures/dynamic-wallpaper"
+MAX_CHROMA=1.0
+BIN=0.2
+HISTOGRAM=0
+DELETE=0
+DRY_RUN=0
+QUIET=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --max-chroma=*) MAX_CHROMA="${arg#*=}" ;;
+        --bin=*)        BIN="${arg#*=}" ;;
+        --histogram)    HISTOGRAM=1 ;;
+        --delete)       DELETE=1 ;;
+        --dry-run)      DRY_RUN=1 ;;
+        --quiet)        QUIET=1 ;;
+        -h|--help)
+            sed -n '1,/^set -euo/p' "$0" | sed '/^set/d; s/^# \{0,1\}//'
+            exit 0 ;;
+        --*) echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)   DIR="$arg" ;;
+    esac
+done
+
+[[ -d "$DIR" ]] || { echo "not a directory: $DIR" >&2; exit 1; }
+command -v magick >/dev/null || { echo "ImageMagick 7 (magick) required" >&2; exit 1; }
+
+DATA=$(mktemp -t gray.XXXXXX)
+trap '/bin/rm -f "$DATA"' EXIT
+
+find "$DIR" -maxdepth 1 -type f \
+    \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+       -o -iname '*.webp' -o -iname '*.heic' \) \
+    -print0 | while IFS= read -r -d '' f; do
+    c=$(magick "$f" -format "%[fx:(abs(mean.r-mean.g)+abs(mean.g-mean.b)+abs(mean.r-mean.b))*100]" info: 2>/dev/null) || continue
+    [[ -n "$c" ]] && printf '%s\t%s\n' "$c" "$f" >> "$DATA"
+done
+
+count=$(wc -l < "$DATA" | tr -d ' ')
+
+if (( HISTOGRAM )); then
+    printf '%d images scanned in %s\n\n' "$count" "$DIR"
+    /usr/bin/awk -F'\t' '{print $1}' "$DATA" | sort -g > "${DATA}.s"
+    n=$(wc -l < "${DATA}.s" | tr -d ' ')
+    printf 'percentiles (0 = pure B&W, large = colorful):\n'
+    for pct in 0 5 10 25 50 75 90 95 100; do
+        idx=$(( (n * pct + 50) / 100 ))
+        (( idx < 1 )) && idx=1
+        (( idx > n )) && idx=n
+        printf '  p%-3d = %s\n' "$pct" "$(sed -n "${idx}p" "${DATA}.s")"
+    done
+    printf '\nhistogram of bottom range (%s bins):\n' "$BIN"
+    /usr/bin/awk '$1 < 10' "${DATA}.s" | /usr/bin/awk -v bin="$BIN" '
+    { b = int($1 / bin); count[b]++; if (max == "" || b > max) max = b }
+    END {
+        maxct = 0; for (b in count) if (count[b] > maxct) maxct = count[b]
+        for (b = 0; b <= max; b++) {
+            ct = count[b] + 0; if (ct == 0) continue
+            lo = b * bin; hi = (b+1) * bin - 0.01
+            bar = ""; barlen = int(ct * 40 / maxct)
+            if (barlen < 1) barlen = 1
+            for (i = 0; i < barlen; i++) bar = bar "█"
+            printf "  %4.1f - %4.1f  (%3d) %s\n", lo, hi, ct, bar
+        }
+    }'
+    /bin/rm -f "${DATA}.s"
+    exit 0
+fi
+
+REJECT_DIR="${DIR%/}/.rejected"
+[[ $DELETE -eq 0 && $DRY_RUN -eq 0 ]] && mkdir -p "$REJECT_DIR"
+
+total=0; rejected=0; kept=0
+while IFS=$'\t' read -r chroma path; do
+    total=$((total + 1))
+    under=$(/usr/bin/awk -v c="$chroma" -v t="$MAX_CHROMA" 'BEGIN{print (c < t) ? 1 : 0}')
+    if (( under )); then
+        rejected=$((rejected + 1))
+        if (( DRY_RUN )); then
+            (( QUIET )) || printf 'WOULD-REJECT  %6.2f  %s\n' "$chroma" "$path"
+        elif (( DELETE )); then
+            /bin/rm -f -- "$path"
+            (( QUIET )) || printf 'DELETED       %6.2f  %s\n' "$chroma" "$path"
+        else
+            mv -- "$path" "$REJECT_DIR/"
+            (( QUIET )) || printf 'MOVED         %6.2f  %s\n' "$chroma" "$path"
+        fi
+    else
+        kept=$((kept + 1))
+    fi
+done < "$DATA"
+
+printf '\nscanned=%d  kept=%d  rejected=%d  max_chroma=%s' "$total" "$kept" "$rejected" "$MAX_CHROMA"
+(( DRY_RUN )) && printf ' (dry-run)'
+(( DELETE == 0 && DRY_RUN == 0 )) && printf '\nrejected files in: %s' "$REJECT_DIR"
+echo

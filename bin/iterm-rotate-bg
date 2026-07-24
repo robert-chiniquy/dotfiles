@@ -1,0 +1,95 @@
+#!/usr/bin/env zsh
+# iterm-rotate-bg -- pick a random image from ~/Pictures/dynamic-wallpaper/
+# and apply it as the iTerm2 background image.
+#
+# Two-layer approach:
+#   1. AppleScript `set background image to <path>` on every running iTerm
+#      session — applies LIVE, regardless of which profile each session is
+#      using. Survives until the session ends.
+#   2. Update the Vaporwave dynamic profile JSON — persists across iTerm
+#      restarts for sessions configured to use that profile.
+#
+# Usage:
+#   iterm-rotate-bg                        # random pick from the whole pool
+#   iterm-rotate-bg --skull-only           # restrict to skull-crossbones lineage
+#   iterm-rotate-bg --gen <N>              # restrict to a specific generation
+#   iterm-rotate-bg --path /full/path.png  # pin to a specific file
+
+set -euo pipefail
+
+POOL="$HOME/Pictures/dynamic-wallpaper"
+PROFILE="$HOME/Library/Application Support/iTerm2/DynamicProfiles/vaporwave.json"
+
+[[ -d "$POOL" ]] || { echo "pool not found: $POOL" >&2; exit 1; }
+
+filter_skull=0
+filter_gen=""
+pinned_path=""
+
+args=("$@")
+i=1
+while (( i <= ${#args} )); do
+    arg="${args[$i]}"
+    case "$arg" in
+        --skull-only)   filter_skull=1 ;;
+        --gen)          i=$((i+1)); filter_gen="${args[$i]}" ;;
+        --gen=*)        filter_gen="${arg#*=}" ;;
+        --path)         i=$((i+1)); pinned_path="${args[$i]}" ;;
+        --path=*)       pinned_path="${arg#*=}" ;;
+        -h|--help)      sed -n '2,18p' "$0"; exit 0 ;;
+    esac
+    i=$((i+1))
+done
+
+if [[ -n "$pinned_path" ]]; then
+    PICK="$pinned_path"
+else
+    candidates=()
+    for f in "$POOL"/*.{png,jpg,jpeg,heic,PNG,JPG,JPEG,HEIC}(N); do
+        base="${f##*/}"
+        if (( filter_skull )) && [[ "$base" != skull-* ]]; then continue; fi
+        if [[ -n "$filter_gen" ]]; then
+            if [[ "$filter_gen" == 0 ]]; then
+                [[ "$base" =~ '\.g[0-9]+\.' ]] && continue
+                [[ "$base" == *.fixpoint.* ]] && continue
+            else
+                [[ "$base" =~ '\.g'"$filter_gen"'\.' ]] || continue
+            fi
+        fi
+        candidates+=("$f")
+    done
+    if (( ${#candidates} == 0 )); then
+        echo "no candidates matched filters" >&2; exit 1
+    fi
+    PICK="${candidates[RANDOM % ${#candidates} + 1]}"
+fi
+
+[[ -r "$PICK" ]] || { echo "selected file unreadable: $PICK" >&2; exit 1; }
+
+# Layer 1: live update on every iTerm session.
+# `set background image to "<path>"` works regardless of the session's
+# profile and applies immediately without restart.
+osascript <<APPLESCRIPT 2>/dev/null
+tell application "iTerm2"
+    repeat with w in windows
+        repeat with t in tabs of w
+            repeat with s in sessions of t
+                tell s
+                    set background image to "$PICK"
+                end tell
+            end repeat
+        end repeat
+    end repeat
+end tell
+APPLESCRIPT
+
+# Layer 2: persist in the Vaporwave dynamic profile (no-op if iTerm isn't
+# using that profile, but harmless and stable for sessions that DO use it).
+if [[ -r "$PROFILE" ]]; then
+    TMP=$(mktemp)
+    jq --arg p "$PICK" '
+      .Profiles |= map(. + {"Background Image Location": $p, "Background Image Mode": 3})
+    ' "$PROFILE" > "$TMP" && mv "$TMP" "$PROFILE"
+fi
+
+echo "iterm bg → $PICK"
