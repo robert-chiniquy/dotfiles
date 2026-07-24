@@ -1,0 +1,15 @@
+[package]
+name = "iterm-restore"
+version = "0.1.0"
+edition = "2021"
+description = "Inventory open iTerm2 tabs and resume the claude/codex session running in each one. No dependencies."
+
+[[bin]]
+name = "iterm-restore"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
