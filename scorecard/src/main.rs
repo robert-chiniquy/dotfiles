@@ -1152,8 +1152,9 @@ ask. Drop the row from the file, or run
   `MLS`) so it skims fast.
 - Link every PR reference: a `repo#123` must be `[repo#123](https://github.com/org/repo/pull/123)`
   everywhere it appears — id cells, notes, and especially Callouts/prose (the
-  usual miss; e.g. "enqueue c1#21321, sdk#187" should be links). A scorecard is
-  made to be acted on, and a bare PR number can't be clicked.
+  usual miss). The anchor text must name the PR (or the action) — never the bare
+  word "link" or "here". A scorecard is made to be acted on; a bare or
+  "[link]"-labelled number is friction.
 - No past tense: DONE / COMPLETED / COMMITTED / MERGED items do not belong — the
   scorecard tracks what is live and ahead, not a changelog. (A `solid` *state* is
   fine — a live thing going well; a purely finished item is clutter, drop it.)

@@ -34,4 +34,4 @@ Output is the dark terminal TUI — never a web page.
 
 Link every PR reference: `repo#123` must be `[repo#123](https://github.com/org/repo/pull/123)`
 everywhere it appears — id cells, notes, and especially Callouts/prose (the usual
-miss). A bare PR number can't be clicked, and the scorecard exists to be acted on.
+miss). Anchor text names the PR or action, never "link"/"here". A bare PR number can't be clicked, and the scorecard exists to be acted on.
