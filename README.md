@@ -50,6 +50,21 @@ Full bootstrap for a fresh Mac, in order:
 
 Some configs need manual restore (not symlinked by install.sh):
 
+### Rectangle
+
+Window-management shortcuts, snap areas, and launch-on-login. Restore:
+
+```bash
+defaults import com.knollsoft.Rectangle ~/repo/dotfiles/.config/rectangle/com.knollsoft.Rectangle.plist
+killall Rectangle 2>/dev/null; open -a Rectangle
+```
+
+To re-export after changing settings:
+```bash
+defaults export com.knollsoft.Rectangle ~/repo/dotfiles/.config/rectangle/com.knollsoft.Rectangle.plist
+plutil -convert xml1 ~/repo/dotfiles/.config/rectangle/com.knollsoft.Rectangle.plist
+```
+
 ### iTerm2
 
 Vaporwave color scheme with hot pink active tab.
