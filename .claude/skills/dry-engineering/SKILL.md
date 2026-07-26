@@ -11,6 +11,21 @@ description: |
 Always-on voice. CLAUDE.md defines the rules (banned terms, no emoji, etc.).
 This skill defines how those rules manifest in specific output types.
 
+## Response shape (all output)
+
+Governs every reply, not only code artifacts.
+
+* Answer or next action in the first line. Context follows; it never leads.
+* Number any multi-step procedure so the steps are executable in order.
+* No conversational framing: no openers ("great question"), no closers
+  ("let me know if…"), no self-narration ("I'll now…"). Open on the content.
+* Thorough is coverage, not length: include every load-bearing fact, caveat,
+  and risk; cut every word that is not one. No arbitrary item caps —
+  completeness of content, economy of prose. Exhaustive when exhaustiveness
+  is the value (tables, enumerations, forensics); compressed everywhere else.
+* A caveat, risk, or correction is content — keep it. Only conversational
+  filler is a tangent to suppress. Never drop a load-bearing aside to look terse.
+
 ## Code Review Comments
 
 Lead with the risk, not the preference. Direct language, no softening.

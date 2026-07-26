@@ -52,6 +52,7 @@ unlink_if_exists ~/.zprofile
 unlink_if_exists ~/.zshenv
 unlink_if_exists ~/.zshrc
 unlink_if_exists ~/.claude
+unlink_if_exists ~/.grok
 unlink_if_exists ~/.gitconfig
 unlink_if_exists ~/.gitignore_global
 unlink_if_exists ~/.ripgreprc
@@ -95,6 +96,7 @@ link_if_missing .zprofile ~/.zprofile
 link_if_missing .zshenv ~/.zshenv
 link_if_missing .zshrc ~/.zshrc
 link_if_missing .claude ~/.claude
+link_if_missing .grok ~/.grok
 link_if_missing .gitconfig ~/.gitconfig
 link_if_missing .gitignore_global ~/.gitignore_global
 link_if_missing .ripgreprc ~/.ripgreprc
