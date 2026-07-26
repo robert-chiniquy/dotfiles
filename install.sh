@@ -125,6 +125,13 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 success "Symlinks done"
 
+# === Codex guidance ===
+header "Codex Guidance"
+if [ -x scripts/install-codex-guidance.sh ]; then
+  spin "Installing global guidance" scripts/install-codex-guidance.sh
+  success "Codex guidance installed"
+fi
+
 # === Post-install ===
 header "Post-Install"
 spin "Updating submodules" git submodule update --init
