@@ -18,8 +18,11 @@ Creates symlinks from home directory to this repo:
 - `~/.vim` -> `.vim`
 - `~/.vimrc` -> `.vimrc`
 - `~/.claude` -> `.claude` (Claude Code global config)
+- `~/.codex/AGENTS.md` <- `codex/AGENTS.policy.md` (installed as an OMX-preserved user-policy block)
 - `~/.config/starship.toml` -> `starship.toml`
 - `~/.bash_login`, `~/.inputrc`
+
+Codex runtime state and credentials remain local; only the global guidance policy is tracked.
 
 ## Architecture
 
@@ -49,6 +52,14 @@ Creates symlinks from home directory to this repo:
 - `design/` - Feature design methodologies
 - `engineering/` - Architectural patterns
 - `meta/` - Process skills
+
+### Codex Configuration (`codex/`)
+
+**`codex/AGENTS.policy.md`** - Global personal communication policy for Codex.
+
+**`scripts/install-codex-guidance.sh`** - Idempotently installs that policy into
+`~/.codex/AGENTS.md` using OMX's preserved user-policy markers. It keeps the
+OMX-managed contract intact and does not track Codex credentials or runtime state.
 
 ### Git Configuration
 
