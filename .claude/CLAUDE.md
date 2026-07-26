@@ -174,13 +174,15 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 
 ## Skills Application
 - **Catalog**: See `~/.claude/CATALOG.md` for the full skill index with categories.
-- **Always active**: skills/project-process/SKILL.md (all projects), skills/dry-engineering/SKILL.md (all output), skills/passive-qol/SKILL.md (dotfiles/shell/system work), skills/healthy-interaction/SKILL.md (all interaction), skills/open-work-recap/SKILL.md (all coding contexts).
-- Claude MUST read and internalize skills/project-process/references/proverbs.md as guiding principles.
+- **Canonical skill tree**: `~/.claude/skills/` is the single source of truth for shared skills across Claude Code, Grok Build, Codex, and other harnesses. `~/.agents/skills/` is symlinked to it — never maintain a divergent second copy there. Grok-only harness skills live under `~/.grok/skills/`; Grok global adaptations live in `~/.grok/AGENTS.md`.
+- **Always active**: skills/project-process/SKILL.md (all projects), skills/dry-engineering/SKILL.md (all output), skills/passive-qol/SKILL.md (dotfiles/shell/system work), skills/healthy-interaction/SKILL.md (all interaction), skills/open-work-recap/SKILL.md (all coding contexts). Agents must read the skill **bodies**, not only descriptions.
+- Agents MUST read and internalize skills/project-process/references/proverbs.md as guiding principles.
 - **git workflows**: Before creating PRs, run skills/git-final-pass. Use skills/git-create-pr for the full PR workflow. Use skills/git-reset-workspace for cleanup.
 - **Design work**: skills/systematic-feature-design, skills/socratic-discovery, skills/rigorous-critique, skills/complete-developer-experience.
 - **Architecture**: skills/structural-constraints (compile-time safety over runtime checks).
 - **Every skill with a Common Mistakes section**: read it before doing work in that domain. Mistakes are encoded from real review feedback — they're the highest-value content.
 - **Skill brevity**: When authoring or editing a skill, keep only lines a competent model wouldn't do unprompted; prefer cutting over qualifying; verify cuts against real use before trusting them. See skills/skill-brevity.
+- **Multi-harness**: When adding permanent "always" guidance, put it in this file (shared). Put harness-only adaptations in the harness home file (e.g. `~/.grok/AGENTS.md` for Grok). Do not fork this rulebook into a second full copy.
 
 ## Knowledge Management
 - **Recursive data source investigation** - When a project references other projects/data sources, investigate recursively. List in DATA_SOURCES.md.

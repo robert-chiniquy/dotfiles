@@ -18,11 +18,13 @@ Creates symlinks from home directory to this repo:
 - `~/.vim` -> `.vim`
 - `~/.vimrc` -> `.vimrc`
 - `~/.claude` -> `.claude` (Claude Code global config)
+- `~/.grok` -> `.grok` (Grok Build global config: AGENTS.md, config.toml, user skills)
 - `~/.codex/AGENTS.md` <- `codex/AGENTS.policy.md` (installed as an OMX-preserved user-policy block)
 - `~/.config/starship.toml` -> `starship.toml`
 - `~/.bash_login`, `~/.inputrc`
 
 Codex runtime state and credentials remain local; only the global guidance policy is tracked.
+Grok auth, sessions, caches, and product-shipped trees stay local via `.grok/.gitignore`.
 
 ## Architecture
 
@@ -45,13 +47,23 @@ Codex runtime state and credentials remain local; only the global guidance polic
 
 ### Claude Code Configuration (`.claude/`)
 
-**`.claude/CLAUDE.md`** - Global instructions for Claude Code (applies to all projects).
+**`.claude/CLAUDE.md`** - Global instructions for Claude Code (applies to all projects). Shared with Grok via Claude-compat discovery.
 
-**`.claude/skills/`** - Reusable skill definitions organized by category:
-- `default/` - Always-applied skills
-- `design/` - Feature design methodologies
-- `engineering/` - Architectural patterns
-- `meta/` - Process skills
+**`.claude/skills/`** - Canonical shared skill tree for Claude, Grok, and other harnesses.
+
+**`.claude/CATALOG.md`** - Skill index (always-on / context / manual).
+
+### Grok Build Configuration (`.grok/`)
+
+**`.grok/AGENTS.md`** - Grok-native always-loaded home instructions (always-on skills, harness adaptations). Points at the shared Claude.md / skill tree; does not fork the rulebook.
+
+**`.grok/config.toml`** - Grok CLI/UI/compat settings (Claude skills/rules/agents/mcps on; hooks off).
+
+**`.grok/skills/`** - Grok-only user skills (help, check-work, create-skill, etc.). Shared engineering skills live under `.claude/skills/`.
+
+**`.grok/CATALOG.md`** - Symlink to `.claude/CATALOG.md`.
+
+Runtime (auth, sessions, downloads, bundled product files) is gitignored.
 
 ### Codex Configuration (`codex/`)
 
