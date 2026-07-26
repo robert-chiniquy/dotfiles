@@ -10,8 +10,9 @@ Full bootstrap for a fresh Mac, in order:
    xcode-select --install                 # Command Line Tools (git, cc, make)
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
-2. **Clone + install** — symlinks every dotfile and runs `brew bundle` off the
-   committed `Brewfile` (CLI tools, casks, taps):
+2. **Clone + install** — symlinks every dotfile (including agent config trees
+   `~/.claude` and `~/.grok`) and runs `brew bundle` off the committed
+   `Brewfile` (CLI tools, casks, taps):
    ```bash
    git clone https://github.com/robert-chiniquy/dotfiles.git && cd dotfiles && ./install.sh
    ```
