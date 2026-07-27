@@ -8,6 +8,7 @@
 //!         scorecard install-handler | uninstall-handler        # macOS
 //!         scorecard prime [--srs]                               # agent primer (full text needs --srs)
 //!         scorecard refresh [--quiet] [file.md]                 # prune terminal tracker links
+//!         scorecard demo [file.md]                              # feature tour above current card
 //!
 //! Content-groups: a line can belong to many groups. Built-in "type" groups are
 //! auto-assigned — `header` (title/sub/meta), `titles` (section headers),
@@ -23,6 +24,16 @@ use std::process::exit;
 
 mod chart;
 mod refresh;
+
+const DEMO: &str = include_str!("../examples/demo.md");
+const USAGE: &str = "\
+usage: scorecard [--width N] [--height N] [--mode fit|all] [--charts auto|image|text|off] [--no-actions] [--no-refresh] <file.md>
+       scorecard demo [file.md] [--width N] [--height N] [--mode fit|all] [--charts auto|image|text|off] [--no-actions] [--no-refresh]
+       scorecard --action scorecard://remove/<id>?file=<path>
+       scorecard install-handler | uninstall-handler | prime [--srs]
+       scorecard install-agents | uninstall-agents
+       scorecard list [file.md]
+       scorecard refresh [--quiet] [file.md]";
 
 // ---- palette ----
 const ACCENT: [u8; 3] = [92, 236, 255];
@@ -1103,6 +1114,53 @@ fn render(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>) -> 
     format!("\n{}\n", build_lines(doc, w, file, hidden).join("\n"))
 }
 
+fn render_card(
+    input: &str,
+    width: usize,
+    file: Option<&str>,
+    mode: Mode,
+    chart_mode: chart::ChartMode,
+    terminal_height: Option<usize>,
+) -> String {
+    let doc = parse(input);
+    let charts = chart::parse(input);
+    let desired_chart_rows = chart::desired_rows(&charts, chart_mode);
+    let (hidden, chart_rows) = match (mode, terminal_height) {
+        (Mode::Fit, Some(height)) => fit_with_chart_rows(
+            &doc,
+            width,
+            file,
+            height.saturating_sub(3),
+            desired_chart_rows,
+        ),
+        _ => (HashSet::new(), desired_chart_rows),
+    };
+    let mut output = render(&doc, width, file, &hidden);
+    output.push_str(&chart::render(&charts, chart_mode, width, chart_rows));
+    output
+}
+
+fn render_demo_stack(
+    current: Option<(&str, Option<&str>)>,
+    width: usize,
+    current_mode: Mode,
+    chart_mode: chart::ChartMode,
+    terminal_height: Option<usize>,
+) -> String {
+    let mut output = render_card(DEMO, width, None, Mode::All, chart_mode, None);
+    if let Some((input, file)) = current {
+        output.push_str(&render_card(
+            input,
+            width,
+            file,
+            current_mode,
+            chart_mode,
+            terminal_height,
+        ));
+    }
+    output
+}
+
 // ---- fit: hide whole content-groups (lowest priority first) until it fits ----
 fn bump(m: &mut HashMap<String, usize>, name: &str, pos: usize) {
     let e = m.entry(name.to_string()).or_insert(0);
@@ -1232,7 +1290,7 @@ fn term_height(cli: Option<usize>) -> Option<usize> {
     })
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 enum Mode {
     Fit,
     All,
@@ -1301,6 +1359,11 @@ Charts are PNGs in an interactive iTerm2 TTY and compact Unicode everywhere
 else. Override with `--charts auto|image|text|off` or `SCORECARD_CHARTS`.
 Fit mode bounds chart space so the card remains within one pane.
 
+Run `scorecard demo [file]` for a feature-complete built-in card followed by
+the selected scorecard (or `$SCORECARD_FILE` by default). The demo always uses
+all mode so its features remain visible; the selected card still uses the
+requested fit mode, actions, and passive refresh behavior.
+
 ## Actions
 
 Each row shows a ✕ close box linking to scorecard://remove/<id>. Register the
@@ -1354,8 +1417,16 @@ Before writing a new status.md, move the old one aside with a datestamp:
 "#;
 
 fn main() {
-    let argv: Vec<String> = env::args().skip(1).collect();
-    match argv.first().map(|s| s.as_str()) {
+    let mut argv: Vec<String> = env::args().skip(1).collect();
+    let demo = argv.first().map(|arg| arg == "demo").unwrap_or(false);
+    if demo {
+        argv.remove(0);
+    }
+    match if demo {
+        None
+    } else {
+        argv.first().map(|s| s.as_str())
+    } {
         Some("list") => {
             let file = argv.get(1).cloned().unwrap_or_else(refresh::default_file);
             match list_items(&file) {
@@ -1485,12 +1556,7 @@ fn main() {
         } else if a == "--no-refresh" {
             no_refresh = true;
         } else if a == "-h" || a == "--help" {
-            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--charts auto|image|text|off] [--no-actions] [--no-refresh] <file.md>");
-            eprintln!("       scorecard --action scorecard://remove/<id>?file=<path>");
-            eprintln!("       scorecard install-handler | uninstall-handler | prime [--srs]");
-            eprintln!("       scorecard install-agents | uninstall-agents");
-            eprintln!("       scorecard list [file.md]");
-            eprintln!("       scorecard refresh [--quiet] [file.md]");
+            eprintln!("{}", USAGE);
             exit(0);
         } else if a.starts_with("scorecard://") {
             action = Some(a);
@@ -1512,44 +1578,57 @@ fn main() {
         }
     }
 
-    let path = match file {
-        Some(p) => p,
+    let explicit_file = file.is_some();
+    let path = match file.or_else(|| demo.then(refresh::default_file)) {
+        Some(path) => path,
         None => {
-            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--charts auto|image|text|off] [--no-actions] [--no-refresh] <file.md>");
+            eprintln!("{}", USAGE);
             exit(2);
         }
     };
     let input = match std::fs::read_to_string(&path) {
-        Ok(s) => s,
+        Ok(input) => Some(input),
+        Err(error) if demo && !explicit_file && error.kind() == std::io::ErrorKind::NotFound => {
+            None
+        }
         Err(e) => {
             eprintln!("scorecard: cannot read {}: {}", path, e);
             exit(1);
         }
     };
-    let abs = std::fs::canonicalize(&path)
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| path.clone());
+    let abs = input.as_ref().map(|_| {
+        std::fs::canonicalize(&path)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| path.clone())
+    });
     let w = term_width(width_cli);
-    let file_ref = if no_actions { None } else { Some(abs.as_str()) };
-    let doc = parse(&input);
-    let charts = chart::parse(&input);
+    let file_ref = if no_actions { None } else { abs.as_deref() };
     let chart_mode = chart::configured_mode(chart_mode_cli);
     let terminal_height = term_height(height_cli);
-    let desired_chart_rows = chart::desired_rows(&charts, chart_mode);
-    let (hidden, chart_rows) = match (&mode, terminal_height) {
-        (Mode::Fit, Some(height)) => fit_with_chart_rows(
-            &doc,
-            w,
-            file_ref,
-            height.saturating_sub(3),
-            desired_chart_rows,
-        ),
-        _ => (HashSet::new(), desired_chart_rows),
-    };
-    print!("{}", render(&doc, w, file_ref, &hidden));
-    print!("{}", chart::render(&charts, chart_mode, w, chart_rows));
-    if !no_refresh && refresh::has_tracker_rows(&input) {
-        refresh::schedule(&abs);
+    if demo {
+        print!(
+            "{}",
+            render_demo_stack(
+                input.as_deref().map(|current| (current, file_ref)),
+                w,
+                mode,
+                chart_mode,
+                terminal_height,
+            )
+        );
+    } else if let Some(input) = input.as_deref() {
+        print!(
+            "{}",
+            render_card(input, w, file_ref, mode, chart_mode, terminal_height)
+        );
+    }
+    if !no_refresh
+        && input
+            .as_deref()
+            .map(refresh::has_tracker_rows)
+            .unwrap_or(false)
+    {
+        refresh::schedule(abs.as_deref().unwrap_or(&path));
     }
 }
 
@@ -1602,6 +1681,76 @@ type: time-series\n\
         assert_eq!(doc.sections.len(), 1);
         assert_eq!(doc.sections[0].crits.len(), 1);
         assert_eq!(chart::parse(source).len(), 1);
+    }
+
+    #[test]
+    fn demo_fixture_covers_the_public_rendering_features() {
+        let doc = parse(DEMO);
+        assert!(!doc.title.is_empty());
+        assert!(!doc.sub.is_empty());
+        assert!(!doc.meta.is_empty());
+        assert!(!doc.note.is_empty());
+        assert!(!doc.footer.is_empty());
+        assert!(doc.score.is_some());
+        assert!(doc.pass.is_some());
+        assert!(!doc.groups.is_empty());
+
+        let crits: Vec<&Crit> = doc
+            .sections
+            .iter()
+            .flat_map(|section| &section.crits)
+            .collect();
+        assert!(crits.iter().any(|criterion| criterion.sev == Sev::Ok));
+        assert!(crits.iter().any(|criterion| criterion.sev == Sev::Warn));
+        assert!(crits.iter().any(|criterion| criterion.sev == Sev::Crit));
+        assert!(crits.iter().any(|criterion| criterion.groups.len() > 1));
+        assert!(crits.iter().any(|criterion| {
+            parse_links(&criterion.note)
+                .iter()
+                .any(|segment| matches!(segment, Seg::Link { .. }))
+        }));
+
+        let charts = chart::parse(DEMO);
+        assert_eq!(charts.len(), 3);
+        let rendered = chart::render(
+            &charts,
+            chart::ChartMode::Text,
+            120,
+            chart::desired_rows(&charts, chart::ChartMode::Text),
+        );
+        assert!(rendered.contains("sparkline"));
+        assert!(rendered.contains("histogram"));
+        assert!(rendered.contains("time series"));
+
+        let banner_tags: Vec<&str> = doc
+            .sections
+            .iter()
+            .flat_map(|section| &section.banners)
+            .map(|banner| banner.tag.as_str())
+            .collect();
+        assert!(banner_tags.contains(&"STANDOUT"));
+        assert!(banner_tags.contains(&"BLOCK"));
+        assert!(banner_tags.contains(&"NEXT"));
+    }
+
+    #[test]
+    fn demo_stack_renders_demo_before_the_current_scorecard() {
+        let rendered = render_demo_stack(
+            Some((SAMPLE, None)),
+            120,
+            Mode::All,
+            chart::ChartMode::Text,
+            None,
+        );
+        let demo = rendered.find("Scorecard feature tour").unwrap();
+        let current = rendered.find("Test card").unwrap();
+        assert!(demo < current);
+        assert!(rendered.contains("Latency distribution"));
+    }
+
+    #[test]
+    fn usage_advertises_demo() {
+        assert!(USAGE.contains("scorecard demo [file.md]"));
     }
 
     #[test]
