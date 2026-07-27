@@ -2,10 +2,12 @@
 //! structured markdown file. Truecolor ANSI, adapts to terminal width,
 //! one line per criterion. No external dependencies.
 //!
-//! Usage:  scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>
+//! Usage:  scorecard [--width N] [--height N] [--mode fit|all] [--charts auto|image|text|off]
+//!                    [--no-actions] [--no-refresh] <file.md>
 //!         scorecard --action scorecard://remove/<id>?file=<path>
 //!         scorecard install-handler | uninstall-handler        # macOS
 //!         scorecard prime [--srs]                               # agent primer (full text needs --srs)
+//!         scorecard refresh [--quiet] [file.md]                 # prune terminal tracker links
 //!
 //! Content-groups: a line can belong to many groups. Built-in "type" groups are
 //! auto-assigned — `header` (title/sub/meta), `titles` (section headers),
@@ -18,6 +20,9 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::process::exit;
+
+mod chart;
+mod refresh;
 
 // ---- palette ----
 const ACCENT: [u8; 3] = [92, 236, 255];
@@ -52,7 +57,7 @@ fn vlen(s: &str) -> usize {
             match chars.peek() {
                 Some('[') => {
                     chars.next();
-                    while let Some(cc) = chars.next() {
+                    for cc in chars.by_ref() {
                         if ('@'..='~').contains(&cc) {
                             break;
                         }
@@ -342,10 +347,10 @@ fn banner_visible(b: &Banner, hidden: &HashSet<String>) -> bool {
 // ---- parsing ----
 fn split_row(line: &str) -> Vec<String> {
     let mut parts: Vec<String> = line.split('|').map(|c| c.trim().to_string()).collect();
-    if parts.first().map_or(false, |s| s.is_empty()) {
+    if parts.first().is_some_and(|s| s.is_empty()) {
         parts.remove(0);
     }
-    if parts.last().map_or(false, |s| s.is_empty()) {
+    if parts.last().is_some_and(|s| s.is_empty()) {
         parts.pop();
     }
     parts
@@ -417,6 +422,9 @@ fn parse(input: &str) -> Doc {
                 doc.sections.push(s);
             }
             in_front = false;
+            if chart::is_chart_heading(h2) {
+                continue;
+            }
             let (label, weight) = split_weight(h2.trim());
             let kind = if is_banner_label(&label) {
                 Kind::Banner
@@ -472,9 +480,9 @@ fn parse(input: &str) -> Doc {
             }
             continue;
         }
-        if t.starts_with("> ") {
+        if let Some(footer) = t.strip_prefix("> ") {
             if doc.footer.is_empty() {
-                doc.footer = t[2..].trim().to_string();
+                doc.footer = footer.trim().to_string();
             }
             continue;
         }
@@ -579,7 +587,12 @@ fn run_action(url: &str) -> Result<String, String> {
                 return Err("remove: missing file".into());
             }
             let n = remove_line(&file, id)?;
-            Ok(format!("removed {} ({} line{})", id, n, if n == 1 { "" } else { "s" }))
+            Ok(format!(
+                "removed {} ({} line{})",
+                id,
+                n,
+                if n == 1 { "" } else { "s" }
+            ))
         }
         other => Err(format!("unknown action: {}", other)),
     }
@@ -597,7 +610,13 @@ fn list_items(file: &str) -> Result<String, String> {
             } else {
                 format!(" · groups: {}", cr.groups.join(", "))
             };
-            out.push_str(&format!("- `{}` {} — {}{}\n", cr.id, cr.name, cr.sev.label(), groups));
+            out.push_str(&format!(
+                "- `{}` {} — {}{}\n",
+                cr.id,
+                cr.name,
+                cr.sev.label(),
+                groups
+            ));
         }
     }
     Ok(out)
@@ -605,7 +624,10 @@ fn list_items(file: &str) -> Result<String, String> {
 fn notify(msg: &str) {
     let _ = std::process::Command::new("osascript")
         .arg("-e")
-        .arg(format!("display notification {:?} with title \"scorecard\"", msg))
+        .arg(format!(
+            "display notification {:?} with title \"scorecard\"",
+            msg
+        ))
         .status();
 }
 
@@ -643,22 +665,42 @@ fn install_handler() -> Result<String, String> {
     run_cmd(Command::new("osacompile").arg("-o").arg(&app).arg(&script))?;
     let plist = format!("{}/Contents/Info.plist", app);
     let pb = "/usr/libexec/PlistBuddy";
-    let _ = Command::new(pb).args(["-c", "Add :CFBundleURLTypes array", &plist]).status();
+    let _ = Command::new(pb)
+        .args(["-c", "Add :CFBundleURLTypes array", &plist])
+        .status();
     run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0 dict", &plist]))?;
-    run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLName string ai.c1.scorecard", &plist]))?;
-    run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLSchemes array", &plist]))?;
-    run_cmd(Command::new(pb).args(["-c", "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string scorecard", &plist]))?;
+    run_cmd(Command::new(pb).args([
+        "-c",
+        "Add :CFBundleURLTypes:0:CFBundleURLName string ai.c1.scorecard",
+        &plist,
+    ]))?;
+    run_cmd(Command::new(pb).args([
+        "-c",
+        "Add :CFBundleURLTypes:0:CFBundleURLSchemes array",
+        &plist,
+    ]))?;
+    run_cmd(Command::new(pb).args([
+        "-c",
+        "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string scorecard",
+        &plist,
+    ]))?;
     let lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
     run_cmd(Command::new(lsregister).arg("-f").arg(&app))?;
     let _ = std::fs::remove_dir_all(&tmp);
-    Ok(format!("registered scorecard:// -> {}\n  handler: {}", bin, app))
+    Ok(format!(
+        "registered scorecard:// -> {}\n  handler: {}",
+        bin, app
+    ))
 }
 #[cfg(target_os = "macos")]
 fn uninstall_handler() -> Result<String, String> {
     let home = env::var("HOME").map_err(|_| "HOME unset".to_string())?;
     let app = format!("{}/Applications/ScorecardHandler.app", home);
     let lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
-    let _ = std::process::Command::new(lsregister).arg("-u").arg(&app).status();
+    let _ = std::process::Command::new(lsregister)
+        .arg("-u")
+        .arg(&app)
+        .status();
     std::fs::remove_dir_all(&app).map_err(|e| format!("remove {}: {}", app, e))?;
     Ok(format!("removed {}", app))
 }
@@ -748,7 +790,12 @@ fn agents_apply(remove: bool) -> Result<String, String> {
             upsert_block(&existing, &block)
         };
         std::fs::write(&filep, updated).map_err(|e| format!("write {}: {}", filep, e))?;
-        report.push(format!("  {}  {:<12} {}", if remove { "clear" } else { "wrote" }, name, file));
+        report.push(format!(
+            "  {}  {:<12} {}",
+            if remove { "clear" } else { "wrote" },
+            name,
+            file
+        ));
     }
     Ok(report.join("\n"))
 }
@@ -796,7 +843,14 @@ impl Canvas {
 }
 fn pill(sev: Sev) -> String {
     let label = sev.label();
-    let chip = format!("{}{}{} {} {}", bg(sev.bgc()), c(sev.color()), BOLD, label, RESET);
+    let chip = format!(
+        "{}{}{} {} {}",
+        bg(sev.bgc()),
+        c(sev.color()),
+        BOLD,
+        label,
+        RESET
+    );
     let pad = 9usize.saturating_sub(label.len() + 2);
     format!("{}{}", chip, " ".repeat(pad))
 }
@@ -863,8 +917,9 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
                     } else {
                         0.0
                     };
-                    let col = [0, 1, 2]
-                        .map(|k| (ACCENT[k] as f64 + (SPARK[k] as f64 - ACCENT[k] as f64) * p).round() as u8);
+                    let col = [0, 1, 2].map(|k| {
+                        (ACCENT[k] as f64 + (SPARK[k] as f64 - ACCENT[k] as f64) * p).round() as u8
+                    });
                     bar.push_str(&format!("{}█{}", c(col), RESET));
                 } else {
                     bar.push_str(&format!("{}·{}", c(FAINT), RESET));
@@ -873,7 +928,21 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
             let pct = ((proj as f64 / max as f64) * 100.0).round() as u32;
             cv.boxln(&format!(
                 "{}PROJECTED {}{}~{}{}{}/{} {}~{}%{}  {}  {}{}│{}{}",
-                c(FAINT), c(TEXT), BOLD, proj, RESET, c(FAINT), max, c(WARN), pct, RESET, bar, c(TEXT), BOLD, c(FAINT), pass
+                c(FAINT),
+                c(TEXT),
+                BOLD,
+                proj,
+                RESET,
+                c(FAINT),
+                max,
+                c(WARN),
+                pct,
+                RESET,
+                bar,
+                c(TEXT),
+                BOLD,
+                c(FAINT),
+                pass
             ));
         }
     }
@@ -908,7 +977,10 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
         if !doc.note.is_empty() {
             let budget = iw.saturating_sub(vlen(&tiles) + 4);
             if budget > 6 {
-                tiles += &format!("   {}", render_field(&doc.note, budget, &format!("{}{}", DIM, c(MUTED))));
+                tiles += &format!(
+                    "   {}",
+                    render_field(&doc.note, budget, &format!("{}{}", DIM, c(MUTED)))
+                );
             }
         }
         cv.boxln(&tiles);
@@ -922,7 +994,11 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
     for (si, s) in doc.sections.iter().enumerate() {
         match s.kind {
             Kind::Crit => {
-                let vis: Vec<&Crit> = s.crits.iter().filter(|cr| crit_visible(si, cr, hidden)).collect();
+                let vis: Vec<&Crit> = s
+                    .crits
+                    .iter()
+                    .filter(|cr| crit_visible(si, cr, hidden))
+                    .collect();
                 if vis.is_empty() {
                     continue;
                 }
@@ -930,14 +1006,19 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
                     let hdr = if s.weight.is_empty() {
                         sty(TEXT, true, &s.label)
                     } else {
-                        format!("{} {}", sty(TEXT, true, &s.label), sty(FAINT, false, &s.weight))
+                        format!(
+                            "{} {}",
+                            sty(TEXT, true, &s.label),
+                            sty(FAINT, false, &s.weight)
+                        )
                     };
                     cv.boxln(&hdr);
                 }
                 for cr in vis {
                     let close = match file {
                         Some(f) => {
-                            let url = format!("scorecard://remove/{}?file={}", cr.id, percent_encode(f));
+                            let url =
+                                format!("scorecard://remove/{}?file={}", cr.id, percent_encode(f));
                             format!(" {}", osc8(&url, &format!("{}✕{}", c(FAINT), RESET)))
                         }
                         None => String::new(),
@@ -951,20 +1032,40 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
                     let score = pad_end(&cr.score, score_width);
                     let left = format!(
                         "{}▌{} {} {}{} {} {}{}{}{}",
-                        c(cr.sev.color()), RESET, id_r, c(TEXT), name, pill(cr.sev), c(cr.sev.color()), BOLD, score, RESET
+                        c(cr.sev.color()),
+                        RESET,
+                        id_r,
+                        c(TEXT),
+                        name,
+                        pill(cr.sev),
+                        c(cr.sev.color()),
+                        BOLD,
+                        score,
+                        RESET
                     );
                     let budget = iw.saturating_sub(vlen(&left) + 1 + cwid);
                     let note = if budget > 6 && !cr.note.is_empty() {
-                        format!(" {}", render_field(&cr.note, budget, &format!("{}{}", DIM, c(MUTED))))
+                        format!(
+                            " {}",
+                            render_field(&cr.note, budget, &format!("{}{}", DIM, c(MUTED)))
+                        )
                     } else {
                         String::new()
                     };
                     let body = format!("{}{}", left, note);
-                    cv.boxln(&format!("{}{}", pad_end(&body, iw.saturating_sub(cwid)), close));
+                    cv.boxln(&format!(
+                        "{}{}",
+                        pad_end(&body, iw.saturating_sub(cwid)),
+                        close
+                    ));
                 }
             }
             Kind::Banner => {
-                let vis: Vec<&Banner> = s.banners.iter().filter(|b| banner_visible(b, hidden)).collect();
+                let vis: Vec<&Banner> = s
+                    .banners
+                    .iter()
+                    .filter(|b| banner_visible(b, hidden))
+                    .collect();
                 if vis.is_empty() {
                     continue;
                 }
@@ -975,7 +1076,11 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
                 for b in vis {
                     let head = sty(banner_color(&b.tag), true, &pad_end(&b.tag, 9));
                     let budget = iw.saturating_sub(vlen(&head));
-                    cv.boxln(&format!("{}{}", head, render_field(&b.text, budget, &c(MUTED))));
+                    cv.boxln(&format!(
+                        "{}{}",
+                        head,
+                        render_field(&b.text, budget, &c(MUTED))
+                    ));
                 }
             }
         }
@@ -983,7 +1088,13 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
 
     cv.rule();
     if !doc.footer.is_empty() && !hidden.contains("footer") {
-        cv.boxln(&format!("{}{}{}{}", DIM, c(FAINT), trunc(&doc.footer, iw), RESET));
+        cv.boxln(&format!(
+            "{}{}{}{}",
+            DIM,
+            c(FAINT),
+            trunc(&doc.footer, iw),
+            RESET
+        ));
     }
     cv.bot();
     cv.lines
@@ -1002,7 +1113,10 @@ fn bump(m: &mut HashMap<String, usize>, name: &str, pos: usize) {
 // Structural "chrome" groups yield to line items: chrome defaults low, so fit
 // sheds it (header/titles/meter/tiles/callouts/footer) before dropping any item.
 fn is_chrome(name: &str) -> bool {
-    matches!(name, "header" | "titles" | "meter" | "tiles" | "callouts" | "footer")
+    matches!(
+        name,
+        "header" | "titles" | "meter" | "tiles" | "callouts" | "footer"
+    )
 }
 fn default_priority(name: &str) -> i32 {
     if is_chrome(name) {
@@ -1050,7 +1164,11 @@ fn group_universe(doc: &Doc) -> Vec<(String, i32, usize)> {
     posmap
         .into_iter()
         .map(|(name, p)| {
-            let prio = doc.groups.get(&name).copied().unwrap_or_else(|| default_priority(&name));
+            let prio = doc
+                .groups
+                .get(&name)
+                .copied()
+                .unwrap_or_else(|| default_priority(&name));
             (name, prio, p)
         })
         .collect()
@@ -1076,13 +1194,42 @@ fn fit(doc: &Doc, w: usize, file: Option<&str>, avail: usize) -> HashSet<String>
     hidden
 }
 
+fn fit_with_chart_rows(
+    doc: &Doc,
+    w: usize,
+    file: Option<&str>,
+    usable: usize,
+    desired_chart_rows: usize,
+) -> (HashSet<String>, usize) {
+    let baseline = fit(doc, w, file, usable);
+    let max_chart_rows = desired_chart_rows.min(usable.saturating_sub(8).min(usable / 3));
+    for chart_rows in (2..=max_chart_rows).rev() {
+        let candidate = fit(doc, w, file, usable.saturating_sub(chart_rows));
+        let only_sheds_chrome = candidate
+            .iter()
+            .all(|group| baseline.contains(group) || is_chrome(group));
+        if only_sheds_chrome {
+            return (candidate, chart_rows);
+        }
+    }
+    (baseline, 0)
+}
+
 fn term_width(cli: Option<usize>) -> usize {
-    cli.or_else(|| env::var("COLUMNS").ok().and_then(|s| s.trim().parse::<usize>().ok()))
-        .unwrap_or(120)
-        .clamp(84, 170)
+    cli.or_else(|| {
+        env::var("COLUMNS")
+            .ok()
+            .and_then(|s| s.trim().parse::<usize>().ok())
+    })
+    .unwrap_or(120)
+    .clamp(84, 170)
 }
 fn term_height(cli: Option<usize>) -> Option<usize> {
-    cli.or_else(|| env::var("LINES").ok().and_then(|s| s.trim().parse::<usize>().ok()))
+    cli.or_else(|| {
+        env::var("LINES")
+            .ok()
+            .and_then(|s| s.trim().parse::<usize>().ok())
+    })
 }
 
 #[derive(PartialEq)]
@@ -1114,6 +1261,13 @@ then it shows on the user's next terminal window (a shell greeting renders it).
     | id | state | score | criterion | note |
     | D1 | risk  | 3 | Ship the build | rides [T-1](https://linear.app/…) | grp:tiers |
 
+    ## Chart: Queue depth
+    type: time-series
+    | day | ready | blocked |
+    | --- | ---: | ---: |
+    | Mon | 8 | 2 |
+    | Tue | 5 | 1 |
+
     ## Callouts
     | STANDOUT | the single most important thing |
     | NEXT | the next actions |
@@ -1137,11 +1291,26 @@ front-matter `groups:` line (default 0; negatives drop first).
 - all: render everything.   Flag: --mode all|fit
 Pass --width "$COLUMNS" --height "$LINES" from a prompt hook.
 
+## Data charts
+
+`## Chart: title` followed by `type: sparkline|histogram|time-series` and a
+GFM table becomes a typed chart. The first column holds labels; every remaining
+numeric column is a named series. Markdown is only the serialization format.
+
+Charts are PNGs in an interactive iTerm2 TTY and compact Unicode everywhere
+else. Override with `--charts auto|image|text|off` or `SCORECARD_CHARTS`.
+Fit mode bounds chart space so the card remains within one pane.
+
 ## Actions
 
 Each row shows a ✕ close box linking to scorecard://remove/<id>. Register the
 scheme once (macOS): `scorecard install-handler` (uninstall-handler to remove).
 Clicking removes that row — and every row sharing its topic group — from the file.
+
+Linked GitHub PRs and Linear issues are also refreshed in a detached, hourly
+background pass. `scorecard refresh [file]` runs it visibly. Automatic pruning
+reparses typed rows, removes a row only when all recognized links are terminal,
+never expands through topic groups, and retains rows on lookup failure.
 
 ## It's live — re-check what remains
 
@@ -1149,11 +1318,11 @@ The scorecard is shared state: the user removes items by clicking a row's ✕
 (which deletes that row and any rows sharing its group). If you are tracking work
 you wrote here, do not assume your items survived — periodically re-read what
 remains. `scorecard list [file]` prints the current items as markdown (id, name,
-state); diff it against what you wrote to see what the user dropped.
+state); compare logical ids and links, never serialized lines.
 
 And prune proactively: if you notice an item has gone stale — a branch that
 merged, a ticket that closed, work that finished — just remove it, no need to
-ask. Drop the row from the file, or run
+ask. Run `scorecard refresh`, drop the row from the file, or run
 `scorecard --action scorecard://remove/<id>?file=<path>`.
 
 ## Compose well
@@ -1169,11 +1338,11 @@ ask. Drop the row from the file, or run
 - Anchor each item to a larger concept: when the line has horizontal room, name
   the ticket theme, repo, or system it belongs to (`[IGA-3293]`, `pqprime`,
   `MLS`) so it skims fast.
-- Link every PR reference: a `repo#123` must be `[repo#123](https://github.com/org/repo/pull/123)`
+- Link every PR and Linear issue reference with its canonical tracker URL
   everywhere it appears — id cells, notes, and especially Callouts/prose (the
-  usual miss). The anchor text must name the PR (or the action) — never the bare
-  word "link" or "here". A scorecard is made to be acted on; a bare or
-  "[link]"-labelled number is friction.
+  usual miss). The anchor text must name the PR, issue, or action — never the
+  bare word "link" or "here". Besides reducing friction, criterion-row links
+  allow passive terminal-state pruning.
 - No past tense: DONE / COMPLETED / COMMITTED / MERGED items do not belong — the
   scorecard tracks what is live and ahead, not a changelog. (A `solid` *state* is
   fine — a live thing going well; a purely finished item is clutter, drop it.)
@@ -1188,11 +1357,7 @@ fn main() {
     let argv: Vec<String> = env::args().skip(1).collect();
     match argv.first().map(|s| s.as_str()) {
         Some("list") => {
-            let file = argv.get(1).cloned().unwrap_or_else(|| {
-                env::var("SCORECARD_FILE").unwrap_or_else(|_| {
-                    format!("{}/.config/scorecard/status.md", env::var("HOME").unwrap_or_default())
-                })
-            });
+            let file = argv.get(1).cloned().unwrap_or_else(refresh::default_file);
             match list_items(&file) {
                 Ok(md) => {
                     print!("{}", md);
@@ -1200,6 +1365,29 @@ fn main() {
                 }
                 Err(e) => {
                     eprintln!("scorecard: {}", e);
+                    exit(1);
+                }
+            }
+        }
+        Some("refresh") => {
+            let quiet = argv.iter().skip(1).any(|arg| arg == "--quiet");
+            let file = argv
+                .iter()
+                .skip(1)
+                .find(|arg| !arg.starts_with('-'))
+                .cloned()
+                .unwrap_or_else(refresh::default_file);
+            match refresh::refresh(&file) {
+                Ok(report) => {
+                    if !quiet {
+                        println!("{}", refresh::summary(&report));
+                    }
+                    exit(0);
+                }
+                Err(error) => {
+                    if !quiet {
+                        eprintln!("scorecard: {}", error);
+                    }
                     exit(1);
                 }
             }
@@ -1215,7 +1403,10 @@ fn main() {
         }
         Some("install-agents") => match agents_apply(false) {
             Ok(m) => {
-                println!("scorecard: pointed installed harnesses at `scorecard prime --srs`\n{}", m);
+                println!(
+                    "scorecard: pointed installed harnesses at `scorecard prime --srs`\n{}",
+                    m
+                );
                 exit(0);
             }
             Err(e) => {
@@ -1225,7 +1416,10 @@ fn main() {
         },
         Some("uninstall-agents") => match agents_apply(true) {
             Ok(m) => {
-                println!("scorecard: removed the scorecard block from harnesses\n{}", m);
+                println!(
+                    "scorecard: removed the scorecard block from harnesses\n{}",
+                    m
+                );
                 exit(0);
             }
             Err(e) => {
@@ -1262,6 +1456,8 @@ fn main() {
     let mut file: Option<String> = None;
     let mut action: Option<String> = None;
     let mut no_actions = false;
+    let mut no_refresh = false;
+    let mut chart_mode_cli: Option<chart::ChartMode> = None;
     let mut args = argv.into_iter();
     while let Some(a) = args.next() {
         if a == "--width" {
@@ -1278,16 +1474,23 @@ fn main() {
             }
         } else if let Some(v) = a.strip_prefix("--mode=") {
             mode = if v == "all" { Mode::All } else { Mode::Fit };
+        } else if a == "--charts" {
+            chart_mode_cli = args.next().map(|value| chart::ChartMode::from(&value));
+        } else if let Some(value) = a.strip_prefix("--charts=") {
+            chart_mode_cli = Some(chart::ChartMode::from(value));
         } else if a == "--action" {
             action = args.next();
         } else if a == "--no-actions" {
             no_actions = true;
+        } else if a == "--no-refresh" {
+            no_refresh = true;
         } else if a == "-h" || a == "--help" {
-            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>");
+            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--charts auto|image|text|off] [--no-actions] [--no-refresh] <file.md>");
             eprintln!("       scorecard --action scorecard://remove/<id>?file=<path>");
             eprintln!("       scorecard install-handler | uninstall-handler | prime [--srs]");
             eprintln!("       scorecard install-agents | uninstall-agents");
             eprintln!("       scorecard list [file.md]");
+            eprintln!("       scorecard refresh [--quiet] [file.md]");
             exit(0);
         } else if a.starts_with("scorecard://") {
             action = Some(a);
@@ -1312,7 +1515,7 @@ fn main() {
     let path = match file {
         Some(p) => p,
         None => {
-            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>");
+            eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--charts auto|image|text|off] [--no-actions] [--no-refresh] <file.md>");
             exit(2);
         }
     };
@@ -1329,11 +1532,25 @@ fn main() {
     let w = term_width(width_cli);
     let file_ref = if no_actions { None } else { Some(abs.as_str()) };
     let doc = parse(&input);
-    let hidden = match (&mode, term_height(height_cli)) {
-        (Mode::Fit, Some(h)) => fit(&doc, w, file_ref, h.saturating_sub(3)),
-        _ => HashSet::new(),
+    let charts = chart::parse(&input);
+    let chart_mode = chart::configured_mode(chart_mode_cli);
+    let terminal_height = term_height(height_cli);
+    let desired_chart_rows = chart::desired_rows(&charts, chart_mode);
+    let (hidden, chart_rows) = match (&mode, terminal_height) {
+        (Mode::Fit, Some(height)) => fit_with_chart_rows(
+            &doc,
+            w,
+            file_ref,
+            height.saturating_sub(3),
+            desired_chart_rows,
+        ),
+        _ => (HashSet::new(), desired_chart_rows),
     };
     print!("{}", render(&doc, w, file_ref, &hidden));
+    print!("{}", chart::render(&charts, chart_mode, w, chart_rows));
+    if !no_refresh && refresh::has_tracker_rows(&input) {
+        refresh::schedule(&abs);
+    }
 }
 
 // ---- tests ----
@@ -1369,6 +1586,44 @@ note: two at-risk gates in review
         let cr = &d.sections[0].crits[0];
         assert_eq!(cr.groups, vec!["x".to_string(), "y".to_string()]);
         assert_eq!(cr.note, "note");
+    }
+
+    #[test]
+    fn chart_tables_are_not_parsed_as_criteria() {
+        let source = "# t\n\
+## Work\n\
+| A | risk | 3 | ship | note |\n\
+## Chart: Trend\n\
+type: time-series\n\
+| day | value |\n\
+| --- | ---: |\n\
+| Mon | 4 |\n";
+        let doc = parse(source);
+        assert_eq!(doc.sections.len(), 1);
+        assert_eq!(doc.sections[0].crits.len(), 1);
+        assert_eq!(chart::parse(source).len(), 1);
+    }
+
+    #[test]
+    fn chart_budget_never_hides_an_additional_item_group() {
+        let doc = parse(
+            "# t\nfooter: f\n\
+## Work\n\
+| A | risk | 3 | alpha | note | grp:a |\n\
+| B | risk | 3 | beta | note | grp:b |\n\
+## Callouts\n\
+| NEXT | act |\n",
+        );
+        let usable = build_lines(&doc, 100, None, &empty()).len();
+        let baseline = fit(&doc, 100, None, usable);
+        let (with_chart, chart_rows) = fit_with_chart_rows(&doc, 100, None, usable, 8);
+        assert!(chart_rows > 0);
+        assert!(
+            with_chart
+                .difference(&baseline)
+                .all(|group| is_chrome(group)),
+            "charts may shed chrome but not line-item groups"
+        );
     }
 
     #[test]
@@ -1424,7 +1679,11 @@ note: two at-risk gates in review
         for avail in 1..=full {
             let h = fit(&d, 100, None, avail);
             if h.contains("high") {
-                assert!(h.contains("low"), "high (p9) dropped before low (p1) at avail {}", avail);
+                assert!(
+                    h.contains("low"),
+                    "high (p9) dropped before low (p1) at avail {}",
+                    avail
+                );
             }
         }
     }
@@ -1446,12 +1705,18 @@ note: two at-risk gates in review
         let d = parse(s);
         let full = build_lines(&d, 100, None, &empty()).len();
         let hidden = fit(&d, 100, None, full - 2);
-        assert!(render(&d, 100, None, &hidden).contains("aaa"), "line item must survive");
+        assert!(
+            render(&d, 100, None, &hidden).contains("aaa"),
+            "line item must survive"
+        );
         assert!(
             hidden.contains("footer") || hidden.contains("meter") || hidden.contains("titles"),
             "chrome should be shed first"
         );
-        assert!(!hidden.iter().any(|h| h.starts_with('~')), "no item singleton hidden");
+        assert!(
+            !hidden.iter().any(|h| h.starts_with('~')),
+            "no item singleton hidden"
+        );
     }
 
     #[test]
@@ -1473,7 +1738,11 @@ note: two at-risk gates in review
     fn remove_untagged_is_solo() {
         let p = std::env::temp_dir().join(format!("scorecard_s_{}.md", std::process::id()));
         let path = p.to_string_lossy().to_string();
-        std::fs::write(&path, "## S\n| A1 | ok | 5 | one | n |\n| A2 | gap | 1 | two | n |\n").unwrap();
+        std::fs::write(
+            &path,
+            "## S\n| A1 | ok | 5 | one | n |\n| A2 | gap | 1 | two | n |\n",
+        )
+        .unwrap();
         assert_eq!(remove_line(&path, "A1").unwrap(), 1);
         assert!(std::fs::read_to_string(&path).unwrap().contains("| A2 "));
         let _ = std::fs::remove_file(&path);
@@ -1494,7 +1763,13 @@ note: two at-risk gates in review
 
     #[test]
     fn prime_has_content() {
-        assert!(PRIME.contains("scorecard") && PRIME.contains("groups:") && PRIME.contains("fit"));
+        assert!(
+            PRIME.contains("scorecard")
+                && PRIME.contains("groups:")
+                && PRIME.contains("fit")
+                && PRIME.contains("## Chart:")
+                && PRIME.contains("scorecard refresh")
+        );
         assert!(PRIME_NUDGE.contains("--srs") && PRIME_NUDGE.contains("tokens"));
     }
 
@@ -1535,7 +1810,11 @@ note: two at-risk gates in review
     fn list_items_emits_markdown() {
         let p = std::env::temp_dir().join(format!("scorecard_list_{}.md", std::process::id()));
         let path = p.to_string_lossy().to_string();
-        std::fs::write(&path, "## S\n| D1 | risk | 3 | Ship it | note | grp:x |\n| D2 | ok | 5 | Other | n |\n").unwrap();
+        std::fs::write(
+            &path,
+            "## S\n| D1 | risk | 3 | Ship it | note | grp:x |\n| D2 | ok | 5 | Other | n |\n",
+        )
+        .unwrap();
         let md = list_items(&path).unwrap();
         assert!(md.contains("`D1`") && md.contains("Ship it") && md.contains("groups: x"));
         assert!(md.contains("`D2`"));

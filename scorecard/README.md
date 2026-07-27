@@ -2,14 +2,17 @@
 
 Render a dark, one-screen readiness scorecard TUI from a structured markdown
 file. Truecolor ANSI, adapts to terminal width, one line per criterion, fits to
-terminal height. No external dependencies — pure `std`.
+terminal height, and can turn typed data tables into terminal charts. The Rust
+binary and chart renderer have no crate dependencies.
 
 ```
-scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>
+scorecard [--width N] [--height N] [--mode fit|all]
+          [--charts auto|image|text|off] [--no-actions] [--no-refresh] <file.md>
 scorecard --action scorecard://remove/<id>?file=<path>
 scorecard install-handler | uninstall-handler        # macOS URL-scheme handler
 scorecard prime [--srs]                               # agent-facing primer (full text needs --srs)
 scorecard list [file]                                 # remaining items as markdown
+scorecard refresh [--quiet] [file]                    # prune terminal tracker rows
 scorecard install-agents | uninstall-agents           # point harnesses at prime --srs
 ```
 
@@ -72,6 +75,39 @@ labelled banners; the tag colors the label (`STANDOUT`/`RISK` pink,
 | NEXT | the next actions |
 ```
 
+## Data charts
+
+A dedicated `## Chart: title` section is parsed into a typed chart model. The
+Markdown table is only its serialization: the first column supplies x/category
+labels and every remaining numeric column becomes a named series.
+
+```markdown
+## Chart: Reveal latency
+type: time-series
+| day | p50 | p95 |
+| --- | ---: | ---: |
+| Mon | 10 | 20 |
+| Tue | 15 | 24 |
+| Wed | 12 | 31 |
+```
+
+`type:` accepts `sparkline` (default), `histogram`, or `time-series`.
+Comma-separated numbers, percentages, and parenthesized negatives are accepted;
+`n/a`, `null`, `-`, and malformed cells remain missing data rather than becoming
+zero. A one-column histogram table is treated as raw observations and binned
+automatically; a label-plus-value histogram uses the supplied bins/categories.
+
+In `auto` mode, an interactive iTerm2 session outside tmux gets a
+dependency-free generated PNG through iTerm2's
+[OSC 1337 inline-image protocol](https://iterm2.com/documentation-images.html).
+Redirected output, other terminals, and tmux get a compact Unicode rendering.
+The protocol can also display agent-supplied animated GIFs; generated charts
+stay static PNGs so startup output is deterministic and bounded.
+Use `--charts image` to force inline images when the downstream terminal handles
+the protocol, `--charts text` for deterministic text, or `--charts off`.
+`SCORECARD_CHARTS` sets the default. Fit mode bounds charts to at most one third
+of the usable pane.
+
 ## Content-groups
 
 A line can belong to **many** groups.
@@ -113,6 +149,33 @@ scorecard uninstall-handler
 forwards scheme opens to this binary; `--action` runs the action and posts a
 macOS notification.
 
+## Passive tracker refresh
+
+Criterion rows containing Markdown links to `github.com/.../pull/...` or
+`linear.app/.../issue/...` are checked passively. A normal render never waits on
+the network: when the source changed or the hourly cache expired, it launches a
+quiet background `scorecard refresh`. The updated rows disappear on the next
+render.
+
+- GitHub uses one batched `gh api graphql` request per 50 links. Authenticate
+  with `gh auth login`, or set `GH_TOKEN`/`GITHUB_TOKEN`.
+- Linear uses batched GraphQL through `curl` and parses the response with `jq`.
+  Set `LINEAR_API_KEY`; OAuth callers may set `LINEAR_ACCESS_TOKEN`.
+- GitHub `CLOSED`/`MERGED` and Linear `completed`/`canceled` are terminal.
+- A row with several recognized tracker links is removed only when all are
+  conclusively terminal. Missing tools, credentials, access, or malformed
+  responses retain the row.
+
+Removal is structural: scorecard reparses the live document, applies provider
+states to typed criterion/link nodes, and serializes the remaining rows. Note or
+whitespace edits do not act as identity, and automatic pruning never expands
+through `grp:` siblings. A concurrent source change aborts the write.
+
+Run `scorecard refresh [file]` for a visible result. Disable scheduling with
+`--no-refresh`, `SCORECARD_AUTO_REFRESH=0`, or
+`SCORECARD_REFRESH_INTERVAL=0`; otherwise the interval variable is in seconds
+and defaults to 3600.
+
 ## prime
 
 Bare `scorecard prime` prints a short nudge (this is for the shell startup
@@ -122,8 +185,9 @@ scorecard banner — only dump the full primer if you mean it). Full primer:
 scorecard prime --srs      # also --srrs, --srrrs, … any number of r's
 ```
 
-That text is the canonical "how to use this" guide: schema, groups, modes,
-actions, and the write/preserve convention. Point agents at `prime --srs`.
+That text is the canonical "how to use this" guide: schema, charts, groups,
+modes, actions, refresh, and the write/preserve convention. Point agents at
+`prime --srs`.
 
 ## Listing remaining items
 
@@ -148,8 +212,10 @@ skill that auto-triggers and defers to `scorecard prime --srs`.)
 
 `.zshrc` renders `$SCORECARD_FILE` (default `~/.config/scorecard/status.md`) on a
 new interactive shell, if present, passing `--width "$COLUMNS" --height "$LINES"`
-so it fits the window. Disable with `SCORECARD_GREETING=0`; point elsewhere with
-`SCORECARD_FILE=…`; edit/delete the status file to change what shows.
+so it fits the window. Rendering stays local and immediate; any tracker lookup
+runs in the detached refresh process. Disable with `SCORECARD_GREETING=0`; point
+elsewhere with `SCORECARD_FILE=…`; edit/delete the status file to change what
+shows.
 
 By convention, preserve the prior scorecard before writing a new one:
 

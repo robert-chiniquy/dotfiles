@@ -577,3 +577,19 @@ c1's `ci/lint_diff.sh` falls back to `nproc || echo 4` on machines without cgrou
 ## 2026-07-27: scorecard prime requires --srs for full primer
 `scorecard prime` alone prints a short token-saving nudge; full agent primer only with `--srs` / `--srrrs` (any number of r's). Harness blocks + readiness-scorecard skill point at `scorecard prime --srs`. Installed binary via cargo install.
 Bare prime was dumping the full primer into agent context whenever something triggered it.
+
+## 2026-07-27: passive scorecard refresh + typed terminal charts
+```sh
+scorecard refresh [file]                    # visible GitHub/Linear reconciliation
+scorecard --charts auto|image|text|off file
+```
+Normal scorecard rendering now schedules at most one detached tracker refresh
+per hour/source revision. GitHub PR and Linear issue links are batched; rows are
+removed only when every recognized link is terminal. The mutation reparses typed
+criterion/link nodes instead of comparing Markdown lines, fails open on provider
+errors, and never expands through shared groups.
+
+`## Chart: title` data tables now render as typed sparkline, histogram, or time
+series output. Interactive iTerm2 TTYs get dependency-free inline PNGs; other
+terminals, tmux, and redirected output get compact Unicode. Fit mode caps chart
+space so the shell greeting remains within one pane.
