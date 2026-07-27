@@ -3,18 +3,20 @@ name: readiness-scorecard
 description: Write a scorecard — a dark, skimmable one-screen readout of the current situation in the user's work, rendered as a terminal (TUI) artifact by the `scorecard` binary from a structured markdown file. Use ONLY when the user explicitly asks for a scorecard (or a "readiness card" / "go/no-go card" / "coverage snapshot card"). A plain "status", "status?", or other status/situation question gets a prose answer, never this skill. NOT a web page — output is the dark TUI. Preserves older scorecards by datestamp. Triggers on: scorecard, readiness card, go/no-go card, coverage snapshot card.
 ---
 
-# Scorecard — run `scorecard prime`
+# Scorecard — run `scorecard prime --srs`
 
 The canonical guide lives in the binary. Run:
 
 ```sh
-scorecard prime
+scorecard prime --srs
 ```
 
-and follow it. It covers the markdown schema, content-groups (topic + built-in
-type groups), fit/all modes, the remove / close-box / install-handler actions,
-and the compose-well + preserve-with-datestamp conventions. This skill is just
-the trigger; `prime` is the source of truth (so it can't drift).
+and follow it. Bare `scorecard prime` is only a short nudge (token-saving); the
+full primer needs `--srs` (or `--srrs` / any number of r's). It covers the
+markdown schema, content-groups (topic + built-in type groups), fit/all modes,
+the remove / close-box / install-handler actions, and the compose-well +
+preserve-with-datestamp conventions. This skill is just the trigger; `prime
+--srs` is the source of truth (so it can't drift).
 
 The short version: write the scorecard as markdown to
 `~/.config/scorecard/status.md`, **preserving the prior one first**:

@@ -5,7 +5,7 @@
 //! Usage:  scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>
 //!         scorecard --action scorecard://remove/<id>?file=<path>
 //!         scorecard install-handler | uninstall-handler        # macOS
-//!         scorecard prime                                       # agent primer
+//!         scorecard prime [--srs]                               # agent primer (full text needs --srs)
 //!
 //! Content-groups: a line can belong to many groups. Built-in "type" groups are
 //! auto-assigned — `header` (title/sub/meta), `titles` (section headers),
@@ -671,15 +671,34 @@ fn uninstall_handler() -> Result<String, String> {
     Err("uninstall-handler is macOS-only".into())
 }
 
-// ---- install-agents: point every installed harness at `scorecard prime` ----
+// ---- install-agents: point every installed harness at `scorecard prime --srs` ----
 const AGENTS_BEGIN: &str = "<!-- scorecard:begin (managed by `scorecard install-agents`) -->";
 const AGENTS_END: &str = "<!-- scorecard:end -->";
 fn agents_block() -> String {
     format!(
-        "{}\nWhen asked to summarize a tactical situation — a code / PR / incident / deadline /\nmilestone status, a readiness read, or a go/no-go — run `scorecard prime` and follow it\nto render a skimmable status scorecard with the `scorecard` TUI.\n{}",
+        "{}\nWhen asked to summarize a tactical situation — a code / PR / incident / deadline /\nmilestone status, a readiness read, or a go/no-go — run `scorecard prime --srs` and follow it\nto render a skimmable status scorecard with the `scorecard` TUI.\n{}",
         AGENTS_BEGIN, AGENTS_END
     )
 }
+
+/// True for `--srs`, `--srrs`, `--srrrs`, … (any number of r's between the s's).
+fn is_srs_flag(arg: &str) -> bool {
+    let rest = match arg.strip_prefix("--s") {
+        Some(r) => r,
+        None => return false,
+    };
+    let rs = match rest.strip_suffix('s') {
+        Some(r) => r,
+        None => return false,
+    };
+    !rs.is_empty() && rs.bytes().all(|b| b == b'r')
+}
+
+const PRIME_NUDGE: &str = "\
+This tool is for updating the shell startup scorecard banner.
+Only run `scorecard prime --srs` if that is what you want to do;
+otherwise save your tokens.
+";
 fn upsert_block(content: &str, block: &str) -> String {
     if let (Some(bi), Some(ei)) = (content.find(AGENTS_BEGIN), content.find(AGENTS_END)) {
         let end = ei + AGENTS_END.len();
@@ -1186,12 +1205,17 @@ fn main() {
             }
         }
         Some("prime") => {
-            print!("{}", PRIME);
+            let want_full = argv.iter().skip(1).any(|a| is_srs_flag(a));
+            if want_full {
+                print!("{}", PRIME);
+            } else {
+                print!("{}", PRIME_NUDGE);
+            }
             exit(0);
         }
         Some("install-agents") => match agents_apply(false) {
             Ok(m) => {
-                println!("scorecard: pointed installed harnesses at `scorecard prime`\n{}", m);
+                println!("scorecard: pointed installed harnesses at `scorecard prime --srs`\n{}", m);
                 exit(0);
             }
             Err(e) => {
@@ -1261,7 +1285,7 @@ fn main() {
         } else if a == "-h" || a == "--help" {
             eprintln!("usage: scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>");
             eprintln!("       scorecard --action scorecard://remove/<id>?file=<path>");
-            eprintln!("       scorecard install-handler | uninstall-handler | prime");
+            eprintln!("       scorecard install-handler | uninstall-handler | prime [--srs]");
             eprintln!("       scorecard install-agents | uninstall-agents");
             eprintln!("       scorecard list [file.md]");
             exit(0);
@@ -1471,6 +1495,21 @@ note: two at-risk gates in review
     #[test]
     fn prime_has_content() {
         assert!(PRIME.contains("scorecard") && PRIME.contains("groups:") && PRIME.contains("fit"));
+        assert!(PRIME_NUDGE.contains("--srs") && PRIME_NUDGE.contains("tokens"));
+    }
+
+    #[test]
+    fn srs_flag_accepts_any_number_of_rs() {
+        assert!(is_srs_flag("--srs"));
+        assert!(is_srs_flag("--srrs"));
+        assert!(is_srs_flag("--srrrs"));
+        assert!(is_srs_flag("--srrrrrrrs"));
+        assert!(!is_srs_flag("--ss"));
+        assert!(!is_srs_flag("--srsx"));
+        assert!(!is_srs_flag("--sRs"));
+        assert!(!is_srs_flag("srs"));
+        assert!(!is_srs_flag("--help"));
+        assert!(!is_srs_flag("--mode"));
     }
 
     #[test]
