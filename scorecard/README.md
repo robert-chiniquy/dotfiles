@@ -8,6 +8,7 @@ binary and chart renderer have no crate dependencies.
 ```
 scorecard [--width N] [--height N] [--mode fit|all]
           [--charts auto|image|text|off] [--no-actions] [--no-refresh] <file.md>
+scorecard demo [file]                                 # feature tour above current card
 scorecard --action scorecard://remove/<id>?file=<path>
 scorecard install-handler | uninstall-handler        # macOS URL-scheme handler
 scorecard prime [--srs]                               # agent-facing primer (full text needs --srs)
@@ -19,6 +20,19 @@ scorecard install-agents | uninstall-agents           # point harnesses at prime
 `--width`/`--height` fall back to `$COLUMNS`/`$LINES`. Width is clamped 84–170.
 Pass `--width "$COLUMNS" --height "$LINES"` from a prompt hook so it tracks the
 live terminal.
+
+## Demo
+
+`scorecard demo [file]` renders the built-in, feature-complete demo first, then
+the selected scorecard. With no file argument, it uses `$SCORECARD_FILE` or
+`~/.config/scorecard/status.md`; if that default does not exist, the demo still
+renders by itself. An explicitly named missing file is an error.
+
+The demo always renders in `all` mode so every severity, link, content group,
+callout color, and chart type remains visible. Width and chart options apply to
+both cards. The selected scorecard keeps the requested fit mode, clickable
+actions, and passive tracker refresh. The built-in demo has no backing file, so
+it has no close boxes and never runs tracker lookups.
 
 ## Build & install
 

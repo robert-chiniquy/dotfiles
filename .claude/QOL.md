@@ -593,3 +593,13 @@ errors, and never expands through shared groups.
 series output. Interactive iTerm2 TTYs get dependency-free inline PNGs; other
 terminals, tmux, and redirected output get compact Unicode. Fit mode caps chart
 space so the shell greeting remains within one pane.
+
+## 2026-07-27: feature-complete scorecard demo
+```sh
+scorecard demo [file]
+```
+Renders a built-in feature tour as the top card, followed by the configured or
+explicitly supplied scorecard. The demo exercises every severity, hyperlinks,
+multi-group rows, callout colors, and all three chart types through the same
+typed parser and renderers as real scorecards. It is display-only: no tracker
+lookups or source mutation.
