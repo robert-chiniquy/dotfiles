@@ -8,9 +8,9 @@ terminal height. No external dependencies — pure `std`.
 scorecard [--width N] [--height N] [--mode fit|all] [--no-actions] <file.md>
 scorecard --action scorecard://remove/<id>?file=<path>
 scorecard install-handler | uninstall-handler        # macOS URL-scheme handler
-scorecard prime                                       # agent-facing primer
+scorecard prime [--srs]                               # agent-facing primer (full text needs --srs)
 scorecard list [file]                                 # remaining items as markdown
-scorecard install-agents | uninstall-agents           # point harnesses at prime
+scorecard install-agents | uninstall-agents           # point harnesses at prime --srs
 ```
 
 `--width`/`--height` fall back to `$COLUMNS`/`$LINES`. Width is clamped 84–170.
@@ -115,9 +115,15 @@ macOS notification.
 
 ## prime
 
-`scorecard prime` prints an agent-facing primer — what the tool is, the schema,
-groups, modes, actions, and the write/preserve convention. It's the canonical
-"how to use this" text; point agents at it.
+Bare `scorecard prime` prints a short nudge (this is for the shell startup
+scorecard banner — only dump the full primer if you mean it). Full primer:
+
+```sh
+scorecard prime --srs      # also --srrs, --srrrs, … any number of r's
+```
+
+That text is the canonical "how to use this" guide: schema, groups, modes,
+actions, and the write/preserve convention. Point agents at `prime --srs`.
 
 ## Listing remaining items
 
@@ -131,12 +137,12 @@ entries) and anchored to a ticket/repo/system when there's room.
 ## Teaching agents
 
 `scorecard install-agents` points every installed agent harness at `scorecard
-prime`. It writes an idempotent, marker-delimited block into each harness's
+prime --srs`. It writes an idempotent, marker-delimited block into each harness's
 global instructions — Claude Code, Codex, Cursor, pi, opencode, Goose — telling
-it to run `scorecard prime` when asked to summarize a tactical
+it to run `scorecard prime --srs` when asked to summarize a tactical
 code/PR/incident/deadline/milestone situation. Only harnesses that actually
 exist are touched; `uninstall-agents` removes the blocks. (Claude Code also has a
-skill that auto-triggers and defers to `scorecard prime`.)
+skill that auto-triggers and defers to `scorecard prime --srs`.)
 
 ## New-terminal greeting
 

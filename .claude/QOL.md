@@ -573,3 +573,7 @@ Context: agents opt into plaid-lint per-invocation (USE_PLAID=1); on a cold cach
 
 ## 2026-07-21: Pin LINT_CONCURRENCY=4 in c1/.envrc.local
 c1's `ci/lint_diff.sh` falls back to `nproc || echo 4` on machines without cgroups. nproc isn't installed today (so the fallback is 4), but installing coreutils would silently flip it to 12 on this 12-core box. Pinned explicitly; propagates to all c1 worktrees via the .envrc.local symlinks. Companion to the plaid-lint/clanker-lint -j6 shims (which only apply when no explicit --concurrency is passed; lint_diff.sh passes one).
+
+## 2026-07-27: scorecard prime requires --srs for full primer
+`scorecard prime` alone prints a short token-saving nudge; full agent primer only with `--srs` / `--srrrs` (any number of r's). Harness blocks + readiness-scorecard skill point at `scorecard prime --srs`. Installed binary via cargo install.
+Bare prime was dumping the full primer into agent context whenever something triggered it.
