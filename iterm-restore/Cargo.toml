@@ -2,7 +2,7 @@
 name = "iterm-restore"
 version = "0.1.0"
 edition = "2021"
-description = "Inventory open iTerm2 tabs and resume the claude/codex session running in each one. No dependencies."
+description = "Inventory open iTerm2 tabs and resume the Claude, Codex, or Grok session running in each one. No dependencies."
 
 [[bin]]
 name = "iterm-restore"
