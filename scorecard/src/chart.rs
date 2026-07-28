@@ -1,10 +1,11 @@
-use super::{is_sep, split_row};
+use super::{c, is_sep, split_row, ACCENT, RESET, SPARK};
 use std::env;
 use std::io::IsTerminal;
 
 const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 const BG: [u8; 3] = [12, 10, 25];
 const GRID: [u8; 3] = [53, 48, 78];
+const AXIS: [u8; 3] = [150, 150, 175];
 const COLORS: [[u8; 3]; 5] = [
     [92, 236, 255],
     [255, 0, 153],
@@ -313,12 +314,48 @@ fn text_rows(chart: &Chart) -> usize {
     }
 }
 
+// Axis annotation appended to a chart's header line. A histogram's horizontal
+// bars map bin range -> count; for value charts we surface the value-axis range
+// the sparkline/line otherwise hides.
+fn axis_caption(chart: &Chart) -> String {
+    match chart.kind {
+        ChartKind::Histogram => " · x:range y:count".to_string(),
+        ChartKind::Sparkline | ChartKind::TimeSeries => match numeric_bounds(chart) {
+            Some((min, max)) => format!(" · y {}–{}", format_number(min), format_number(max)),
+            None => String::new(),
+        },
+    }
+}
+
+// Per-cell cyan->pink gradient for a histogram bar, same lerp as the score
+// meter (main.rs). Ramps across this bar's own length, not a shared scale, so
+// a short bar and a long bar both run the full cyan->pink range.
+fn gradient_bar(count: usize) -> String {
+    let mut bar = String::new();
+    for i in 0..count {
+        let p = if count > 1 {
+            i as f64 / (count - 1) as f64
+        } else {
+            0.0
+        };
+        let col = [0, 1, 2]
+            .map(|k| (ACCENT[k] as f64 + (SPARK[k] as f64 - ACCENT[k] as f64) * p).round() as u8);
+        bar.push_str(&format!("{}█{}", c(col), RESET));
+    }
+    bar
+}
+
 fn render_text(chart: &Chart, width: usize, budget: usize) -> String {
     if budget == 0 {
         return String::new();
     }
     let mut lines = vec![trunc_text(
-        &format!("CHART {} · {}", chart.title, chart.kind.label()),
+        &format!(
+            "CHART {} · {}{}",
+            chart.title,
+            chart.kind.label(),
+            axis_caption(chart)
+        ),
         width,
     )];
     let available = budget.saturating_sub(1);
@@ -360,7 +397,7 @@ fn render_text(chart: &Chart, width: usize, budget: usize) -> String {
                 lines.push(format!(
                     "{:<label_width$} {} {}",
                     trunc_text(label, label_width),
-                    "█".repeat(count),
+                    gradient_bar(count),
                     number,
                     label_width = label_width
                 ));
@@ -447,6 +484,59 @@ impl Raster {
             }
         }
     }
+
+    // Draw a string with the built-in 3x5 numeric font, scaled by `scale`. Only
+    // glyphs known to `glyph()` render (digits, '.', '-', space); anything else
+    // advances a blank cell so widths stay predictable.
+    fn text(&mut self, x: i32, y: i32, text: &str, scale: i32, color: [u8; 3]) {
+        let scale = scale.max(1);
+        let mut cx = x;
+        for ch in text.chars() {
+            if let Some(rows) = glyph(ch) {
+                for (ry, bits) in rows.iter().enumerate() {
+                    for gx in 0..GLYPH_W {
+                        if bits & (1 << (GLYPH_W - 1 - gx)) != 0 {
+                            for dy in 0..scale {
+                                for dx in 0..scale {
+                                    self.pixel(cx + gx as i32 * scale + dx, y + ry as i32 * scale + dy, color);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            cx += (GLYPH_W as i32 + 1) * scale;
+        }
+    }
+}
+
+const GLYPH_W: usize = 3;
+const GLYPH_H: usize = 5;
+
+// Pixel width a `Raster::text` call for `s` at `scale` will occupy.
+fn text_width(s: &str, scale: i32) -> i32 {
+    s.chars().count() as i32 * (GLYPH_W as i32 + 1) * scale.max(1)
+}
+
+// 3x5 bitmap glyphs for numeric axis labels (bit2=left, bit1=mid, bit0=right).
+// Numeric-only by design: axis ticks and histogram bin bounds are all numbers.
+fn glyph(ch: char) -> Option<[u8; GLYPH_H]> {
+    Some(match ch {
+        '0' => [0b111, 0b101, 0b101, 0b101, 0b111],
+        '1' => [0b010, 0b110, 0b010, 0b010, 0b111],
+        '2' => [0b111, 0b001, 0b111, 0b100, 0b111],
+        '3' => [0b111, 0b001, 0b111, 0b001, 0b111],
+        '4' => [0b101, 0b101, 0b111, 0b001, 0b001],
+        '5' => [0b111, 0b100, 0b111, 0b001, 0b111],
+        '6' => [0b111, 0b100, 0b111, 0b101, 0b111],
+        '7' => [0b111, 0b001, 0b010, 0b010, 0b010],
+        '8' => [0b111, 0b101, 0b111, 0b101, 0b111],
+        '9' => [0b111, 0b101, 0b111, 0b001, 0b111],
+        '.' => [0b000, 0b000, 0b000, 0b000, 0b010],
+        '-' | '–' => [0b000, 0b000, 0b111, 0b000, 0b000],
+        ' ' => [0; GLYPH_H],
+        _ => return None,
+    })
 }
 
 fn numeric_bounds(chart: &Chart) -> Option<(f64, f64)> {
@@ -473,15 +563,43 @@ fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
     if width < 24 || height < 24 {
         return raster;
     }
-    let (left, right, top, bottom) = (12usize, width - 10, 10usize, height - 10);
-    for step in 0..=4 {
-        let y = top + (bottom - top) * step / 4;
-        raster.line(left as i32, y as i32, right as i32, y as i32, GRID);
-    }
-
+    // Bounds first: the y-axis tick values derive from them. With no numeric
+    // data we still draw an empty grid at the original tight margins.
     let Some((min, max)) = numeric_bounds(chart) else {
+        let (left, right, top, bottom) = (12usize, width - 10, 10usize, height - 10);
+        for step in 0..=4 {
+            let y = top + (bottom - top) * step / 4;
+            raster.line(left as i32, y as i32, right as i32, y as i32, GRID);
+        }
         return raster;
     };
+
+    // Y-axis tick values, top (max) down to bottom (min) — one per grid line.
+    let scale = if height >= 120 { 2 } else { 1 };
+    let y_ticks: [String; 5] =
+        std::array::from_fn(|s| format_number(max - (max - min) * s as f64 / 4.0));
+    let y_label_px = y_ticks.iter().map(|t| text_width(t, scale)).max().unwrap_or(0);
+    let glyph_px = GLYPH_H as i32 * scale;
+
+    // Reserve margins for labels when there is room; otherwise fall back to the
+    // original tight margins so tiny thumbnails still draw the plot.
+    let want_left = 6 + y_label_px as usize + 3;
+    let want_bottom = glyph_px as usize + 3;
+    let labels_fit = width > want_left + 24 && height > want_bottom + 28;
+    let left = if labels_fit { want_left } else { 12 };
+    let right = width - 10;
+    let top = 10usize;
+    let bottom = if labels_fit { height - 10 - want_bottom } else { height - 10 };
+
+    for (step, label) in y_ticks.iter().enumerate() {
+        let y = top + (bottom - top) * step / 4;
+        raster.line(left as i32, y as i32, right as i32, y as i32, GRID);
+        if labels_fit {
+            let lx = left as i32 - text_width(label, scale) - 3;
+            raster.text(lx.max(0), y as i32 - glyph_px / 2, label, scale, AXIS);
+        }
+    }
+
     let y_for = |value: f64| bottom as f64 - ((value - min) / (max - min)) * (bottom - top) as f64;
 
     match chart.kind {
@@ -500,6 +618,16 @@ fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
                     .max(x0 + 1);
                 let value_y = y_for(*value).round().clamp(top as f64, bottom as f64) as usize;
                 raster.rect(x0, value_y.min(zero), x1, value_y.max(zero) + 1, COLORS[0]);
+            }
+            // X-axis: the observed data range, read from the first/last bin labels.
+            if labels_fit {
+                if let (Some(first), Some(last)) = (chart.labels.first(), chart.labels.last()) {
+                    let lo = first.split('–').next().unwrap_or(first).trim();
+                    let hi = last.rsplit('–').next().unwrap_or(last).trim();
+                    let ty = (bottom as i32 + 3).min(height as i32 - glyph_px - 1);
+                    raster.text(left as i32, ty, lo, scale, AXIS);
+                    raster.text(right as i32 - text_width(hi, scale), ty, hi, scale, AXIS);
+                }
             }
         }
         ChartKind::Sparkline | ChartKind::TimeSeries => {
@@ -700,7 +828,12 @@ pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget
                 if image_rows < 3 {
                     break;
                 }
-                output.push_str(&format!("CHART {} · {}\n", chart.title, chart.kind.label()));
+                output.push_str(&format!(
+                    "CHART {} · {}{}\n",
+                    chart.title,
+                    chart.kind.label(),
+                    axis_caption(chart)
+                ));
                 let pixel_width = (width * 8).clamp(320, 960);
                 let pixel_height = (image_rows * 20).clamp(60, 240);
                 let png = render_png(chart, pixel_width, pixel_height);
@@ -828,5 +961,47 @@ type: time-series
         assert!(rendered.contains("Reveal latency"));
         assert!(rendered.contains("p50"));
         assert!(rendered.contains("p95"));
+    }
+
+    #[test]
+    fn axis_font_renders_digits_and_skips_unknown_glyphs() {
+        assert!(glyph('0').is_some());
+        assert!(glyph('.').is_some());
+        assert!(glyph('-').is_some());
+        assert!(glyph('x').is_none());
+        assert_eq!(text_width("12", 1), 2 * (GLYPH_W as i32 + 1));
+        let mut raster = Raster::new(24, 8, BG);
+        raster.text(0, 0, "12", 1, AXIS);
+        let drawn = raster.pixels.chunks_exact(3).filter(|px| *px == AXIS).count();
+        assert!(drawn > 0, "digits should light up axis-colored pixels");
+    }
+
+    #[test]
+    fn text_histogram_labels_both_axes() {
+        let charts = parse(
+            "## Chart: Latency distribution\n\
+             type: histogram\n\
+             | milliseconds |\n\
+             | ---: |\n\
+             | 10 |\n| 12 |\n| 18 |\n| 31 |\n",
+        );
+        let rendered = render_text(&charts[0], 60, 8);
+        assert!(rendered.contains("x:range"));
+        assert!(rendered.contains("y:count"));
+    }
+
+    #[test]
+    fn text_value_chart_caption_shows_the_value_axis_range() {
+        let rendered = render_text(&parse(TABLE)[0], 72, 5);
+        assert!(rendered.contains("· y "), "value charts must name the y range");
+        assert!(rendered.contains("10")); // min across p50/p95
+        assert!(rendered.contains("31")); // max across p50/p95
+    }
+
+    #[test]
+    fn image_chart_draws_axis_label_pixels() {
+        let raster = draw_chart(&parse(TABLE)[0], 320, 160);
+        let axis_px = raster.pixels.chunks_exact(3).filter(|px| *px == AXIS).count();
+        assert!(axis_px > 0, "image chart should render axis-label pixels");
     }
 }
