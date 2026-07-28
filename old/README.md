@@ -27,10 +27,11 @@ from a transient signal (the live foreground process), and hand-rolling
 structured-data parsing in shell pipelines instead of typed, tested code.
 
 **What replaced it.** `iterm-restore` (Rust crate at `iterm-restore/`).
-Resolves each tab from the transcripts on disk, ranked by real in-content
-last-activity timestamp (file mtimes are unreliable after a migration copy);
-assigns distinct sessions across duplicate-cwd tabs and flags them; resumes
-in place by tty; `--list` / `--new-window` modes; parsing logic is unit-tested.
-It also attempts an exact live-process mapping via `lsof`, but that is
-best-effort only — claude closes its transcript between writes, so there is no
-durable on-process session signal to rely on.
+Resolves Claude, Codex, and Grok sessions from their on-disk stores, ranked by
+real session activity timestamps (file mtimes are unreliable after a migration
+copy); assigns distinct sessions across duplicate-cwd tabs and flags them;
+resumes in place by tty; `--list` / `--new-window` modes; parsing logic is
+unit-tested. It also attempts an exact live-process mapping via `lsof`, and
+uses Grok's active PID-to-session registry directly. Claude's live mapping
+remains best-effort because Claude closes its transcript between writes, so
+there is no durable on-process session signal to rely on.
