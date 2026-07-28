@@ -1,4 +1,5 @@
-//! iterm-restore — inventory open iTerm2 tabs and resume the claude/codex
+//! iterm-restore — inventory open iTerm2 tabs and resume the Claude, Codex, or
+//! Grok
 //! session running in each one. Replaces the fragile
 //! `bin/iterm-session-snapshot` zsh script with typed, testable logic.
 //! Std-only: shells out to `osascript`, `ps`, `lsof`, `date` and parses their
@@ -15,11 +16,12 @@
 //!   1. live: a running agent on the tab's tty is caught holding its
 //!      transcript open (`ps -t <tty>` then `lsof -p <pid>`). When it fires
 //!      this is the exact session, even for tabs sharing a cwd. BUT it is
-//!      unreliable: claude opens the transcript only to append and closes it
+//!      unreliable: Claude opens the transcript only to append and closes it
 //!      between writes, so a live-but-idle claude exposes no open fd, no
 //!      session id in argv/env, and no lock file — there is no durable
-//!      on-process signal to map it. So this usually only catches a codex
-//!      (which holds its rollout open) or a claude mid-write.
+//!      on-process signal to map it. Codex and Grok keep their session logs
+//!      open, and Grok additionally records the exact PID-to-session mapping in
+//!      `~/.grok/active_sessions.json`.
 //!   2. inferred: the newest transcript whose cwd matches, ranked by
 //!      in-content timestamp (file mtimes are unreliable after a
 //!      migration/restore). This is what resolves most tabs in practice.
@@ -32,7 +34,7 @@
 //! The tool never resumes its own controlling tab (detected via $TTY, else
 //! the tty of the tool's own process).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::io::BufRead;
@@ -44,10 +46,11 @@ use std::process::{exit, Command};
 // types
 // ---------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Harness {
     Claude,
     Codex,
+    Grok,
     Shell,
 }
 
@@ -56,6 +59,7 @@ impl Harness {
         match self {
             Harness::Claude => "claude",
             Harness::Codex => "codex",
+            Harness::Grok => "grok",
             Harness::Shell => "shell",
         }
     }
@@ -225,6 +229,161 @@ fn home_dir() -> PathBuf {
     PathBuf::from(env::var("HOME").expect("HOME not set"))
 }
 
+fn grok_home_dir() -> PathBuf {
+    env::var_os("GROK_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home_dir().join(".grok"))
+}
+
+/// Return complete top-level JSON objects while respecting quoted braces.
+/// This is enough for Grok's flat active-session registry without adding a
+/// JSON dependency to this otherwise std-only tool.
+fn json_object_slices(input: &str) -> Vec<&str> {
+    let mut objects = Vec::new();
+    let mut start = None;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (index, byte) in input.bytes().enumerate() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match byte {
+            b'"' => in_string = true,
+            b'{' => {
+                if depth == 0 {
+                    start = Some(index);
+                }
+                depth += 1;
+            }
+            b'}' if depth > 0 => {
+                depth -= 1;
+                if depth == 0 {
+                    if let Some(object_start) = start.take() {
+                        objects.push(&input[object_start..=index]);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    objects
+}
+
+fn json_field_value<'a>(input: &'a str, key: &str) -> Option<&'a str> {
+    let bytes = input.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index] != b'"' {
+            index += 1;
+            continue;
+        }
+
+        let string_start = index + 1;
+        let mut string_end = string_start;
+        let mut escaped = false;
+        while string_end < bytes.len() {
+            let byte = bytes[string_end];
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                break;
+            }
+            string_end += 1;
+        }
+        if string_end == bytes.len() {
+            return None;
+        }
+
+        if &input[string_start..string_end] == key {
+            let mut colon = string_end + 1;
+            while colon < bytes.len() && bytes[colon].is_ascii_whitespace() {
+                colon += 1;
+            }
+            if colon < bytes.len() && bytes[colon] == b':' {
+                return Some(input[colon + 1..].trim_start());
+            }
+        }
+        index = string_end + 1;
+    }
+    None
+}
+
+fn json_string_field(input: &str, key: &str) -> Option<String> {
+    let value = json_field_value(input, key)?;
+    let mut chars = value.chars();
+    if chars.next()? != '"' {
+        return None;
+    }
+
+    let mut out = String::new();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' => return Some(out),
+            '\\' => match chars.next()? {
+                '"' => out.push('"'),
+                '\\' => out.push('\\'),
+                '/' => out.push('/'),
+                'b' => out.push('\u{0008}'),
+                'f' => out.push('\u{000c}'),
+                'n' => out.push('\n'),
+                'r' => out.push('\r'),
+                't' => out.push('\t'),
+                'u' => {
+                    let digits: String = chars.by_ref().take(4).collect();
+                    if digits.len() != 4 {
+                        return None;
+                    }
+                    let codepoint = u32::from_str_radix(&digits, 16).ok()?;
+                    out.push(char::from_u32(codepoint)?);
+                }
+                _ => return None,
+            },
+            _ => out.push(ch),
+        }
+    }
+    None
+}
+
+fn json_u32_field(input: &str, key: &str) -> Option<u32> {
+    let value = json_field_value(input, key)?;
+    let digits: String = value.chars().take_while(|ch| ch.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        digits.parse().ok()
+    }
+}
+
+fn parse_grok_active_sessions(input: &str) -> HashMap<u32, String> {
+    json_object_slices(input)
+        .into_iter()
+        .filter_map(|object| {
+            let pid = json_u32_field(object, "pid")?;
+            let session_id = json_string_field(object, "session_id")?;
+            Some((pid, session_id))
+        })
+        .collect()
+}
+
+fn grok_active_sessions() -> HashMap<u32, String> {
+    fs::read_to_string(grok_home_dir().join("active_sessions.json"))
+        .map(|content| parse_grok_active_sessions(&content))
+        .unwrap_or_default()
+}
+
 // ---------------------------------------------------------------------
 // live path: ps on the tty, then lsof on candidate pids for an open
 // transcript file
@@ -265,21 +424,24 @@ fn parse_ps_pid_comm(output: &str) -> Vec<(u32, String)> {
         .collect()
 }
 
-/// pids on a tty whose command looks like it could be a claude/codex agent.
-/// Both harnesses show up as a `node` process, so match loosely and let lsof
-/// disambiguate.
+/// PIDs on a tty whose command looks like it could be a Claude, Codex, or Grok
+/// agent. Claude and some Codex distributions show up as a `node` process, so
+/// match loosely and let the active registry or lsof disambiguate.
 fn candidate_agent_pids(ps_output: &str) -> Vec<u32> {
     parse_ps_pid_comm(ps_output)
         .into_iter()
         .filter(|(_, comm)| {
             let lc = comm.to_lowercase();
-            lc.contains("node") || lc.contains("claude") || lc.contains("codex")
+            lc.contains("node")
+                || lc.contains("claude")
+                || lc.contains("codex")
+                || lc.contains("grok")
         })
         .map(|(pid, _)| pid)
         .collect()
 }
 
-/// Scan `lsof -p <pid>` output for an open claude/codex transcript file.
+/// Scan `lsof -p <pid>` output for an open harness transcript file.
 fn extract_transcript_from_lsof(lsof_output: &str) -> Option<(Harness, String)> {
     for line in lsof_output.lines() {
         let Some(field) = line.split_whitespace().last() else {
@@ -293,6 +455,13 @@ fn extract_transcript_from_lsof(lsof_output: &str) -> Option<(Harness, String)> 
         }
         if field.contains("/.codex/sessions/") {
             return Some((Harness::Codex, field.to_string()));
+        }
+        if field.contains("/.grok/sessions/")
+            && (field.ends_with("/events.jsonl")
+                || field.ends_with("/updates.jsonl")
+                || field.ends_with("/chat_history.jsonl"))
+        {
+            return Some((Harness::Grok, field.to_string()));
         }
     }
     None
@@ -308,15 +477,44 @@ fn codex_id_from_path(path: &str) -> Option<String> {
     parse_codex_filename(file_name).map(|(_, uuid)| uuid)
 }
 
-fn try_live_resolution(tab: &Tab) -> Option<Resolution> {
+fn grok_id_from_path(path: &str) -> Option<String> {
+    let transcript = Path::new(path);
+    match transcript.file_name()?.to_str()? {
+        "events.jsonl" | "updates.jsonl" | "chat_history.jsonl" => {}
+        _ => return None,
+    }
+    transcript
+        .parent()?
+        .file_name()?
+        .to_str()
+        .map(str::to_string)
+}
+
+fn try_live_resolution(
+    tab: &Tab,
+    active_grok_sessions: &HashMap<u32, String>,
+) -> Option<Resolution> {
     let shortdev = tab.tty.strip_prefix("/dev/").unwrap_or(tab.tty.as_str());
     let ps_out = run_ps_on_tty(shortdev);
     for pid in candidate_agent_pids(&ps_out) {
+        if let Some(id) = active_grok_sessions.get(&pid) {
+            return Some(Resolution {
+                tty: tab.tty.clone(),
+                cwd: tab.cwd.clone(),
+                harness: Harness::Grok,
+                session_id: Some(id.clone()),
+                confidence: Confidence::Live,
+                is_self: false,
+                alternates: Vec::new(),
+            });
+        }
+
         let lsof_out = run_lsof(pid);
         if let Some((harness, path)) = extract_transcript_from_lsof(&lsof_out) {
             let id = match harness {
                 Harness::Claude => claude_id_from_path(&path),
                 Harness::Codex => codex_id_from_path(&path),
+                Harness::Grok => grok_id_from_path(&path),
                 Harness::Shell => None,
             };
             if let Some(id) = id {
@@ -400,7 +598,9 @@ fn first_line(path: &Path) -> Option<String> {
 }
 
 fn claude_candidates_for_cwd(cwd: &str) -> Vec<(String, String)> {
-    let dir = home_dir().join(".claude/projects").join(cwd_to_mangled(cwd));
+    let dir = home_dir()
+        .join(".claude/projects")
+        .join(cwd_to_mangled(cwd));
     let mut out = Vec::new();
     let Ok(entries) = fs::read_dir(&dir) else {
         return out;
@@ -461,6 +661,82 @@ fn walk_codex_dir(dir: &Path, cwd: &str, out: &mut Vec<(String, String)>) {
     }
 }
 
+fn percent_encode_path_component(path: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push('%');
+            encoded.push(char::from(HEX[(byte >> 4) as usize]));
+            encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+        }
+    }
+    encoded
+}
+
+fn grok_session_groups_for_cwd(root: &Path, cwd: &str) -> Vec<PathBuf> {
+    let mut groups = Vec::new();
+    let direct = root.join(percent_encode_path_component(cwd));
+    if direct.is_dir() {
+        groups.push(direct.clone());
+    }
+
+    let Ok(entries) = fs::read_dir(root) else {
+        return groups;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path == direct || !path.is_dir() {
+            continue;
+        }
+        let Ok(recorded_cwd) = fs::read_to_string(path.join(".cwd")) else {
+            continue;
+        };
+        if recorded_cwd.trim_end() == cwd {
+            groups.push(path);
+        }
+    }
+    groups
+}
+
+fn grok_candidates_in_root(root: &Path, cwd: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for group in grok_session_groups_for_cwd(root, cwd) {
+        let Ok(entries) = fs::read_dir(group) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let session_dir = entry.path();
+            if !session_dir.is_dir() {
+                continue;
+            }
+            let Some(id) = session_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+            else {
+                continue;
+            };
+            let Ok(summary) = fs::read_to_string(session_dir.join("summary.json")) else {
+                continue;
+            };
+            let timestamp = json_string_field(&summary, "updated_at")
+                .or_else(|| json_string_field(&summary, "last_active_at"))
+                .or_else(|| json_string_field(&summary, "created_at"));
+            if let Some(timestamp) = timestamp {
+                out.push((id, timestamp));
+            }
+        }
+    }
+    out
+}
+
+fn grok_candidates_for_cwd(cwd: &str) -> Vec<(String, String)> {
+    grok_candidates_in_root(&grok_home_dir().join("sessions"), cwd)
+}
+
 // ---------------------------------------------------------------------
 // ranking / duplicate-cwd assignment
 // ---------------------------------------------------------------------
@@ -489,11 +765,22 @@ struct Assignment {
     alternates: Vec<(Harness, String)>,
 }
 
+fn remove_claimed_candidates(
+    candidates: &mut Vec<Candidate>,
+    claimed_sessions: &HashSet<(Harness, String)>,
+) {
+    candidates
+        .retain(|candidate| !claimed_sessions.contains(&(candidate.harness, candidate.id.clone())));
+}
+
 /// Assign the `tab_count` most-recent DISTINCT candidates across `tab_count`
 /// tabs sharing a cwd, newest first. If there are fewer candidates than
 /// tabs, the extra tabs get no session (shell). Every assigned tab is
 /// flagged ambiguous with the other candidates recorded as alternates.
-fn assign_duplicate_cwd_sessions(tab_count: usize, mut candidates: Vec<Candidate>) -> Vec<Assignment> {
+fn assign_duplicate_cwd_sessions(
+    tab_count: usize,
+    mut candidates: Vec<Candidate>,
+) -> Vec<Assignment> {
     candidates.sort_by(|a, b| b.rank_key.cmp(&a.rank_key));
     let mut out = Vec::with_capacity(tab_count);
     for i in 0..tab_count {
@@ -530,10 +817,15 @@ fn assign_duplicate_cwd_sessions(tab_count: usize, mut candidates: Vec<Candidate
 fn resolve_all(tabs: &[Tab], self_tty: Option<&str>) -> Vec<Resolution> {
     let mut by_tty: HashMap<String, Resolution> = HashMap::new();
     let mut dead: Vec<&Tab> = Vec::new();
+    let mut claimed_sessions: HashSet<(Harness, String)> = HashSet::new();
+    let active_grok_sessions = grok_active_sessions();
 
     for tab in tabs {
-        match try_live_resolution(tab) {
+        match try_live_resolution(tab, &active_grok_sessions) {
             Some(res) => {
+                if let Some(id) = &res.session_id {
+                    claimed_sessions.insert((res.harness, id.clone()));
+                }
                 by_tty.insert(tab.tty.clone(), res);
             }
             None => dead.push(tab),
@@ -568,6 +860,14 @@ fn resolve_all(tabs: &[Tab], self_tty: Option<&str>) -> Vec<Resolution> {
                 rank_key: normalize_ts(&ts),
             });
         }
+        for (id, ts) in grok_candidates_for_cwd(&cwd) {
+            candidates.push(Candidate {
+                harness: Harness::Grok,
+                id,
+                rank_key: normalize_ts(&ts),
+            });
+        }
+        remove_claimed_candidates(&mut candidates, &claimed_sessions);
 
         if group.len() == 1 {
             let tab = group[0];
@@ -606,7 +906,9 @@ fn resolve_all(tabs: &[Tab], self_tty: Option<&str>) -> Vec<Resolution> {
 
     tabs.iter()
         .map(|t| {
-            let mut res = by_tty.remove(&t.tty).unwrap_or_else(|| Resolution::shell(t));
+            let mut res = by_tty
+                .remove(&t.tty)
+                .unwrap_or_else(|| Resolution::shell(t));
             if Some(t.tty.as_str()) == self_tty {
                 res.is_self = true;
             }
@@ -620,10 +922,17 @@ fn resolve_all(tabs: &[Tab], self_tty: Option<&str>) -> Vec<Resolution> {
 // ---------------------------------------------------------------------
 
 fn print_list(resolutions: &[Resolution]) {
-    println!("{:<16} {:<45} {:<8} {:<38} CONFIDENCE", "TTY", "CWD", "HARNESS", "SESSION-ID");
+    println!(
+        "{:<16} {:<45} {:<8} {:<38} CONFIDENCE",
+        "TTY", "CWD", "HARNESS", "SESSION-ID"
+    );
     for r in resolutions {
         let id = r.session_id.as_deref().unwrap_or("-");
-        let conf = if r.is_self { "self" } else { r.confidence.label() };
+        let conf = if r.is_self {
+            "self"
+        } else {
+            r.confidence.label()
+        };
         println!(
             "{:<16} {:<45} {:<8} {:<38} {}",
             r.tty,
@@ -643,6 +952,7 @@ fn resume_command(harness: Harness, session_id: &Option<String>) -> Option<Strin
     match (harness, session_id) {
         (Harness::Claude, Some(id)) => Some(format!("claude --resume {id}")),
         (Harness::Codex, Some(id)) => Some(format!("codex resume {id}")),
+        (Harness::Grok, Some(id)) => Some(format!("grok --resume {id}")),
         _ => None,
     }
 }
@@ -669,7 +979,10 @@ fn alternates_comment(r: &Resolution) -> Option<String> {
         .collect::<Vec<_>>()
         .join(", ");
     if r.alternates.len() > MAX_ALTERNATES_SHOWN {
-        list.push_str(&format!(" (+{} more)", r.alternates.len() - MAX_ALTERNATES_SHOWN));
+        list.push_str(&format!(
+            " (+{} more)",
+            r.alternates.len() - MAX_ALTERNATES_SHOWN
+        ));
     }
     Some(format!("# {} ambiguous — alternates: {}\n", r.tty, list))
 }
@@ -848,6 +1161,17 @@ fn main() {
 mod tests {
     use super::*;
 
+    fn test_temp_dir(label: &str) -> PathBuf {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        env::temp_dir().join(format!(
+            "iterm-restore-{label}-{}-{unique}",
+            std::process::id()
+        ))
+    }
+
     // codex filename -> (timestamp, uuid). Failure hypothesis: a naive split
     // on '-' truncates the uuid at its own internal hyphens.
     #[test]
@@ -870,6 +1194,97 @@ mod tests {
         assert_eq!(
             cwd_to_mangled("/Users/rch/repo/occult"),
             "-Users-rch-repo-occult"
+        );
+    }
+
+    #[test]
+    fn grok_cwd_encoding_matches_session_directory_names() {
+        assert_eq!(
+            percent_encode_path_component("/Users/rch/repo/occult"),
+            "%2FUsers%2Frch%2Frepo%2Foccult"
+        );
+        assert_eq!(
+            percent_encode_path_component("/Users/rch/repo/a b#c"),
+            "%2FUsers%2Frch%2Frepo%2Fa%20b%23c"
+        );
+    }
+
+    #[test]
+    fn grok_candidates_find_encoded_and_long_path_groups() {
+        let root = test_temp_dir("grok-candidates");
+        let cwd = "/Users/rch/repo/a b";
+        let direct_group = root.join(percent_encode_path_component(cwd));
+        let direct_session = direct_group.join("019f0000-0000-7000-8000-000000000001");
+        fs::create_dir_all(&direct_session).unwrap();
+        fs::write(
+            direct_session.join("summary.json"),
+            r#"{"updated_at":"2026-07-27T20:00:00.000Z"}"#,
+        )
+        .unwrap();
+
+        let long_group = root.join("long-path-deadbeef");
+        let long_session = long_group.join("019f0000-0000-7000-8000-000000000002");
+        fs::create_dir_all(&long_session).unwrap();
+        fs::write(long_group.join(".cwd"), format!("{cwd}\n")).unwrap();
+        fs::write(
+            long_session.join("summary.json"),
+            r#"{"last_active_at":"2026-07-27T21:00:00.000Z"}"#,
+        )
+        .unwrap();
+
+        let mut candidates = grok_candidates_in_root(&root, cwd);
+        candidates.sort();
+        assert_eq!(
+            candidates,
+            vec![
+                (
+                    "019f0000-0000-7000-8000-000000000001".to_string(),
+                    "2026-07-27T20:00:00.000Z".to_string()
+                ),
+                (
+                    "019f0000-0000-7000-8000-000000000002".to_string(),
+                    "2026-07-27T21:00:00.000Z".to_string()
+                ),
+            ]
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn grok_active_registry_maps_pid_to_session_id() {
+        let registry = r#"[
+          {
+            "session_id": "019f0000-0000-7000-8000-000000000001",
+            "pid": 1234,
+            "cwd": "/tmp/a {quoted} directory"
+          },
+          {
+            "session_id": "019f0000-0000-7000-8000-000000000002",
+            "pid": 5678,
+            "cwd": "/tmp/b"
+          }
+        ]"#;
+        let active = parse_grok_active_sessions(registry);
+        assert_eq!(
+            active.get(&1234).map(String::as_str),
+            Some("019f0000-0000-7000-8000-000000000001")
+        );
+        assert_eq!(
+            active.get(&5678).map(String::as_str),
+            Some("019f0000-0000-7000-8000-000000000002")
+        );
+    }
+
+    #[test]
+    fn json_field_lookup_ignores_key_text_inside_string_values() {
+        let summary = r#"{
+          "session_summary": "mentions \"updated_at\": \"not-a-field\"",
+          "updated_at": "2026-07-27T22:00:00.000Z"
+        }"#;
+        assert_eq!(
+            json_string_field(summary, "updated_at"),
+            Some("2026-07-27T22:00:00.000Z".to_string())
         );
     }
 
@@ -976,6 +1391,29 @@ mod tests {
         assert_eq!(out[1].confidence, Confidence::None);
     }
 
+    #[test]
+    fn claimed_live_sessions_are_not_reused_for_inference() {
+        let mut candidates = vec![
+            Candidate {
+                harness: Harness::Grok,
+                id: "live-grok".to_string(),
+                rank_key: normalize_ts("2026-07-27T22:00:00.000Z"),
+            },
+            Candidate {
+                harness: Harness::Claude,
+                id: "available-claude".to_string(),
+                rank_key: normalize_ts("2026-07-27T21:00:00.000Z"),
+            },
+        ];
+        let claimed = HashSet::from([(Harness::Grok, "live-grok".to_string())]);
+
+        remove_claimed_candidates(&mut candidates, &claimed);
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].harness, Harness::Claude);
+        assert_eq!(candidates[0].id, "available-claude");
+    }
+
     // normalize_ts: a claude ISO timestamp (colons + ms) and a codex
     // filename timestamp (hyphens, no ms) must compare correctly against
     // each other, not just within their own format.
@@ -998,21 +1436,27 @@ mod tests {
     }
 
     #[test]
-    fn extract_transcript_from_lsof_finds_claude_and_codex_paths() {
+    fn extract_transcript_from_lsof_finds_claude_codex_and_grok_paths() {
         let claude_lsof = "node    1234 rch  txt REG 1,4  1234 5678 /Users/rch/.claude/projects/-Users-rch-repo-occult/019f9227-abcd.jsonl";
         let codex_lsof = "node    5678 rch  txt REG 1,4  1234 5678 /Users/rch/.codex/sessions/2026/07/rollout-2026-07-23T20-24-45-019f9227-6f06-7c31-bb22-f9046c5aab9e.jsonl";
+        let grok_lsof = "grok    9012 rch  27w REG 1,4 1234 5678 /Users/rch/.grok/sessions/%2FUsers%2Frch%2Frepo%2Foccult/019f9227-6f06-7c31-bb22-f9046c5aab9e/events.jsonl";
         let other_lsof = "node    9999 rch  txt REG 1,4  1234 5678 /Users/rch/somewhere/notes.txt";
 
         assert_eq!(
             extract_transcript_from_lsof(claude_lsof),
             Some((
                 Harness::Claude,
-                "/Users/rch/.claude/projects/-Users-rch-repo-occult/019f9227-abcd.jsonl".to_string()
+                "/Users/rch/.claude/projects/-Users-rch-repo-occult/019f9227-abcd.jsonl"
+                    .to_string()
             ))
         );
         assert_eq!(
             extract_transcript_from_lsof(codex_lsof).map(|(h, _)| h),
             Some(Harness::Codex)
+        );
+        assert_eq!(
+            extract_transcript_from_lsof(grok_lsof).map(|(h, _)| h),
+            Some(Harness::Grok)
         );
         assert_eq!(extract_transcript_from_lsof(other_lsof), None);
     }
@@ -1026,10 +1470,35 @@ mod tests {
     }
 
     #[test]
-    fn candidate_agent_pids_matches_node_claude_and_codex_case_insensitively() {
-        let ps = "  1234 node\n  5678 zsh\n  9012 Codex\n  3456 -zsh\n";
+    fn grok_id_from_path_uses_session_directory() {
+        assert_eq!(
+            grok_id_from_path(
+                "/Users/rch/.grok/sessions/%2FUsers%2Frch%2Frepo%2Foccult/019f9227-6f06-7c31-bb22-f9046c5aab9e/events.jsonl"
+            ),
+            Some("019f9227-6f06-7c31-bb22-f9046c5aab9e".to_string())
+        );
+        assert_eq!(
+            grok_id_from_path("/Users/rch/.grok/sessions/x/session/summary.json"),
+            None
+        );
+    }
+
+    #[test]
+    fn candidate_agent_pids_matches_all_harnesses_case_insensitively() {
+        let ps = "  1234 node\n  5678 zsh\n  9012 Codex\n  3456 -zsh\n  7890 Grok\n";
         let pids = candidate_agent_pids(ps);
-        assert_eq!(pids, vec![1234, 9012]);
+        assert_eq!(pids, vec![1234, 9012, 7890]);
+    }
+
+    #[test]
+    fn grok_resume_command_uses_resume_flag() {
+        assert_eq!(
+            resume_command(
+                Harness::Grok,
+                &Some("019f9227-6f06-7c31-bb22-f9046c5aab9e".to_string())
+            ),
+            Some("grok --resume 019f9227-6f06-7c31-bb22-f9046c5aab9e".to_string())
+        );
     }
 
     // alternates_comment: a cwd with a long session history can produce

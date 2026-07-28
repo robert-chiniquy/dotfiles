@@ -603,3 +603,10 @@ explicitly supplied scorecard. The demo exercises every severity, hyperlinks,
 multi-group rows, callout colors, and all three chart types through the same
 typed parser and renderers as real scorecards. It is display-only: no tracker
 lookups or source mutation.
+
+## 2026-07-27: Grok-aware iTerm session restoration
+`iterm-restore` now treats Grok as a first-class harness alongside Claude and
+Codex. Running Grok tabs resolve exactly through Grok's active PID-to-session
+registry, while inactive sessions are recovered from the URL-encoded
+`~/.grok/sessions/` layout and ranked by `summary.json` activity timestamps.
+Generated restore scripts use `grok --resume <session-id>`.
