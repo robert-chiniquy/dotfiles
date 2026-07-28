@@ -1416,6 +1416,39 @@ Before writing a new status.md, move the old one aside with a datestamp:
     mv ~/.config/scorecard/status.md ~/.config/scorecard/status-$(date +%F).md
 "#;
 
+/// Where a normal (non-`demo`, non-`--action`) render pulls its input from
+/// when no positional `<file.md>` is given.
+#[derive(Debug, PartialEq)]
+enum InputSource {
+    GivenPath(String),
+    DefaultPath(String),
+    Demo,
+}
+
+/// Resolve the positional argument: a given path wins outright; otherwise the
+/// default status file (`refresh::default_file()`) if it exists; otherwise
+/// fall back to the built-in demo card so bare `scorecard` always shows
+/// something. `default_exists` is injected so this stays a pure decision.
+fn resolve_input(positional: Option<String>, default_exists: bool) -> InputSource {
+    match positional {
+        Some(p) => InputSource::GivenPath(p),
+        None if default_exists => InputSource::DefaultPath(refresh::default_file()),
+        None => InputSource::Demo,
+    }
+}
+
+/// Render `path` with a `$HOME` prefix swapped for `~`, for a friendlier
+/// stderr note when falling back to the demo card.
+fn display_home(path: &str) -> String {
+    match env::var("HOME") {
+        Ok(home) if !home.is_empty() => path
+            .strip_prefix(&home)
+            .map(|rest| format!("~{}", rest))
+            .unwrap_or_else(|| path.to_string()),
+        _ => path.to_string(),
+    }
+}
+
 fn main() {
     let mut argv: Vec<String> = env::args().skip(1).collect();
     let demo = argv.first().map(|arg| arg == "demo").unwrap_or(false);
@@ -1579,16 +1612,33 @@ fn main() {
     }
 
     let explicit_file = file.is_some();
-    let path = match file.or_else(|| demo.then(refresh::default_file)) {
-        Some(path) => path,
-        None => {
-            eprintln!("{}", USAGE);
-            exit(2);
+    let default_path = refresh::default_file();
+    let default_exists = std::path::Path::new(&default_path).exists();
+
+    // Bare `scorecard` (no positional, not `demo`, not `--action`) still needs
+    // to show something: default to the status file if it exists, else the
+    // demo card.
+    let mut show_demo = demo;
+    let path = if demo {
+        file.unwrap_or_else(|| default_path.clone())
+    } else {
+        match resolve_input(file, default_exists) {
+            InputSource::GivenPath(p) | InputSource::DefaultPath(p) => p,
+            InputSource::Demo => {
+                show_demo = true;
+                eprintln!(
+                    "scorecard: no scorecard at {} — showing demo (pass a file to override)",
+                    display_home(&default_path)
+                );
+                default_path.clone()
+            }
         }
     };
     let input = match std::fs::read_to_string(&path) {
         Ok(input) => Some(input),
-        Err(error) if demo && !explicit_file && error.kind() == std::io::ErrorKind::NotFound => {
+        Err(error)
+            if show_demo && !explicit_file && error.kind() == std::io::ErrorKind::NotFound =>
+        {
             None
         }
         Err(e) => {
@@ -1605,7 +1655,7 @@ fn main() {
     let file_ref = if no_actions { None } else { abs.as_deref() };
     let chart_mode = chart::configured_mode(chart_mode_cli);
     let terminal_height = term_height(height_cli);
-    if demo {
+    if show_demo {
         print!(
             "{}",
             render_demo_stack(
@@ -1953,6 +2003,46 @@ type: time-series\n\
         let cleared = remove_block(&withb);
         assert!(!cleared.contains(AGENTS_BEGIN));
         assert!(cleared.contains("foo"));
+    }
+
+    #[test]
+    fn resolve_input_given_path_wins_even_when_default_would_apply() {
+        assert_eq!(
+            resolve_input(Some("given.md".to_string()), true),
+            InputSource::GivenPath("given.md".to_string())
+        );
+        assert_eq!(
+            resolve_input(Some("given.md".to_string()), false),
+            InputSource::GivenPath("given.md".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_input_uses_default_path_when_it_exists() {
+        match resolve_input(None, true) {
+            InputSource::DefaultPath(p) => assert!(
+                p.ends_with("/.config/scorecard/status.md"),
+                "unexpected default path: {}",
+                p
+            ),
+            other => panic!("expected DefaultPath, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn resolve_input_falls_back_to_demo_when_default_missing() {
+        assert_eq!(resolve_input(None, false), InputSource::Demo);
+    }
+
+    #[test]
+    fn display_home_collapses_home_prefix() {
+        if let Ok(home) = env::var("HOME") {
+            if !home.is_empty() {
+                let full = format!("{}/.config/scorecard/status.md", home);
+                assert_eq!(display_home(&full), "~/.config/scorecard/status.md");
+            }
+        }
+        assert_eq!(display_home("/no/home/prefix.md"), "/no/home/prefix.md");
     }
 
     #[test]
