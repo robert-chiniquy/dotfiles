@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
 # neon-grit-filter -- apply the neon-grit aesthetic to a single image.
+# Inverse (approximate): neon-grit-inverse-filter <in> <out> [light|medium|heavy]
 #
 # Pipeline (ImageMagick 7):
 #   - auto-orient
