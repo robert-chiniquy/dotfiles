@@ -610,3 +610,6 @@ Codex. Running Grok tabs resolve exactly through Grok's active PID-to-session
 registry, while inactive sessions are recovered from the URL-encoded
 `~/.grok/sessions/` layout and ranked by `summary.json` activity timestamps.
 Generated restore scripts use `grok --resume <session-id>`.
+
+## 2026-07-29: neon-grit-inverse-filter + scorecard chart palette
+`bin/neon-grit-inverse-filter` approximate inverse of neon-grit-filter (same intensity dials). Scorecard chart image palette retuned to neon grit (tar bg, dirty ivory axis, cyan/magenta/acid-yellow/toxic-green/deep-red series).

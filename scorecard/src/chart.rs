@@ -3,15 +3,17 @@ use std::env;
 use std::io::IsTerminal;
 
 const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-const BG: [u8; 3] = [12, 10, 25];
-const GRID: [u8; 3] = [53, 48, 78];
-const AXIS: [u8; 3] = [150, 150, 175];
+// Neon-grit chart palette (skill + VAPORWAVE_PALETTE tar/rust tertiaries).
+// Dominant surface is tar/charcoal; series accents are neon grit signal colors.
+const BG: [u8; 3] = [26, 14, 10]; // tar #1a0e0a
+const GRID: [u8; 3] = [74, 52, 42]; // smoke/rust grid on tar
+const AXIS: [u8; 3] = [232, 220, 200]; // dirty ivory
 const COLORS: [[u8; 3]; 5] = [
-    [92, 236, 255],
-    [255, 0, 153],
-    [251, 183, 37],
-    [55, 224, 164],
-    [170, 0, 232],
+    [92, 236, 255],  // electric cyan #5cecff
+    [255, 0, 248],   // neon magenta #ff00f8
+    [232, 255, 61],  // acid yellow
+    [0, 255, 139],   // toxic green
+    [255, 70, 111],  // deep red / gap accent
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

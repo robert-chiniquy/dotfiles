@@ -1,0 +1,74 @@
+#!/usr/bin/env zsh
+# neon-grit-inverse-filter -- approximate inverse of neon-grit-filter.
+#
+# Reverses what can be reversed of the forward pipeline (in reverse order):
+#   - lift the vignette (screen a soft edge-only mask)
+#   - undo +sigmoidal-contrast with -sigmoidal-contrast
+#   - undo -level with +level
+#   - undo modulate (brightness / saturation)
+#   - mild cool lift against the tar/rust cast
+#
+# Not lossless. Forward rust overlays, film grain, and unsharp are not undone.
+# Intensity must match the generation you are trying to reverse
+# (light / medium / heavy).
+
+set -euo pipefail
+
+IN="${1:?usage: neon-grit-inverse-filter <input> <output> [light|medium|heavy]}"
+OUT="${2:?usage: neon-grit-inverse-filter <input> <output> [light|medium|heavy]}"
+INTENSITY="${3:-medium}"
+
+[[ -r "$IN" ]] || { echo "input not readable: $IN" >&2; exit 1; }
+command -v magick >/dev/null || { echo "ImageMagick 7 (magick) required" >&2; exit 1; }
+
+case "$INTENSITY" in
+    light)
+        # inverse of BRI=94 SAT=72  →  10000/94, 10000/72
+        BRI=106 SAT=139 BLACK_PT=1 WHITE_PT=98 SIGMOIDAL=3
+        VIGNETTE_RADIUS_FRAC=0.85 VIGNETTE_SIGMA=80  VIGNETTE_FLOOR=72
+        VIGNETTE_LIFT=0.22 TAR_COOL=4
+        ;;
+    medium)
+        # inverse of BRI=88 SAT=55
+        BRI=114 SAT=182 BLACK_PT=2 WHITE_PT=95 SIGMOIDAL=4
+        VIGNETTE_RADIUS_FRAC=0.75 VIGNETTE_SIGMA=100 VIGNETTE_FLOOR=48
+        VIGNETTE_LIFT=0.38 TAR_COOL=7
+        ;;
+    heavy)
+        # inverse of BRI=78 SAT=38
+        BRI=128 SAT=263 BLACK_PT=4 WHITE_PT=90 SIGMOIDAL=6
+        VIGNETTE_RADIUS_FRAC=0.65 VIGNETTE_SIGMA=140 VIGNETTE_FLOOR=28
+        VIGNETTE_LIFT=0.55 TAR_COOL=10
+        ;;
+    *)
+        echo "unknown intensity: $INTENSITY (use light|medium|heavy)" >&2
+        exit 1
+        ;;
+esac
+
+TMP_OUT=$(mktemp -t neon-grit-inv.XXXXXX).jpg
+trap '/bin/rm -f "$TMP_OUT"' EXIT
+
+# Edge lift: build the same vignette shape the forward filter multiplies in,
+# negate it (edges white, center black), attenuate, Screen onto the image so
+# corners come back up without washing the center.
+
+magick "$IN" \
+    -auto-orient \
+    -background black -alpha remove -alpha off \
+    \( +clone -fill black -colorize 100 \
+       -fill white -draw "ellipse %[fx:w/2],%[fx:h/2] %[fx:w*${VIGNETTE_RADIUS_FRAC}],%[fx:h*${VIGNETTE_RADIUS_FRAC}] 0,360" \
+       -blur "0x${VIGNETTE_SIGMA}" \
+       -level "${VIGNETTE_FLOOR}%,100%" \
+       -negate \
+       -evaluate Multiply "${VIGNETTE_LIFT}" \) \
+        -compose Screen -composite \
+    -sigmoidal-contrast "${SIGMOIDAL},30%" \
+    +level "${BLACK_PT}%,${WHITE_PT}%" \
+    -modulate "${BRI},${SAT},100" \
+    \( +clone -fill '#5cecff' -colorize "${TAR_COOL}%" \) \
+        -compose Lighten -composite \
+    -quality 92 \
+    "$TMP_OUT"
+
+mv "$TMP_OUT" "$OUT"
