@@ -1,0 +1,32 @@
+#!/bin/sh
+# iterm-open — iTerm2 Semantic History handler. When you cmd-click a path in
+# iTerm, iTerm runs `iterm-open <path> <line>`. Markdown opens in VS Code
+# (jumping to the line when one is given); every other path opens with the
+# macOS default app — so this changes only how .md paths are handled, and
+# leaves Finder / the rest of the system alone.
+#
+# Wire it up once (iTerm stores it per profile, survives restarts):
+#   Settings -> Profiles -> Advanced -> Semantic History -> "Run command..."
+#   command:  /Users/rch/bin/iterm-open \1 \2
+#   (\1 = the clicked path, \2 = the line number)
+
+file="$1"
+line="$2"
+
+# Keep only a numeric line number; iTerm leaves \2 empty when there isn't one.
+case "$line" in
+  '' | *[!0-9]*) line="" ;;
+esac
+
+case "$file" in
+  *.md | *.markdown | *.mdown | *.mkd)
+    if command -v code >/dev/null 2>&1; then
+      [ -n "$line" ] && exec code -g "$file:$line"
+      exec code "$file"
+    fi
+    exec open -a "Visual Studio Code" "$file"
+    ;;
+  *)
+    exec open "$file"
+    ;;
+esac
