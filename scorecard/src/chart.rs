@@ -9,14 +9,14 @@ const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█
 const GRID: [u8; 3] = [78, 42, 24]; // dark rust
 const AXIS: [u8; 3] = [176, 152, 112]; // dirty gold / aged paper
 const BPP: usize = 4; // RGBA so the chart field is transparent in iTerm
-// Histogram ramp: dull brass (floor) → oxide red (ceiling).
-const RAMP_LO: [u8; 3] = [156, 118, 48]; // brass / dull gold
-const RAMP_HI: [u8; 3] = [148, 36, 24]; // oxide red
-const COLORS: [[u8; 3]; 5] = [
+// Multi-stop grit ramp (gold → oxide). With one chart the full ramp is used;
+// with N charts the ramp is sliced top→bottom so chart 0 holds the cool/gold
+// edge and chart N-1 holds the hot/oxide edge.
+const RAMP_STOPS: [[u8; 3]; 5] = [
     [196, 148, 42], // gold
     [168, 92, 36],  // rust amber
     [132, 64, 32],  // dark rust
-    [106, 48, 28],  // tar-rust (VAPORWAVE Rust #6a3d2e-ish)
+    [106, 48, 28],  // tar-rust
     [148, 36, 24],  // oxide red
 ];
 
@@ -333,24 +333,75 @@ fn axis_caption(chart: &Chart) -> String {
     }
 }
 
-// Per-cell brass→oxide gradient for a histogram bar (dark grit ramp).
-// Ramps across this bar's own length, not a shared scale, so a short bar and a
-// long bar both run the full range.
-fn gradient_bar(count: usize) -> String {
+// Linear RGB color ramp: `ramp[0]` at p=0, `ramp[1]` at p=1 (p is clamped).
+fn ramp_at(ramp: [[u8; 3]; 2], p: f64) -> [u8; 3] {
+    let p = p.clamp(0.0, 1.0);
+    [0, 1, 2].map(|k| (ramp[0][k] as f64 + (ramp[1][k] as f64 - ramp[0][k] as f64) * p).round() as u8)
+}
+
+// Sample the multi-stop grit ramp at global p ∈ [0, 1].
+fn multi_ramp_at(p: f64) -> [u8; 3] {
+    let stops = &RAMP_STOPS;
+    if stops.len() == 1 {
+        return stops[0];
+    }
+    let p = p.clamp(0.0, 1.0);
+    let scaled = p * (stops.len() - 1) as f64;
+    let i = (scaled.floor() as usize).min(stops.len() - 2);
+    let t = scaled - i as f64;
+    ramp_at([stops[i], stops[i + 1]], t)
+}
+
+// Map a local [0, 1] within chart `index` of `count` onto the global ramp.
+// Chart 0 uses the low edge; the last chart uses the high edge. With count=1
+// this is the identity (full ramp).
+fn chart_global_p(chart_index: usize, chart_count: usize, local_p: f64) -> f64 {
+    let n = chart_count.max(1) as f64;
+    let i = (chart_index.min(chart_count.saturating_sub(1))) as f64;
+    (i + local_p.clamp(0.0, 1.0)) / n
+}
+
+// Color for series `series_index` of `series_count` on chart `chart_index`.
+// Series span that chart's slice of the global ramp so consecutive charts
+// sit on different parts of the palette.
+fn series_color(
+    chart_index: usize,
+    chart_count: usize,
+    series_index: usize,
+    series_count: usize,
+) -> [u8; 3] {
+    let m = series_count.max(1);
+    let local = if m == 1 {
+        0.5
+    } else {
+        series_index as f64 / (m - 1) as f64
+    };
+    multi_ramp_at(chart_global_p(chart_index, chart_count, local))
+}
+
+// Per-cell gradient for a histogram bar, drawn from this chart's slice of the
+// multi-chart grit ramp. Ramps across this bar's own length.
+fn gradient_bar(count: usize, chart_index: usize, chart_count: usize) -> String {
     let mut bar = String::new();
     for i in 0..count {
-        let p = if count > 1 {
+        let local = if count > 1 {
             i as f64 / (count - 1) as f64
         } else {
             0.0
         };
-        let col = ramp_at([RAMP_LO, RAMP_HI], p);
+        let col = multi_ramp_at(chart_global_p(chart_index, chart_count, local));
         bar.push_str(&format!("{}█{}", c(col), RESET));
     }
     bar
 }
 
-fn render_text(chart: &Chart, width: usize, budget: usize) -> String {
+fn render_text(
+    chart: &Chart,
+    width: usize,
+    budget: usize,
+    chart_index: usize,
+    chart_count: usize,
+) -> String {
     if budget == 0 {
         return String::new();
     }
@@ -402,7 +453,7 @@ fn render_text(chart: &Chart, width: usize, budget: usize) -> String {
                 lines.push(format!(
                     "{:<label_width$} {} {}",
                     trunc_text(label, label_width),
-                    gradient_bar(count),
+                    gradient_bar(count, chart_index, chart_count),
                     number,
                     label_width = label_width
                 ));
@@ -416,12 +467,16 @@ fn render_text(chart: &Chart, width: usize, budget: usize) -> String {
                 .max()
                 .unwrap_or(1)
                 .min(16);
-            for series in chart.series.iter().take(available.min(5)) {
+            let series_take = available.min(5).min(chart.series.len());
+            for (series_index, series) in chart.series.iter().take(series_take).enumerate() {
                 let graph_width = width.saturating_sub(name_width + 1);
                 let graph = trunc_text(&sparkline(&series.values), graph_width);
+                let col = series_color(chart_index, chart_count, series_index, series_take);
                 lines.push(format!(
-                    "{:<name_width$} {}",
+                    "{}{:<name_width$}{} {}",
+                    c(col),
                     trunc_text(&series.name, name_width),
+                    RESET,
                     graph,
                     name_width = name_width
                 ));
@@ -563,13 +618,13 @@ fn numeric_bounds(chart: &Chart) -> Option<(f64, f64)> {
     Some((min, max))
 }
 
-// Linear RGB color ramp: `ramp[0]` at p=0, `ramp[1]` at p=1 (p is clamped).
-fn ramp_at(ramp: [[u8; 3]; 2], p: f64) -> [u8; 3] {
-    let p = p.clamp(0.0, 1.0);
-    [0, 1, 2].map(|k| (ramp[0][k] as f64 + (ramp[1][k] as f64 - ramp[0][k] as f64) * p).round() as u8)
-}
-
-fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
+fn draw_chart(
+    chart: &Chart,
+    width: usize,
+    height: usize,
+    chart_index: usize,
+    chart_count: usize,
+) -> Raster {
     let mut raster = Raster::new(width, height);
     if width < 24 || height < 24 {
         return raster;
@@ -628,15 +683,15 @@ fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
                     .saturating_sub(slot / 6)
                     .max(x0 + 1);
                 let value_y = y_for(*value).round().clamp(top as f64, bottom as f64) as usize;
-                // Gradient keyed to the plot height and shared across every
-                // bar: brass at the baseline, oxide red at the top of the
-                // container. A bar's color at a given height is the same
-                // regardless of its own height, so short bars stay gold and
-                // only the tallest reach red.
+                // Gradient keyed to plot height within this chart's slice of
+                // the multi-chart grit ramp: baseline = low edge of the slice,
+                // top of the container = high edge. Across N charts the slices
+                // abut so the stack reads as one continuous gold→oxide ramp.
                 let field = zero.saturating_sub(top).max(1) as f64;
                 for y in value_y.min(zero)..value_y.max(zero) + 1 {
-                    let p = zero.saturating_sub(y) as f64 / field;
-                    raster.rect(x0, y, x1, y + 1, ramp_at([RAMP_LO, RAMP_HI], p));
+                    let local = zero.saturating_sub(y) as f64 / field;
+                    let col = multi_ramp_at(chart_global_p(chart_index, chart_count, local));
+                    raster.rect(x0, y, x1, y + 1, col);
                 }
             }
             // X-axis: the observed data range, read from the first/last bin labels.
@@ -651,8 +706,9 @@ fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
             }
         }
         ChartKind::Sparkline | ChartKind::TimeSeries => {
-            for (series_index, series) in chart.series.iter().take(COLORS.len()).enumerate() {
-                let color = COLORS[series_index % COLORS.len()];
+            let series_take = chart.series.len().min(RAMP_STOPS.len());
+            for (series_index, series) in chart.series.iter().take(series_take).enumerate() {
+                let color = series_color(chart_index, chart_count, series_index, series_take);
                 let count = series.values.len();
                 let mut previous: Option<(i32, i32)> = None;
                 for (index, value) in series.values.iter().enumerate() {
@@ -719,10 +775,16 @@ fn png_chunk(output: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
     output.extend_from_slice(&crc32(&crc_data).to_be_bytes());
 }
 
-fn render_png(chart: &Chart, width: usize, height: usize) -> Vec<u8> {
+fn render_png(
+    chart: &Chart,
+    width: usize,
+    height: usize,
+    chart_index: usize,
+    chart_count: usize,
+) -> Vec<u8> {
     let width = width.clamp(32, 960);
     let height = height.clamp(24, 240);
-    let raster = draw_chart(chart, width, height);
+    let raster = draw_chart(chart, width, height, chart_index, chart_count);
     let mut raw = Vec::with_capacity((width * BPP + 1) * height);
     for row in raster.pixels.chunks_exact(width * BPP) {
         raw.push(0); // filter: None
@@ -833,7 +895,41 @@ pub(crate) fn desired_rows(charts: &[Chart], mode: ChartMode) -> usize {
 
 pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget: usize) -> String {
     let mut output = String::new();
-    for chart in charts {
+    // Count only charts we can actually paint under the budget so the ramp
+    // stretch matches what the user sees (not hidden overflow charts).
+    let chart_count = match mode {
+        ChartMode::Off => 0,
+        ChartMode::Image => {
+            let mut n = 0usize;
+            let mut b = budget;
+            for _ in charts {
+                let image_rows = b.saturating_sub(1).min(8);
+                if image_rows < 3 {
+                    break;
+                }
+                n += 1;
+                b = b.saturating_sub(image_rows + 1);
+            }
+            n.max(1)
+        }
+        ChartMode::Text | ChartMode::Auto => {
+            let mut n = 0usize;
+            let mut b = budget;
+            for chart in charts {
+                if b < 2 {
+                    break;
+                }
+                let rows = text_rows(chart).min(b);
+                if rows == 0 {
+                    break;
+                }
+                n += 1;
+                b = b.saturating_sub(rows);
+            }
+            n.max(1)
+        }
+    };
+    for (chart_index, chart) in charts.iter().enumerate() {
         if budget < 2 {
             break;
         }
@@ -841,7 +937,7 @@ pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget
             ChartMode::Off => break,
             ChartMode::Text | ChartMode::Auto => {
                 let rows = text_rows(chart).min(budget);
-                output.push_str(&render_text(chart, width, rows));
+                output.push_str(&render_text(chart, width, rows, chart_index, chart_count));
                 budget -= rows;
             }
             ChartMode::Image => {
@@ -857,7 +953,7 @@ pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget
                 ));
                 let pixel_width = (width * 8).clamp(320, 960);
                 let pixel_height = (image_rows * 20).clamp(60, 240);
-                let png = render_png(chart, pixel_width, pixel_height);
+                let png = render_png(chart, pixel_width, pixel_height, chart_index, chart_count);
                 output.push_str(&iterm_image(&png, &chart.title, width, image_rows));
                 budget -= image_rows + 1;
             }
@@ -878,20 +974,44 @@ mod tests {
             && px[3] != 0
     }
 
-    // The histogram gradient ramp: base color at p=0, tip at p=1, linear and
-    // clamped in between. Failure hypothesis: unclamped p pushing a channel out
-    // of range, or the endpoints swapped.
+    // Two-stop ramp: base at p=0, tip at p=1, linear and clamped.
     #[test]
     fn ramp_at_interpolates_and_clamps() {
-        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], 0.0), RAMP_LO);
-        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], 1.0), RAMP_HI);
-        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], -1.0), RAMP_LO, "p below 0 clamps to base");
-        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], 2.0), RAMP_HI, "p above 1 clamps to tip");
-        let mid = ramp_at([RAMP_LO, RAMP_HI], 0.5);
+        let lo = RAMP_STOPS[0];
+        let hi = RAMP_STOPS[RAMP_STOPS.len() - 1];
+        assert_eq!(ramp_at([lo, hi], 0.0), lo);
+        assert_eq!(ramp_at([lo, hi], 1.0), hi);
+        assert_eq!(ramp_at([lo, hi], -1.0), lo, "p below 0 clamps to base");
+        assert_eq!(ramp_at([lo, hi], 2.0), hi, "p above 1 clamps to tip");
+        let mid = ramp_at([lo, hi], 0.5);
         for k in 0..3 {
-            let (lo, hi) = (RAMP_LO[k].min(RAMP_HI[k]), RAMP_LO[k].max(RAMP_HI[k]));
-            assert!(mid[k] >= lo && mid[k] <= hi, "midpoint channel {k} out of range");
+            let (a, b) = (lo[k].min(hi[k]), lo[k].max(hi[k]));
+            assert!(mid[k] >= a && mid[k] <= b, "midpoint channel {k} out of range");
         }
+    }
+
+    // Multi-chart stretch: chart 0 owns the cool half, chart 1 the hot half.
+    // Failure hypothesis: both charts still sample the full ramp, so mid colors
+    // collide and consecutive charts look identical.
+    #[test]
+    fn multi_chart_ramp_slices_do_not_overlap() {
+        assert_eq!(multi_ramp_at(0.0), RAMP_STOPS[0]);
+        assert_eq!(multi_ramp_at(1.0), RAMP_STOPS[RAMP_STOPS.len() - 1]);
+        // chart 0 local=1 abuts chart 1 local=0
+        assert!((chart_global_p(0, 2, 1.0) - chart_global_p(1, 2, 0.0)).abs() < 1e-9);
+        let top_hi = multi_ramp_at(chart_global_p(0, 2, 1.0));
+        let bot_lo = multi_ramp_at(chart_global_p(1, 2, 0.0));
+        assert_eq!(top_hi, bot_lo, "adjacent slices must join continuously");
+        // mid of chart 0 is cooler (higher gold channel) than mid of chart 1
+        let top_mid = multi_ramp_at(chart_global_p(0, 2, 0.5));
+        let bot_mid = multi_ramp_at(chart_global_p(1, 2, 0.5));
+        assert_ne!(top_mid, bot_mid, "stacked charts must not share the same mid color");
+        // single chart still uses the full ramp
+        assert_eq!(multi_ramp_at(chart_global_p(0, 1, 0.0)), RAMP_STOPS[0]);
+        assert_eq!(
+            multi_ramp_at(chart_global_p(0, 1, 1.0)),
+            RAMP_STOPS[RAMP_STOPS.len() - 1]
+        );
     }
 
     const TABLE: &str = "\
@@ -962,7 +1082,7 @@ type: time-series
     #[test]
     fn png_encoder_produces_a_bounded_valid_shape() {
         let chart = &parse(TABLE)[0];
-        let png = render_png(chart, 320, 96);
+        let png = render_png(chart, 320, 96, 0, 1);
         assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
         assert_eq!(u32::from_be_bytes(png[16..20].try_into().unwrap()), 320);
         assert_eq!(u32::from_be_bytes(png[20..24].try_into().unwrap()), 96);
@@ -975,7 +1095,7 @@ type: time-series
 
     #[test]
     fn iterm_image_sequence_embeds_png_with_dimensions() {
-        let png = render_png(&parse(TABLE)[0], 320, 96);
+        let png = render_png(&parse(TABLE)[0], 320, 96, 0, 1);
         let sequence = iterm_image(&png, "Reveal latency", 80, 7);
         assert!(sequence.starts_with("\u{1b}]1337;File="));
         assert!(sequence.contains("inline=1"));
@@ -1006,7 +1126,7 @@ type: time-series
 
     #[test]
     fn text_fallback_keeps_every_series_named() {
-        let rendered = render_text(&parse(TABLE)[0], 60, 5);
+        let rendered = render_text(&parse(TABLE)[0], 60, 5, 0, 1);
         assert!(rendered.contains("Reveal latency"));
         assert!(rendered.contains("p50"));
         assert!(rendered.contains("p95"));
@@ -1038,14 +1158,14 @@ type: time-series
              | ---: |\n\
              | 10 |\n| 12 |\n| 18 |\n| 31 |\n",
         );
-        let rendered = render_text(&charts[0], 60, 8);
+        let rendered = render_text(&charts[0], 60, 8, 0, 1);
         assert!(rendered.contains("x:range"));
         assert!(rendered.contains("y:count"));
     }
 
     #[test]
     fn text_value_chart_caption_shows_the_value_axis_range() {
-        let rendered = render_text(&parse(TABLE)[0], 72, 5);
+        let rendered = render_text(&parse(TABLE)[0], 72, 5, 0, 1);
         assert!(rendered.contains("· y "), "value charts must name the y range");
         assert!(rendered.contains("10")); // min across p50/p95
         assert!(rendered.contains("31")); // max across p50/p95
@@ -1053,7 +1173,7 @@ type: time-series
 
     #[test]
     fn image_chart_draws_axis_label_pixels() {
-        let raster = draw_chart(&parse(TABLE)[0], 320, 160);
+        let raster = draw_chart(&parse(TABLE)[0], 320, 160, 0, 1);
         let axis_px = raster
             .pixels
             .chunks_exact(BPP)
