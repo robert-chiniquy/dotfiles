@@ -4,10 +4,11 @@ use std::io::IsTerminal;
 
 const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 // Neon-grit chart palette — rust / gold / dark grit, not vivid neon green.
-// Surfaces: oil black, tar, rust, aged paper. Accents stay warm and oxidized.
-const BG: [u8; 3] = [0, 0, 0]; // match iTerm / vaporwave terminal bg #000000
+// Surfaces: transparent field (terminal wallpaper shows through), rust grid,
+// aged-paper axes. Accents stay warm and oxidized.
 const GRID: [u8; 3] = [78, 42, 24]; // dark rust
 const AXIS: [u8; 3] = [176, 152, 112]; // dirty gold / aged paper
+const BPP: usize = 4; // RGBA so the chart field is transparent in iTerm
 // Histogram ramp: dull brass (floor) → oxide red (ceiling).
 const RAMP_LO: [u8; 3] = [156, 118, 48]; // brass / dull gold
 const RAMP_HI: [u8; 3] = [148, 36, 24]; // oxide red
@@ -434,19 +435,18 @@ fn render_text(chart: &Chart, width: usize, budget: usize) -> String {
 struct Raster {
     width: usize,
     height: usize,
+    /// Packed RGBA (alpha 0 = transparent field; drawn ink is opaque).
     pixels: Vec<u8>,
 }
 
 impl Raster {
-    fn new(width: usize, height: usize, color: [u8; 3]) -> Raster {
-        let mut pixels = vec![0; width * height * 3];
-        for pixel in pixels.chunks_exact_mut(3) {
-            pixel.copy_from_slice(&color);
-        }
+    fn new(width: usize, height: usize) -> Raster {
+        // Fully transparent field so iTerm's wallpaper / true terminal bg shows
+        // through instead of a solid black rectangle.
         Raster {
             width,
             height,
-            pixels,
+            pixels: vec![0; width * height * BPP],
         }
     }
 
@@ -454,8 +454,13 @@ impl Raster {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return;
         }
-        let offset = (y as usize * self.width + x as usize) * 3;
+        let offset = (y as usize * self.width + x as usize) * BPP;
         self.pixels[offset..offset + 3].copy_from_slice(&color);
+        self.pixels[offset + 3] = 255;
+    }
+
+    fn rgb_eq(px: &[u8], color: [u8; 3]) -> bool {
+        px.len() >= 3 && px[0] == color[0] && px[1] == color[1] && px[2] == color[2] && px.get(3) != Some(&0)
     }
 
     fn line(&mut self, mut x0: i32, mut y0: i32, x1: i32, y1: i32, color: [u8; 3]) {
@@ -569,7 +574,7 @@ fn ramp_at(ramp: [[u8; 3]; 2], p: f64) -> [u8; 3] {
 }
 
 fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
-    let mut raster = Raster::new(width, height, BG);
+    let mut raster = Raster::new(width, height);
     if width < 24 || height < 24 {
         return raster;
     }
@@ -722,9 +727,9 @@ fn render_png(chart: &Chart, width: usize, height: usize) -> Vec<u8> {
     let width = width.clamp(32, 960);
     let height = height.clamp(24, 240);
     let raster = draw_chart(chart, width, height);
-    let mut raw = Vec::with_capacity((width * 3 + 1) * height);
-    for row in raster.pixels.chunks_exact(width * 3) {
-        raw.push(0);
+    let mut raw = Vec::with_capacity((width * BPP + 1) * height);
+    for row in raster.pixels.chunks_exact(width * BPP) {
+        raw.push(0); // filter: None
         raw.extend_from_slice(row);
     }
 
@@ -744,7 +749,8 @@ fn render_png(chart: &Chart, width: usize, height: usize) -> Vec<u8> {
     let mut header = Vec::with_capacity(13);
     header.extend_from_slice(&(width as u32).to_be_bytes());
     header.extend_from_slice(&(height as u32).to_be_bytes());
-    header.extend_from_slice(&[8, 2, 0, 0, 0]);
+    // 8-bit RGBA (color type 6) — transparent field over iTerm wallpaper
+    header.extend_from_slice(&[8, 6, 0, 0, 0]);
     png_chunk(&mut png, b"IHDR", &header);
     png_chunk(&mut png, b"IDAT", &zlib);
     png_chunk(&mut png, b"IEND", &[]);
@@ -956,7 +962,11 @@ type: time-series
         assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
         assert_eq!(u32::from_be_bytes(png[16..20].try_into().unwrap()), 320);
         assert_eq!(u32::from_be_bytes(png[20..24].try_into().unwrap()), 96);
-        assert!(png.len() < 320 * 96 * 4);
+        // IHDR: bit depth 8, color type 6 (RGBA) so the field can be transparent
+        assert_eq!(png[24], 8);
+        assert_eq!(png[25], 6);
+        // store filter + RGBA per pixel, store blocks, chunk framing — well under 8 B/px
+        assert!(png.len() < 320 * 96 * 8);
     }
 
     #[test]
@@ -1005,9 +1015,13 @@ type: time-series
         assert!(glyph('-').is_some());
         assert!(glyph('x').is_none());
         assert_eq!(text_width("12", 1), 2 * (GLYPH_W as i32 + 1));
-        let mut raster = Raster::new(24, 8, BG);
+        let mut raster = Raster::new(24, 8);
         raster.text(0, 0, "12", 1, AXIS);
-        let drawn = raster.pixels.chunks_exact(3).filter(|px| *px == AXIS).count();
+        let drawn = raster
+            .pixels
+            .chunks_exact(BPP)
+            .filter(|px| Raster::rgb_eq(px, AXIS))
+            .count();
         assert!(drawn > 0, "digits should light up axis-colored pixels");
     }
 
@@ -1036,7 +1050,20 @@ type: time-series
     #[test]
     fn image_chart_draws_axis_label_pixels() {
         let raster = draw_chart(&parse(TABLE)[0], 320, 160);
-        let axis_px = raster.pixels.chunks_exact(3).filter(|px| *px == AXIS).count();
+        let axis_px = raster
+            .pixels
+            .chunks_exact(BPP)
+            .filter(|px| Raster::rgb_eq(px, AXIS))
+            .count();
         assert!(axis_px > 0, "image chart should render axis-label pixels");
+        let transparent = raster
+            .pixels
+            .chunks_exact(BPP)
+            .filter(|px| px[3] == 0)
+            .count();
+        assert!(
+            transparent > 0,
+            "chart field must be transparent so the terminal bg shows through"
+        );
     }
 }
