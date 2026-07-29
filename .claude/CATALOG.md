@@ -46,8 +46,9 @@ skill bodies**, not only this index.
 | pr-pass / pr-status | Open PR triage and status |
 | github-pr-threads | Reply/resolve PR review threads after fixes |
 | pr-deep-review | Multi-agent deep PR review |
-| sqfan / squire-env-management | Ephemeral remote agents and fan-out |
+| squire-env-management | Ephemeral remote agents and task pools |
 | c1-squire-dispatch / c1-dev-stack-in-squire | c1-specific squire dispatch |
+| find-delegation-pebbles | Find bounded, independent backlog tasks for remote agents |
 | codebase-memory | Structural codebase graph exploration |
 | large-scale-refactor | Guardrails for multi-file / long-running refactors |
 | jsonl-parsing | Large JSONL / agent log processing |

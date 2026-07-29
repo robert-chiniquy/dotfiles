@@ -1,0 +1,4 @@
+interface:
+  display_name: "Find Delegation Pebbles"
+  short_description: "Find independent backlog tasks for delegation"
+  default_prompt: "Use $find-delegation-pebbles to sweep this repository for small, independent work that can be safely delegated."
