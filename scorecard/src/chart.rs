@@ -3,20 +3,20 @@ use std::env;
 use std::io::IsTerminal;
 
 const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-// Neon-grit chart palette — warehouse / hazard neon, not vaporwave purple.
-// Surfaces: oil black, tar, rust, aged paper. Accents: acid, toxic, sodium, blood.
+// Neon-grit chart palette — rust / gold / dark grit, not vivid neon green.
+// Surfaces: oil black, tar, rust, aged paper. Accents stay warm and oxidized.
 const BG: [u8; 3] = [10, 6, 4]; // oil black
-const GRID: [u8; 3] = [90, 48, 28]; // rust under smoke
-const AXIS: [u8; 3] = [196, 176, 140]; // aged paper
-// Histogram ramp: toxic green (floor) → blood red (ceiling).
-const RAMP_LO: [u8; 3] = [72, 255, 48]; // toxic green
-const RAMP_HI: [u8; 3] = [210, 24, 36]; // deep red
+const GRID: [u8; 3] = [78, 42, 24]; // dark rust
+const AXIS: [u8; 3] = [176, 152, 112]; // dirty gold / aged paper
+// Histogram ramp: dull brass (floor) → oxide red (ceiling).
+const RAMP_LO: [u8; 3] = [156, 118, 48]; // brass / dull gold
+const RAMP_HI: [u8; 3] = [148, 36, 24]; // oxide red
 const COLORS: [[u8; 3]; 5] = [
-    [210, 255, 0],  // acid yellow (hazard)
-    [72, 255, 48],  // toxic green
-    [255, 96, 0],   // sodium orange
-    [255, 32, 96],  // grit magenta (hot pink-red, not vaporwave purple)
-    [210, 24, 36],  // deep red
+    [196, 148, 42], // gold
+    [168, 92, 36],  // rust amber
+    [132, 64, 32],  // dark rust
+    [106, 48, 28],  // tar-rust (VAPORWAVE Rust #6a3d2e-ish)
+    [148, 36, 24],  // oxide red
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -332,7 +332,7 @@ fn axis_caption(chart: &Chart) -> String {
     }
 }
 
-// Per-cell toxic→blood gradient for a histogram bar (neon-grit hazard ramp).
+// Per-cell brass→oxide gradient for a histogram bar (dark grit ramp).
 // Ramps across this bar's own length, not a shared scale, so a short bar and a
 // long bar both run the full range.
 fn gradient_bar(count: usize) -> String {
@@ -628,9 +628,9 @@ fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
                     .max(x0 + 1);
                 let value_y = y_for(*value).round().clamp(top as f64, bottom as f64) as usize;
                 // Gradient keyed to the plot height and shared across every
-                // bar: toxic green at the baseline, blood red at the top of
-                // the container. A bar's color at a given height is the same
-                // regardless of its own height, so short bars stay green and
+                // bar: brass at the baseline, oxide red at the top of the
+                // container. A bar's color at a given height is the same
+                // regardless of its own height, so short bars stay gold and
                 // only the tallest reach red.
                 let field = zero.saturating_sub(top).max(1) as f64;
                 for y in value_y.min(zero)..value_y.max(zero) + 1 {
