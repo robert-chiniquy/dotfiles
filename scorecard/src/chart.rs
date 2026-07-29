@@ -485,24 +485,6 @@ impl Raster {
         }
     }
 
-    // Fill [x0,x1) x [y0,y1) with a vertical gradient: `ramp[0]` at the bottom
-    // row (the baseline), rising to `ramp[1]` at the top. Themed histogram bars
-    // use this to run cyan (baseline) -> pink (tip), matching the text
-    // renderer's per-bar ramp.
-    fn vgradient_bar(&mut self, x0: usize, y0: usize, x1: usize, y1: usize, ramp: [[u8; 3]; 2]) {
-        let (lo, hi) = (y0.min(y1), y0.max(y1));
-        let span = (hi - lo).saturating_sub(1).max(1) as f64;
-        for y in lo.min(self.height)..hi.min(self.height) {
-            // p: 0 at the bottom row (baseline), 1 at the top row (tip).
-            let p = ((hi - 1).saturating_sub(y) as f64 / span).clamp(0.0, 1.0);
-            let col = [0, 1, 2]
-                .map(|k| (ramp[0][k] as f64 + (ramp[1][k] as f64 - ramp[0][k] as f64) * p).round() as u8);
-            for x in x0.min(self.width)..x1.min(self.width) {
-                self.pixel(x as i32, y as i32, col);
-            }
-        }
-    }
-
     // Draw a string with the built-in 3x5 numeric font, scaled by `scale`. Only
     // glyphs known to `glyph()` render (digits, '.', '-', space); anything else
     // advances a blank cell so widths stay predictable.
@@ -576,6 +558,12 @@ fn numeric_bounds(chart: &Chart) -> Option<(f64, f64)> {
     Some((min, max))
 }
 
+// Linear RGB color ramp: `ramp[0]` at p=0, `ramp[1]` at p=1 (p is clamped).
+fn ramp_at(ramp: [[u8; 3]; 2], p: f64) -> [u8; 3] {
+    let p = p.clamp(0.0, 1.0);
+    [0, 1, 2].map(|k| (ramp[0][k] as f64 + (ramp[1][k] as f64 - ramp[0][k] as f64) * p).round() as u8)
+}
+
 fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
     let mut raster = Raster::new(width, height, BG);
     if width < 24 || height < 24 {
@@ -635,13 +623,16 @@ fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
                     .saturating_sub(slot / 6)
                     .max(x0 + 1);
                 let value_y = y_for(*value).round().clamp(top as f64, bottom as f64) as usize;
-                raster.vgradient_bar(
-                    x0,
-                    value_y.min(zero),
-                    x1,
-                    value_y.max(zero) + 1,
-                    [ACCENT, SPARK],
-                );
+                // Gradient keyed to the plot height and shared across every
+                // bar: cyan at the baseline, pink at the top of the container.
+                // A bar's color at a given height is the same regardless of its
+                // own height, so short bars stay cyan and only the tallest
+                // reaches pink.
+                let field = zero.saturating_sub(top).max(1) as f64;
+                for y in value_y.min(zero)..value_y.max(zero) + 1 {
+                    let p = zero.saturating_sub(y) as f64 / field;
+                    raster.rect(x0, y, x1, y + 1, ramp_at([ACCENT, SPARK], p));
+                }
             }
             // X-axis: the observed data range, read from the first/last bin labels.
             if labels_fit {
@@ -873,22 +864,20 @@ pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget
 mod tests {
     use super::*;
 
-    // Themed PNG histogram bars use a per-bar vertical gradient: the baseline
-    // row is the base color (cyan), the tip row the tip color (pink). Failure
-    // hypothesis: a solid fill (one flat color, the old behavior) or a ramp
-    // running the wrong direction.
+    // The histogram gradient ramp: base color at p=0, tip at p=1, linear and
+    // clamped in between. Failure hypothesis: unclamped p pushing a channel out
+    // of range, or the endpoints swapped.
     #[test]
-    fn vgradient_bar_ramps_base_color_to_tip_color() {
-        let mut r = Raster::new(4, 10, BG);
-        // bar over columns [1,3), full height; baseline is the bottom row (y=9)
-        r.vgradient_bar(1, 0, 3, 10, [ACCENT, SPARK]);
-        let px = |x: usize, y: usize| {
-            let o = (y * r.width + x) * 3;
-            [r.pixels[o], r.pixels[o + 1], r.pixels[o + 2]]
-        };
-        assert_eq!(px(1, 9), ACCENT, "baseline row is the base color");
-        assert_eq!(px(1, 0), SPARK, "tip row is the tip color");
-        assert_eq!(px(3, 5), BG, "columns outside the bar stay background");
+    fn ramp_at_interpolates_and_clamps() {
+        assert_eq!(ramp_at([ACCENT, SPARK], 0.0), ACCENT);
+        assert_eq!(ramp_at([ACCENT, SPARK], 1.0), SPARK);
+        assert_eq!(ramp_at([ACCENT, SPARK], -1.0), ACCENT, "p below 0 clamps to base");
+        assert_eq!(ramp_at([ACCENT, SPARK], 2.0), SPARK, "p above 1 clamps to tip");
+        let mid = ramp_at([ACCENT, SPARK], 0.5);
+        for k in 0..3 {
+            let (lo, hi) = (ACCENT[k].min(SPARK[k]), ACCENT[k].max(SPARK[k]));
+            assert!(mid[k] >= lo && mid[k] <= hi, "midpoint channel {k} out of range");
+        }
     }
 
     const TABLE: &str = "\
