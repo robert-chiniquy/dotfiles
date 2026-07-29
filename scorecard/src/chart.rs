@@ -5,7 +5,7 @@ use std::io::IsTerminal;
 const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 // Neon-grit chart palette — rust / gold / dark grit, not vivid neon green.
 // Surfaces: oil black, tar, rust, aged paper. Accents stay warm and oxidized.
-const BG: [u8; 3] = [10, 6, 4]; // oil black
+const BG: [u8; 3] = [0, 0, 0]; // match iTerm / vaporwave terminal bg #000000
 const GRID: [u8; 3] = [78, 42, 24]; // dark rust
 const AXIS: [u8; 3] = [176, 152, 112]; // dirty gold / aged paper
 // Histogram ramp: dull brass (floor) → oxide red (ceiling).
