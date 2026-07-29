@@ -459,10 +459,6 @@ impl Raster {
         self.pixels[offset + 3] = 255;
     }
 
-    fn rgb_eq(px: &[u8], color: [u8; 3]) -> bool {
-        px.len() >= 3 && px[0] == color[0] && px[1] == color[1] && px[2] == color[2] && px.get(3) != Some(&0)
-    }
-
     fn line(&mut self, mut x0: i32, mut y0: i32, x1: i32, y1: i32, color: [u8; 3]) {
         let dx = (x1 - x0).abs();
         let sx = if x0 < x1 { 1 } else { -1 };
@@ -874,6 +870,14 @@ pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget
 mod tests {
     use super::*;
 
+    fn rgb_eq(px: &[u8], color: [u8; 3]) -> bool {
+        px.len() >= 4
+            && px[0] == color[0]
+            && px[1] == color[1]
+            && px[2] == color[2]
+            && px[3] != 0
+    }
+
     // The histogram gradient ramp: base color at p=0, tip at p=1, linear and
     // clamped in between. Failure hypothesis: unclamped p pushing a channel out
     // of range, or the endpoints swapped.
@@ -1020,7 +1024,7 @@ type: time-series
         let drawn = raster
             .pixels
             .chunks_exact(BPP)
-            .filter(|px| Raster::rgb_eq(px, AXIS))
+            .filter(|px| rgb_eq(px, AXIS))
             .count();
         assert!(drawn > 0, "digits should light up axis-colored pixels");
     }
@@ -1053,7 +1057,7 @@ type: time-series
         let axis_px = raster
             .pixels
             .chunks_exact(BPP)
-            .filter(|px| Raster::rgb_eq(px, AXIS))
+            .filter(|px| rgb_eq(px, AXIS))
             .count();
         assert!(axis_px > 0, "image chart should render axis-label pixels");
         let transparent = raster
