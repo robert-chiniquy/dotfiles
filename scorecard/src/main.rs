@@ -1252,6 +1252,16 @@ fn fit(doc: &Doc, w: usize, file: Option<&str>, avail: usize) -> HashSet<String>
     hidden
 }
 
+// Upper bound on rows reserved for charts: as many as the charts actually want,
+// capped only so the body keeps a couple of rows. The body-fit loop in
+// `fit_with_chart_rows` is the real guard for body content — it never sheds a
+// real (non-chrome) group to make room. This used to also clamp to `usable/3`,
+// which shortchanged tall charts (histograms) even when the body had plenty of
+// slack, so a histogram could be truncated on a terminal that had room for it.
+fn max_chart_reservation(desired_chart_rows: usize, usable: usize) -> usize {
+    desired_chart_rows.min(usable.saturating_sub(2))
+}
+
 fn fit_with_chart_rows(
     doc: &Doc,
     w: usize,
@@ -1260,7 +1270,7 @@ fn fit_with_chart_rows(
     desired_chart_rows: usize,
 ) -> (HashSet<String>, usize) {
     let baseline = fit(doc, w, file, usable);
-    let max_chart_rows = desired_chart_rows.min(usable.saturating_sub(8).min(usable / 3));
+    let max_chart_rows = max_chart_reservation(desired_chart_rows, usable);
     for chart_rows in (2..=max_chart_rows).rev() {
         let candidate = fit(doc, w, file, usable.saturating_sub(chart_rows));
         let only_sheds_chrome = candidate
@@ -1686,6 +1696,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Charts should be allowed as many rows as they want (bounded by the body
+    // floor), not capped to a third of the height. Failure hypothesis: the old
+    // `min(usable/3)` clamp returns 9 here, truncating a 13-row histogram set on
+    // a 27-row area that has room for it.
+    #[test]
+    fn chart_reservation_is_not_capped_to_a_third_of_usable() {
+        assert_eq!(max_chart_reservation(13, 27), 13, "wants 13, area has room");
+        assert_eq!(max_chart_reservation(6, 40), 6, "never exceeds what charts want");
+        assert_eq!(max_chart_reservation(13, 3), 1, "tiny area still leaves the body room");
+        assert_eq!(max_chart_reservation(13, 1), 0);
+    }
 
     const SAMPLE: &str = "\
 # Test card
