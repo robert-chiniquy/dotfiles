@@ -1,19 +1,22 @@
-use super::{c, is_sep, split_row, ACCENT, RESET, SPARK};
+use super::{c, is_sep, split_row, RESET};
 use std::env;
 use std::io::IsTerminal;
 
 const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-// Neon-grit chart palette (skill + VAPORWAVE_PALETTE tar/rust tertiaries).
-// Dominant surface is tar/charcoal; series accents are neon grit signal colors.
-const BG: [u8; 3] = [26, 14, 10]; // tar #1a0e0a
-const GRID: [u8; 3] = [74, 52, 42]; // smoke/rust grid on tar
-const AXIS: [u8; 3] = [232, 220, 200]; // dirty ivory
+// Neon-grit chart palette — warehouse / hazard neon, not vaporwave purple.
+// Surfaces: oil black, tar, rust, aged paper. Accents: acid, toxic, sodium, blood.
+const BG: [u8; 3] = [10, 6, 4]; // oil black
+const GRID: [u8; 3] = [90, 48, 28]; // rust under smoke
+const AXIS: [u8; 3] = [196, 176, 140]; // aged paper
+// Histogram ramp: toxic green (floor) → blood red (ceiling).
+const RAMP_LO: [u8; 3] = [72, 255, 48]; // toxic green
+const RAMP_HI: [u8; 3] = [210, 24, 36]; // deep red
 const COLORS: [[u8; 3]; 5] = [
-    [92, 236, 255],  // electric cyan #5cecff
-    [255, 0, 248],   // neon magenta #ff00f8
-    [232, 255, 61],  // acid yellow
-    [0, 255, 139],   // toxic green
-    [255, 70, 111],  // deep red / gap accent
+    [210, 255, 0],  // acid yellow (hazard)
+    [72, 255, 48],  // toxic green
+    [255, 96, 0],   // sodium orange
+    [255, 32, 96],  // grit magenta (hot pink-red, not vaporwave purple)
+    [210, 24, 36],  // deep red
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -329,9 +332,9 @@ fn axis_caption(chart: &Chart) -> String {
     }
 }
 
-// Per-cell cyan->pink gradient for a histogram bar, same lerp as the score
-// meter (main.rs). Ramps across this bar's own length, not a shared scale, so
-// a short bar and a long bar both run the full cyan->pink range.
+// Per-cell toxic→blood gradient for a histogram bar (neon-grit hazard ramp).
+// Ramps across this bar's own length, not a shared scale, so a short bar and a
+// long bar both run the full range.
 fn gradient_bar(count: usize) -> String {
     let mut bar = String::new();
     for i in 0..count {
@@ -340,8 +343,7 @@ fn gradient_bar(count: usize) -> String {
         } else {
             0.0
         };
-        let col = [0, 1, 2]
-            .map(|k| (ACCENT[k] as f64 + (SPARK[k] as f64 - ACCENT[k] as f64) * p).round() as u8);
+        let col = ramp_at([RAMP_LO, RAMP_HI], p);
         bar.push_str(&format!("{}█{}", c(col), RESET));
     }
     bar
@@ -626,14 +628,14 @@ fn draw_chart(chart: &Chart, width: usize, height: usize) -> Raster {
                     .max(x0 + 1);
                 let value_y = y_for(*value).round().clamp(top as f64, bottom as f64) as usize;
                 // Gradient keyed to the plot height and shared across every
-                // bar: cyan at the baseline, pink at the top of the container.
-                // A bar's color at a given height is the same regardless of its
-                // own height, so short bars stay cyan and only the tallest
-                // reaches pink.
+                // bar: toxic green at the baseline, blood red at the top of
+                // the container. A bar's color at a given height is the same
+                // regardless of its own height, so short bars stay green and
+                // only the tallest reach red.
                 let field = zero.saturating_sub(top).max(1) as f64;
                 for y in value_y.min(zero)..value_y.max(zero) + 1 {
                     let p = zero.saturating_sub(y) as f64 / field;
-                    raster.rect(x0, y, x1, y + 1, ramp_at([ACCENT, SPARK], p));
+                    raster.rect(x0, y, x1, y + 1, ramp_at([RAMP_LO, RAMP_HI], p));
                 }
             }
             // X-axis: the observed data range, read from the first/last bin labels.
@@ -871,13 +873,13 @@ mod tests {
     // of range, or the endpoints swapped.
     #[test]
     fn ramp_at_interpolates_and_clamps() {
-        assert_eq!(ramp_at([ACCENT, SPARK], 0.0), ACCENT);
-        assert_eq!(ramp_at([ACCENT, SPARK], 1.0), SPARK);
-        assert_eq!(ramp_at([ACCENT, SPARK], -1.0), ACCENT, "p below 0 clamps to base");
-        assert_eq!(ramp_at([ACCENT, SPARK], 2.0), SPARK, "p above 1 clamps to tip");
-        let mid = ramp_at([ACCENT, SPARK], 0.5);
+        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], 0.0), RAMP_LO);
+        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], 1.0), RAMP_HI);
+        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], -1.0), RAMP_LO, "p below 0 clamps to base");
+        assert_eq!(ramp_at([RAMP_LO, RAMP_HI], 2.0), RAMP_HI, "p above 1 clamps to tip");
+        let mid = ramp_at([RAMP_LO, RAMP_HI], 0.5);
         for k in 0..3 {
-            let (lo, hi) = (ACCENT[k].min(SPARK[k]), ACCENT[k].max(SPARK[k]));
+            let (lo, hi) = (RAMP_LO[k].min(RAMP_HI[k]), RAMP_LO[k].max(RAMP_HI[k]));
             assert!(mid[k] >= lo && mid[k] <= hi, "midpoint channel {k} out of range");
         }
     }
