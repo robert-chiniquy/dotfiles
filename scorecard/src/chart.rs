@@ -9,6 +9,7 @@ const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█
 const GRID: [u8; 3] = [78, 42, 24]; // dark rust
 const AXIS: [u8; 3] = [176, 152, 112]; // dirty gold / aged paper
 const BPP: usize = 4; // RGBA so the chart field is transparent in iTerm
+
 // Multi-stop grit ramp (gold → oxide). With one chart the full ramp is used;
 // with N charts the ramp is sliced top→bottom so chart 0 holds the cool/gold
 // edge and chart N-1 holds the hot/oxide edge.
@@ -46,6 +47,12 @@ enum ChartKind {
     TimeSeries,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LabelKind {
+    Category,
+    NumericRange,
+}
+
 impl ChartKind {
     fn from(value: &str) -> ChartKind {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -74,6 +81,7 @@ struct Series {
 pub(crate) struct Chart {
     title: String,
     kind: ChartKind,
+    label_kind: LabelKind,
     labels: Vec<String>,
     series: Vec<Series>,
 }
@@ -174,6 +182,7 @@ fn finish(builder: Builder) -> Option<Chart> {
         return Some(Chart {
             title: builder.title,
             kind: builder.kind,
+            label_kind: LabelKind::NumericRange,
             labels,
             series: vec![Series {
                 name: "count".into(),
@@ -206,6 +215,7 @@ fn finish(builder: Builder) -> Option<Chart> {
     (!series.is_empty()).then_some(Chart {
         title: builder.title,
         kind: builder.kind,
+        label_kind: LabelKind::Category,
         labels,
         series,
     })
@@ -325,7 +335,14 @@ fn text_rows(chart: &Chart) -> usize {
 // the sparkline/line otherwise hides.
 fn axis_caption(chart: &Chart) -> String {
     match chart.kind {
-        ChartKind::Histogram => " · x:range y:count".to_string(),
+        ChartKind::Histogram if chart.label_kind == LabelKind::NumericRange => {
+            " · x:range y:count".to_string()
+        }
+        ChartKind::Histogram => chart
+            .series
+            .first()
+            .map(|series| format!(" · x:category y:{}", series.name))
+            .unwrap_or_else(|| " · x:category y:value".to_string()),
         ChartKind::Sparkline | ChartKind::TimeSeries => match numeric_bounds(chart) {
             Some((min, max)) => format!(" · y {}–{}", format_number(min), format_number(max)),
             None => String::new(),
@@ -336,7 +353,8 @@ fn axis_caption(chart: &Chart) -> String {
 // Linear RGB color ramp: `ramp[0]` at p=0, `ramp[1]` at p=1 (p is clamped).
 fn ramp_at(ramp: [[u8; 3]; 2], p: f64) -> [u8; 3] {
     let p = p.clamp(0.0, 1.0);
-    [0, 1, 2].map(|k| (ramp[0][k] as f64 + (ramp[1][k] as f64 - ramp[0][k] as f64) * p).round() as u8)
+    [0, 1, 2]
+        .map(|k| (ramp[0][k] as f64 + (ramp[1][k] as f64 - ramp[0][k] as f64) * p).round() as u8)
 }
 
 // Sample the multi-stop grit ramp at global p ∈ [0, 1].
@@ -545,9 +563,9 @@ impl Raster {
         }
     }
 
-    // Draw a string with the built-in 3x5 numeric font, scaled by `scale`. Only
-    // glyphs known to `glyph()` render (digits, '.', '-', space); anything else
-    // advances a blank cell so widths stay predictable.
+    // Draw a string with the built-in 3x5 axis font, scaled by `scale`. Only
+    // glyphs known to `glyph()` render; anything else advances a blank cell so
+    // widths stay predictable.
     fn text(&mut self, x: i32, y: i32, text: &str, scale: i32, color: [u8; 3]) {
         let scale = scale.max(1);
         let mut cx = x;
@@ -558,7 +576,11 @@ impl Raster {
                         if bits & (1 << (GLYPH_W - 1 - gx)) != 0 {
                             for dy in 0..scale {
                                 for dx in 0..scale {
-                                    self.pixel(cx + gx as i32 * scale + dx, y + ry as i32 * scale + dy, color);
+                                    self.pixel(
+                                        cx + gx as i32 * scale + dx,
+                                        y + ry as i32 * scale + dy,
+                                        color,
+                                    );
                                 }
                             }
                         }
@@ -578,10 +600,11 @@ fn text_width(s: &str, scale: i32) -> i32 {
     s.chars().count() as i32 * (GLYPH_W as i32 + 1) * scale.max(1)
 }
 
-// 3x5 bitmap glyphs for numeric axis labels (bit2=left, bit1=mid, bit0=right).
-// Numeric-only by design: axis ticks and histogram bin bounds are all numbers.
+// 3x5 bitmap glyphs for numeric and categorical axis labels
+// (bit2=left, bit1=mid, bit0=right). Lowercase source labels use the uppercase
+// forms so repository and other category names remain legible at thumbnail size.
 fn glyph(ch: char) -> Option<[u8; GLYPH_H]> {
-    Some(match ch {
+    Some(match ch.to_ascii_uppercase() {
         '0' => [0b111, 0b101, 0b101, 0b101, 0b111],
         '1' => [0b010, 0b110, 0b010, 0b010, 0b111],
         '2' => [0b111, 0b001, 0b111, 0b100, 0b111],
@@ -592,11 +615,55 @@ fn glyph(ch: char) -> Option<[u8; GLYPH_H]> {
         '7' => [0b111, 0b001, 0b010, 0b010, 0b010],
         '8' => [0b111, 0b101, 0b111, 0b101, 0b111],
         '9' => [0b111, 0b101, 0b111, 0b001, 0b111],
+        'A' => [0b010, 0b101, 0b111, 0b101, 0b101],
+        'B' => [0b110, 0b101, 0b110, 0b101, 0b110],
+        'C' => [0b111, 0b100, 0b100, 0b100, 0b111],
+        'D' => [0b110, 0b101, 0b101, 0b101, 0b110],
+        'E' => [0b111, 0b100, 0b110, 0b100, 0b111],
+        'F' => [0b111, 0b100, 0b110, 0b100, 0b100],
+        'G' => [0b111, 0b100, 0b101, 0b101, 0b111],
+        'H' => [0b101, 0b101, 0b111, 0b101, 0b101],
+        'I' => [0b111, 0b010, 0b010, 0b010, 0b111],
+        'J' => [0b001, 0b001, 0b001, 0b101, 0b111],
+        'K' => [0b101, 0b101, 0b110, 0b101, 0b101],
+        'L' => [0b100, 0b100, 0b100, 0b100, 0b111],
+        'M' => [0b101, 0b111, 0b111, 0b101, 0b101],
+        'N' => [0b101, 0b111, 0b111, 0b111, 0b101],
+        'O' => [0b111, 0b101, 0b101, 0b101, 0b111],
+        'P' => [0b110, 0b101, 0b110, 0b100, 0b100],
+        'Q' => [0b111, 0b101, 0b101, 0b111, 0b001],
+        'R' => [0b110, 0b101, 0b110, 0b101, 0b101],
+        'S' => [0b111, 0b100, 0b111, 0b001, 0b111],
+        'T' => [0b111, 0b010, 0b010, 0b010, 0b010],
+        'U' => [0b101, 0b101, 0b101, 0b101, 0b111],
+        'V' => [0b101, 0b101, 0b101, 0b101, 0b010],
+        'W' => [0b101, 0b101, 0b111, 0b111, 0b101],
+        'X' => [0b101, 0b101, 0b010, 0b101, 0b101],
+        'Y' => [0b101, 0b101, 0b010, 0b010, 0b010],
+        'Z' => [0b111, 0b001, 0b010, 0b100, 0b111],
         '.' => [0b000, 0b000, 0b000, 0b000, 0b010],
         '-' | '–' => [0b000, 0b000, 0b111, 0b000, 0b000],
+        '_' => [0b000, 0b000, 0b000, 0b000, 0b111],
+        '/' => [0b001, 0b001, 0b010, 0b100, 0b100],
+        '…' => [0b000, 0b000, 0b000, 0b000, 0b101],
         ' ' => [0; GLYPH_H],
         _ => return None,
     })
+}
+
+fn fitted_axis_label(label: &str, max_width: i32, scale: i32) -> String {
+    let advance = (GLYPH_W as i32 + 1) * scale.max(1);
+    let max_chars = (max_width.max(0) / advance) as usize;
+    if max_chars == 0 {
+        return String::new();
+    }
+    if label.chars().count() <= max_chars {
+        return label.to_string();
+    }
+    if max_chars == 1 {
+        return "…".to_string();
+    }
+    format!("{}…", label.chars().take(max_chars - 1).collect::<String>())
 }
 
 fn numeric_bounds(chart: &Chart) -> Option<(f64, f64)> {
@@ -610,6 +677,10 @@ fn numeric_bounds(chart: &Chart) -> Option<(f64, f64)> {
     for number in numbers {
         min = min.min(number);
         max = max.max(number);
+    }
+    if chart.kind == ChartKind::Histogram {
+        min = min.min(0.0);
+        max = max.max(0.0);
     }
     if (max - min).abs() < f64::EPSILON {
         min -= 1.0;
@@ -644,7 +715,11 @@ fn draw_chart(
     let scale = if height >= 120 { 2 } else { 1 };
     let y_ticks: [String; 5] =
         std::array::from_fn(|s| format_number(max - (max - min) * s as f64 / 4.0));
-    let y_label_px = y_ticks.iter().map(|t| text_width(t, scale)).max().unwrap_or(0);
+    let y_label_px = y_ticks
+        .iter()
+        .map(|t| text_width(t, scale))
+        .max()
+        .unwrap_or(0);
     let glyph_px = GLYPH_H as i32 * scale;
 
     // Reserve margins for labels when there is room; otherwise fall back to the
@@ -655,7 +730,11 @@ fn draw_chart(
     let left = if labels_fit { want_left } else { 12 };
     let right = width - 10;
     let top = 10usize;
-    let bottom = if labels_fit { height - 10 - want_bottom } else { height - 10 };
+    let bottom = if labels_fit {
+        height - 10 - want_bottom
+    } else {
+        height - 10
+    };
 
     for (step, label) in y_ticks.iter().enumerate() {
         let y = top + (bottom - top) * step / 4;
@@ -694,14 +773,49 @@ fn draw_chart(
                     raster.rect(x0, y, x1, y + 1, col);
                 }
             }
-            // X-axis: the observed data range, read from the first/last bin labels.
             if labels_fit {
-                if let (Some(first), Some(last)) = (chart.labels.first(), chart.labels.last()) {
-                    let lo = first.split('–').next().unwrap_or(first).trim();
-                    let hi = last.rsplit('–').next().unwrap_or(last).trim();
-                    let ty = (bottom as i32 + 3).min(height as i32 - glyph_px - 1);
-                    raster.text(left as i32, ty, lo, scale, AXIS);
-                    raster.text(right as i32 - text_width(hi, scale), ty, hi, scale, AXIS);
+                let ty = (bottom as i32 + 3).min(height as i32 - glyph_px - 1);
+                match chart.label_kind {
+                    LabelKind::Category => {
+                        let max_label_width = slot.saturating_sub(4) as i32;
+                        let label_scale = if scale > 1
+                            && chart
+                                .labels
+                                .iter()
+                                .any(|label| text_width(label, scale) > max_label_width)
+                        {
+                            1
+                        } else {
+                            scale
+                        };
+                        for (index, label) in chart.labels.iter().take(count).enumerate() {
+                            let x0 = left + index * slot;
+                            let x1 = (left + (index + 1) * slot).min(right);
+                            let fitted = fitted_axis_label(
+                                label,
+                                x1.saturating_sub(x0).saturating_sub(4) as i32,
+                                label_scale,
+                            );
+                            if fitted.is_empty() {
+                                continue;
+                            }
+                            let label_width = text_width(&fitted, label_scale);
+                            let center = (x0 + x1) as i32 / 2;
+                            raster.text(center - label_width / 2, ty, &fitted, label_scale, AXIS);
+                        }
+                    }
+                    LabelKind::NumericRange => {
+                        // Raw-observation histograms use numeric bins. Endpoint
+                        // labels keep the full range readable without crowding.
+                        if let (Some(first), Some(last)) =
+                            (chart.labels.first(), chart.labels.last())
+                        {
+                            let lo = first.split('–').next().unwrap_or(first).trim();
+                            let hi = last.rsplit('–').next().unwrap_or(last).trim();
+                            raster.text(left as i32, ty, lo, scale, AXIS);
+                            raster.text(right as i32 - text_width(hi, scale), ty, hi, scale, AXIS);
+                        }
+                    }
                 }
             }
         }
@@ -967,11 +1081,7 @@ mod tests {
     use super::*;
 
     fn rgb_eq(px: &[u8], color: [u8; 3]) -> bool {
-        px.len() >= 4
-            && px[0] == color[0]
-            && px[1] == color[1]
-            && px[2] == color[2]
-            && px[3] != 0
+        px.len() >= 4 && px[0] == color[0] && px[1] == color[1] && px[2] == color[2] && px[3] != 0
     }
 
     // Two-stop ramp: base at p=0, tip at p=1, linear and clamped.
@@ -986,7 +1096,10 @@ mod tests {
         let mid = ramp_at([lo, hi], 0.5);
         for k in 0..3 {
             let (a, b) = (lo[k].min(hi[k]), lo[k].max(hi[k]));
-            assert!(mid[k] >= a && mid[k] <= b, "midpoint channel {k} out of range");
+            assert!(
+                mid[k] >= a && mid[k] <= b,
+                "midpoint channel {k} out of range"
+            );
         }
     }
 
@@ -1005,7 +1118,10 @@ mod tests {
         // mid of chart 0 is cooler (higher gold channel) than mid of chart 1
         let top_mid = multi_ramp_at(chart_global_p(0, 2, 0.5));
         let bot_mid = multi_ramp_at(chart_global_p(1, 2, 0.5));
-        assert_ne!(top_mid, bot_mid, "stacked charts must not share the same mid color");
+        assert_ne!(
+            top_mid, bot_mid,
+            "stacked charts must not share the same mid color"
+        );
         // single chart still uses the full ramp
         assert_eq!(multi_ramp_at(chart_global_p(0, 1, 0.0)), RAMP_STOPS[0]);
         assert_eq!(
@@ -1133,11 +1249,13 @@ type: time-series
     }
 
     #[test]
-    fn axis_font_renders_digits_and_skips_unknown_glyphs() {
+    fn axis_font_renders_numeric_and_category_glyphs() {
         assert!(glyph('0').is_some());
         assert!(glyph('.').is_some());
         assert!(glyph('-').is_some());
-        assert!(glyph('x').is_none());
+        assert!(glyph('x').is_some());
+        assert!(glyph('_').is_some());
+        assert!(glyph('🙂').is_none());
         assert_eq!(text_width("12", 1), 2 * (GLYPH_W as i32 + 1));
         let mut raster = Raster::new(24, 8);
         raster.text(0, 0, "12", 1, AXIS);
@@ -1164,9 +1282,37 @@ type: time-series
     }
 
     #[test]
+    fn categorical_histogram_caption_names_category_and_value_axes() {
+        let chart = &parse(
+            "## Chart: Tokens\n\
+             type: histogram\n\
+             | repository | tokens (M) |\n\
+             | --- | ---: |\n\
+             | occult | 2369.5 |\n",
+        )[0];
+        assert_eq!(axis_caption(chart), " · x:category y:tokens (M)");
+    }
+
+    #[test]
+    fn histogram_value_axis_includes_zero_baseline() {
+        let chart = &parse(
+            "## Chart: Tokens\n\
+             type: histogram\n\
+             | repository | tokens |\n\
+             | --- | ---: |\n\
+             | occult | 2400 |\n\
+             | research | 115 |\n",
+        )[0];
+        assert_eq!(numeric_bounds(chart), Some((0.0, 2400.0)));
+    }
+
+    #[test]
     fn text_value_chart_caption_shows_the_value_axis_range() {
         let rendered = render_text(&parse(TABLE)[0], 72, 5, 0, 1);
-        assert!(rendered.contains("· y "), "value charts must name the y range");
+        assert!(
+            rendered.contains("· y "),
+            "value charts must name the y range"
+        );
         assert!(rendered.contains("10")); // min across p50/p95
         assert!(rendered.contains("31")); // max across p50/p95
     }
@@ -1189,5 +1335,55 @@ type: time-series
             transparent > 0,
             "chart field must be transparent so the terminal bg shows through"
         );
+    }
+
+    #[test]
+    fn image_histogram_labels_every_category_column() {
+        let chart = &parse(
+            "## Chart: Tokens by repository\n\
+             type: histogram\n\
+             | repository | tokens |\n\
+             | --- | ---: |\n\
+             | occult | 2400 |\n\
+             | latchkey-project | 1700 |\n\
+             | tpm | 170 |\n\
+             | research | 115 |\n",
+        )[0];
+        let (width, height) = (640usize, 160usize);
+        let raster = draw_chart(chart, width, height, 0, 1);
+
+        // Mirror the renderer's plot geometry, then require label ink in every
+        // categorical slot below the baseline, including interior columns.
+        let (min, max) = numeric_bounds(chart).unwrap();
+        let scale = 2;
+        let y_ticks: [String; 5] =
+            std::array::from_fn(|step| format_number(max - (max - min) * step as f64 / 4.0));
+        let y_label_px = y_ticks
+            .iter()
+            .map(|tick| text_width(tick, scale))
+            .max()
+            .unwrap();
+        let glyph_px = GLYPH_H * scale as usize;
+        let left = 6 + y_label_px as usize + 3;
+        let right = width - 10;
+        let bottom = height - 10 - (glyph_px + 3);
+        let label_top = bottom + 3;
+        let slot = (right - left) / chart.labels.len();
+        for (index, label) in chart.labels.iter().enumerate() {
+            let x0 = left + index * slot;
+            let x1 = if index + 1 == chart.labels.len() {
+                right
+            } else {
+                left + (index + 1) * slot
+            };
+            let ink = (label_top..raster.height)
+                .flat_map(|y| (x0..x1).map(move |x| (x, y)))
+                .filter(|(x, y)| {
+                    let offset = (y * raster.width + x) * BPP;
+                    rgb_eq(&raster.pixels[offset..offset + BPP], AXIS)
+                })
+                .count();
+            assert!(ink > 0, "category {label:?} has no x-axis label ink");
+        }
     }
 }
