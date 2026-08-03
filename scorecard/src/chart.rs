@@ -4,11 +4,11 @@ use std::io::IsTerminal;
 
 const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 // Neon-grit chart palette — rust / gold / dark grit, not vivid neon green.
-// Surfaces: transparent field (terminal wallpaper shows through), rust grid,
-// aged-paper axes. Accents stay warm and oxidized.
+// Surfaces: transparent field (terminal wallpaper shows through), rust grid.
+// Axis copy uses the card accent so the chart reads as part of the same system.
 const GRID: [u8; 3] = [78, 42, 24]; // dark rust
-const AXIS: [u8; 3] = [176, 152, 112]; // dirty gold / aged paper
 const BPP: usize = 4; // RGBA so the chart field is transparent in iTerm
+const AXIS_TEXT_SCALE: i32 = 1;
 
 // Multi-stop grit ramp (gold → oxide). With one chart the full ramp is used;
 // with N charts the ramp is sliced top→bottom so chart 0 holds the cool/gold
@@ -563,7 +563,7 @@ impl Raster {
         }
     }
 
-    // Draw a string with the built-in 3x5 axis font, scaled by `scale`. Only
+    // Draw a string with the built-in 5x7 axis font, scaled by `scale`. Only
     // glyphs known to `glyph()` render; anything else advances a blank cell so
     // widths stay predictable.
     fn text(&mut self, x: i32, y: i32, text: &str, scale: i32, color: [u8; 3]) {
@@ -592,60 +592,172 @@ impl Raster {
     }
 }
 
-const GLYPH_W: usize = 3;
-const GLYPH_H: usize = 5;
+const GLYPH_W: usize = 5;
+const GLYPH_H: usize = 7;
 
 // Pixel width a `Raster::text` call for `s` at `scale` will occupy.
 fn text_width(s: &str, scale: i32) -> i32 {
     s.chars().count() as i32 * (GLYPH_W as i32 + 1) * scale.max(1)
 }
 
-// 3x5 bitmap glyphs for numeric and categorical axis labels
-// (bit2=left, bit1=mid, bit0=right). Lowercase source labels use the uppercase
-// forms so repository and other category names remain legible at thumbnail size.
+// Compact 5x7 bitmap glyphs for numeric and categorical axis labels
+// (bit4=left through bit0=right). Lowercase has its own forms so repository
+// names keep their natural visual rhythm instead of reading like display type.
 fn glyph(ch: char) -> Option<[u8; GLYPH_H]> {
-    Some(match ch.to_ascii_uppercase() {
-        '0' => [0b111, 0b101, 0b101, 0b101, 0b111],
-        '1' => [0b010, 0b110, 0b010, 0b010, 0b111],
-        '2' => [0b111, 0b001, 0b111, 0b100, 0b111],
-        '3' => [0b111, 0b001, 0b111, 0b001, 0b111],
-        '4' => [0b101, 0b101, 0b111, 0b001, 0b001],
-        '5' => [0b111, 0b100, 0b111, 0b001, 0b111],
-        '6' => [0b111, 0b100, 0b111, 0b101, 0b111],
-        '7' => [0b111, 0b001, 0b010, 0b010, 0b010],
-        '8' => [0b111, 0b101, 0b111, 0b101, 0b111],
-        '9' => [0b111, 0b101, 0b111, 0b001, 0b111],
-        'A' => [0b010, 0b101, 0b111, 0b101, 0b101],
-        'B' => [0b110, 0b101, 0b110, 0b101, 0b110],
-        'C' => [0b111, 0b100, 0b100, 0b100, 0b111],
-        'D' => [0b110, 0b101, 0b101, 0b101, 0b110],
-        'E' => [0b111, 0b100, 0b110, 0b100, 0b111],
-        'F' => [0b111, 0b100, 0b110, 0b100, 0b100],
-        'G' => [0b111, 0b100, 0b101, 0b101, 0b111],
-        'H' => [0b101, 0b101, 0b111, 0b101, 0b101],
-        'I' => [0b111, 0b010, 0b010, 0b010, 0b111],
-        'J' => [0b001, 0b001, 0b001, 0b101, 0b111],
-        'K' => [0b101, 0b101, 0b110, 0b101, 0b101],
-        'L' => [0b100, 0b100, 0b100, 0b100, 0b111],
-        'M' => [0b101, 0b111, 0b111, 0b101, 0b101],
-        'N' => [0b101, 0b111, 0b111, 0b111, 0b101],
-        'O' => [0b111, 0b101, 0b101, 0b101, 0b111],
-        'P' => [0b110, 0b101, 0b110, 0b100, 0b100],
-        'Q' => [0b111, 0b101, 0b101, 0b111, 0b001],
-        'R' => [0b110, 0b101, 0b110, 0b101, 0b101],
-        'S' => [0b111, 0b100, 0b111, 0b001, 0b111],
-        'T' => [0b111, 0b010, 0b010, 0b010, 0b010],
-        'U' => [0b101, 0b101, 0b101, 0b101, 0b111],
-        'V' => [0b101, 0b101, 0b101, 0b101, 0b010],
-        'W' => [0b101, 0b101, 0b111, 0b111, 0b101],
-        'X' => [0b101, 0b101, 0b010, 0b101, 0b101],
-        'Y' => [0b101, 0b101, 0b010, 0b010, 0b010],
-        'Z' => [0b111, 0b001, 0b010, 0b100, 0b111],
-        '.' => [0b000, 0b000, 0b000, 0b000, 0b010],
-        '-' | '–' => [0b000, 0b000, 0b111, 0b000, 0b000],
-        '_' => [0b000, 0b000, 0b000, 0b000, 0b111],
-        '/' => [0b001, 0b001, 0b010, 0b100, 0b100],
-        '…' => [0b000, 0b000, 0b000, 0b000, 0b101],
+    Some(match ch {
+        '0' => [
+            0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+        ],
+        '1' => [
+            0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ],
+        '2' => [
+            0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
+        ],
+        '3' => [
+            0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110,
+        ],
+        '4' => [
+            0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+        ],
+        '5' => [
+            0b11111, 0b10000, 0b10000, 0b11110, 0b00001, 0b00001, 0b11110,
+        ],
+        '6' => [
+            0b01110, 0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+        ],
+        '7' => [
+            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+        ],
+        '8' => [
+            0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+        ],
+        '9' => [
+            0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00001, 0b01110,
+        ],
+        'A' => [
+            0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
+        ],
+        'B' => [
+            0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110,
+        ],
+        'C' => [
+            0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111,
+        ],
+        'D' => [
+            0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110,
+        ],
+        'E' => [
+            0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111,
+        ],
+        'F' => [
+            0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000,
+        ],
+        'G' => [
+            0b01111, 0b10000, 0b10000, 0b10111, 0b10001, 0b10001, 0b01111,
+        ],
+        'H' => [
+            0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
+        ],
+        'I' => [
+            0b01110, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ],
+        'J' => [
+            0b00001, 0b00001, 0b00001, 0b00001, 0b10001, 0b10001, 0b01110,
+        ],
+        'K' => [
+            0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001,
+        ],
+        'L' => [
+            0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111,
+        ],
+        'M' => [
+            0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001,
+        ],
+        'N' => [
+            0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001,
+        ],
+        'O' => [
+            0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
+        ],
+        'P' => [
+            0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000,
+        ],
+        'Q' => [
+            0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101,
+        ],
+        'R' => [
+            0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001,
+        ],
+        'S' => [
+            0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110,
+        ],
+        'T' => [
+            0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100,
+        ],
+        'U' => [
+            0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
+        ],
+        'V' => [
+            0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100,
+        ],
+        'W' => [
+            0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b11011, 0b10001,
+        ],
+        'X' => [
+            0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001,
+        ],
+        'Y' => [
+            0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100,
+        ],
+        'Z' => [
+            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b11111,
+        ],
+        'a' => [0, 0, 0b01110, 0b00001, 0b01111, 0b10001, 0b01111],
+        'b' => [
+            0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b11110,
+        ],
+        'c' => [0, 0, 0b01110, 0b10001, 0b10000, 0b10001, 0b01110],
+        'd' => [
+            0b00001, 0b00001, 0b01101, 0b10011, 0b10001, 0b10001, 0b01111,
+        ],
+        'e' => [0, 0, 0b01110, 0b10001, 0b11111, 0b10000, 0b01110],
+        'f' => [
+            0b00110, 0b01001, 0b01000, 0b11100, 0b01000, 0b01000, 0b01000,
+        ],
+        'g' => [0, 0b01111, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110],
+        'h' => [
+            0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001,
+        ],
+        'i' => [0b00100, 0, 0b01100, 0b00100, 0b00100, 0b00100, 0b01110],
+        'j' => [0b00010, 0, 0b00110, 0b00010, 0b00010, 0b10010, 0b01100],
+        'k' => [
+            0b10000, 0b10000, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010,
+        ],
+        'l' => [
+            0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ],
+        'm' => [0, 0, 0b11010, 0b10101, 0b10101, 0b10101, 0b10101],
+        'n' => [0, 0, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001],
+        'o' => [0, 0, 0b01110, 0b10001, 0b10001, 0b10001, 0b01110],
+        'p' => [0, 0, 0b11110, 0b10001, 0b11110, 0b10000, 0b10000],
+        'q' => [0, 0, 0b01111, 0b10001, 0b01111, 0b00001, 0b00001],
+        'r' => [0, 0, 0b10110, 0b11001, 0b10000, 0b10000, 0b10000],
+        's' => [0, 0, 0b01111, 0b10000, 0b01110, 0b00001, 0b11110],
+        't' => [
+            0b01000, 0b01000, 0b11100, 0b01000, 0b01000, 0b01001, 0b00110,
+        ],
+        'u' => [0, 0, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101],
+        'v' => [0, 0, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100],
+        'w' => [0, 0, 0b10001, 0b10101, 0b10101, 0b10101, 0b01010],
+        'x' => [0, 0, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001],
+        'y' => [0, 0, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110],
+        'z' => [0, 0, 0b11111, 0b00010, 0b00100, 0b01000, 0b11111],
+        '.' => [0, 0, 0, 0, 0, 0b00110, 0b00110],
+        '-' | '–' => [0, 0, 0, 0b11111, 0, 0, 0],
+        '_' => [0, 0, 0, 0, 0, 0, 0b11111],
+        '/' => [0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0, 0],
+        '…' => [0, 0, 0, 0, 0, 0b10101, 0b10101],
         ' ' => [0; GLYPH_H],
         _ => return None,
     })
@@ -712,7 +824,7 @@ fn draw_chart(
     };
 
     // Y-axis tick values, top (max) down to bottom (min) — one per grid line.
-    let scale = if height >= 120 { 2 } else { 1 };
+    let scale = AXIS_TEXT_SCALE;
     let y_ticks: [String; 5] =
         std::array::from_fn(|s| format_number(max - (max - min) * s as f64 / 4.0));
     let y_label_px = y_ticks
@@ -741,7 +853,7 @@ fn draw_chart(
         raster.line(left as i32, y as i32, right as i32, y as i32, GRID);
         if labels_fit {
             let lx = left as i32 - text_width(label, scale) - 3;
-            raster.text(lx.max(0), y as i32 - glyph_px / 2, label, scale, AXIS);
+            raster.text(lx.max(0), y as i32 - glyph_px / 2, label, scale, ACCENT);
         }
     }
 
@@ -812,8 +924,14 @@ fn draw_chart(
                         {
                             let lo = first.split('–').next().unwrap_or(first).trim();
                             let hi = last.rsplit('–').next().unwrap_or(last).trim();
-                            raster.text(left as i32, ty, lo, scale, AXIS);
-                            raster.text(right as i32 - text_width(hi, scale), ty, hi, scale, AXIS);
+                            raster.text(left as i32, ty, lo, scale, ACCENT);
+                            raster.text(
+                                right as i32 - text_width(hi, scale),
+                                ty,
+                                hi,
+                                scale,
+                                ACCENT,
+                            );
                         }
                     }
                 }
@@ -1249,22 +1367,28 @@ type: time-series
     }
 
     #[test]
-    fn axis_font_renders_numeric_and_category_glyphs() {
+    fn axis_font_renders_numeric_and_distinct_mixed_case_glyphs() {
+        assert_eq!((GLYPH_W, GLYPH_H, AXIS_TEXT_SCALE), (5, 7, 1));
         assert!(glyph('0').is_some());
         assert!(glyph('.').is_some());
         assert!(glyph('-').is_some());
         assert!(glyph('x').is_some());
         assert!(glyph('_').is_some());
         assert!(glyph('🙂').is_none());
+        assert_ne!(
+            glyph('x'),
+            glyph('X'),
+            "repository labels should retain their source case"
+        );
         assert_eq!(text_width("12", 1), 2 * (GLYPH_W as i32 + 1));
         let mut raster = Raster::new(24, 8);
-        raster.text(0, 0, "12", 1, AXIS);
+        raster.text(0, 0, "12", 1, crate::ACCENT);
         let drawn = raster
             .pixels
             .chunks_exact(BPP)
-            .filter(|px| rgb_eq(px, AXIS))
+            .filter(|px| rgb_eq(px, crate::ACCENT))
             .count();
-        assert!(drawn > 0, "digits should light up axis-colored pixels");
+        assert!(drawn > 0, "digits should light up card-accent pixels");
     }
 
     #[test]
@@ -1318,14 +1442,17 @@ type: time-series
     }
 
     #[test]
-    fn image_chart_draws_axis_label_pixels() {
+    fn image_chart_draws_y_axis_labels_in_card_accent() {
         let raster = draw_chart(&parse(TABLE)[0], 320, 160, 0, 1);
         let axis_px = raster
             .pixels
             .chunks_exact(BPP)
-            .filter(|px| rgb_eq(px, AXIS))
+            .filter(|px| rgb_eq(px, crate::ACCENT))
             .count();
-        assert!(axis_px > 0, "image chart should render axis-label pixels");
+        assert!(
+            axis_px > 0,
+            "image chart should render y-axis labels in the card accent"
+        );
         let transparent = raster
             .pixels
             .chunks_exact(BPP)
@@ -1355,7 +1482,7 @@ type: time-series
         // Mirror the renderer's plot geometry, then require label ink in every
         // categorical slot below the baseline, including interior columns.
         let (min, max) = numeric_bounds(chart).unwrap();
-        let scale = 2;
+        let scale = AXIS_TEXT_SCALE;
         let y_ticks: [String; 5] =
             std::array::from_fn(|step| format_number(max - (max - min) * step as f64 / 4.0));
         let y_label_px = y_ticks
@@ -1385,11 +1512,41 @@ type: time-series
                 .count();
             assert!(ink > 0, "category {label:?} has no x-axis label ink");
         }
-        let numeric_axis_ink = raster
+        let y_axis_ink = raster
             .pixels
             .chunks_exact(BPP)
-            .filter(|px| rgb_eq(px, AXIS))
+            .filter(|px| rgb_eq(px, crate::ACCENT))
             .count();
-        assert!(numeric_axis_ink > 0, "numeric ticks must retain axis color");
+        assert!(y_axis_ink > 0, "numeric ticks must use the card accent");
+    }
+
+    #[test]
+    fn image_raw_histogram_range_labels_use_card_accent() {
+        let chart = &parse(
+            "## Chart: Latency distribution\n\
+             type: histogram\n\
+             | milliseconds |\n\
+             | ---: |\n\
+             | 10 |\n| 12 |\n| 18 |\n| 31 |\n",
+        )[0];
+        let (width, height) = (480usize, 160usize);
+        let raster = draw_chart(chart, width, height, 0, 1);
+
+        // The range endpoints occupy the band below the bottom y tick. Scan
+        // beneath that tick so its cyan ink cannot satisfy this assertion.
+        let glyph_px = GLYPH_H * AXIS_TEXT_SCALE as usize;
+        let bottom = height - 10 - (glyph_px + 3);
+        let label_top = bottom + 3;
+        let accent_ink = ((label_top + 1)..(label_top + glyph_px))
+            .flat_map(|y| (0..width).map(move |x| (x, y)))
+            .filter(|(x, y)| {
+                let offset = (y * raster.width + x) * BPP;
+                rgb_eq(&raster.pixels[offset..offset + BPP], crate::ACCENT)
+            })
+            .count();
+        assert!(
+            accent_ink > 0,
+            "numeric range and y-axis labels must use the card accent"
+        );
     }
 }
