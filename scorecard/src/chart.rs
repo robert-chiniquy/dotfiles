@@ -1,4 +1,4 @@
-use super::{c, is_sep, split_row, RESET};
+use super::{c, is_sep, split_row, ACCENT, RESET};
 use std::env;
 use std::io::IsTerminal;
 
@@ -801,7 +801,7 @@ fn draw_chart(
                             }
                             let label_width = text_width(&fitted, label_scale);
                             let center = (x0 + x1) as i32 / 2;
-                            raster.text(center - label_width / 2, ty, &fitted, label_scale, AXIS);
+                            raster.text(center - label_width / 2, ty, &fitted, label_scale, ACCENT);
                         }
                     }
                     LabelKind::NumericRange => {
@@ -1338,7 +1338,7 @@ type: time-series
     }
 
     #[test]
-    fn image_histogram_labels_every_category_column() {
+    fn image_histogram_labels_every_category_column_in_card_accent() {
         let chart = &parse(
             "## Chart: Tokens by repository\n\
              type: histogram\n\
@@ -1380,10 +1380,16 @@ type: time-series
                 .flat_map(|y| (x0..x1).map(move |x| (x, y)))
                 .filter(|(x, y)| {
                     let offset = (y * raster.width + x) * BPP;
-                    rgb_eq(&raster.pixels[offset..offset + BPP], AXIS)
+                    rgb_eq(&raster.pixels[offset..offset + BPP], crate::ACCENT)
                 })
                 .count();
             assert!(ink > 0, "category {label:?} has no x-axis label ink");
         }
+        let numeric_axis_ink = raster
+            .pixels
+            .chunks_exact(BPP)
+            .filter(|px| rgb_eq(px, AXIS))
+            .count();
+        assert!(numeric_axis_ink > 0, "numeric ticks must retain axis color");
     }
 }
