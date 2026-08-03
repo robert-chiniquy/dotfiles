@@ -110,6 +110,9 @@ Comma-separated numbers, percentages, and parenthesized negatives are accepted;
 `n/a`, `null`, `-`, and malformed cells remain missing data rather than becoming
 zero. A one-column histogram table is treated as raw observations and binned
 automatically; a label-plus-value histogram uses the supplied bins/categories.
+PNG category histograms label every column; long labels shrink and then
+abbreviate within their column so adjacent names do not overlap. Histogram value
+axes include zero so column heights remain comparable.
 
 In `auto` mode, an interactive iTerm2 session outside tmux gets a
 dependency-free generated PNG through iTerm2's

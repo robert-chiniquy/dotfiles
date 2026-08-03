@@ -1364,6 +1364,9 @@ Pass --width "$COLUMNS" --height "$LINES" from a prompt hook.
 `## Chart: title` followed by `type: sparkline|histogram|time-series` and a
 GFM table becomes a typed chart. The first column holds labels; every remaining
 numeric column is a named series. Markdown is only the serialization format.
+PNG category histograms label every column, shrinking or abbreviating long names
+within their column so adjacent labels do not overlap. Histogram value axes
+include zero so column heights remain comparable.
 
 Charts are PNGs in an interactive iTerm2 TTY and compact Unicode everywhere
 else. Override with `--charts auto|image|text|off` or `SCORECARD_CHARTS`.
@@ -1704,8 +1707,16 @@ mod tests {
     #[test]
     fn chart_reservation_is_not_capped_to_a_third_of_usable() {
         assert_eq!(max_chart_reservation(13, 27), 13, "wants 13, area has room");
-        assert_eq!(max_chart_reservation(6, 40), 6, "never exceeds what charts want");
-        assert_eq!(max_chart_reservation(13, 3), 1, "tiny area still leaves the body room");
+        assert_eq!(
+            max_chart_reservation(6, 40),
+            6,
+            "never exceeds what charts want"
+        );
+        assert_eq!(
+            max_chart_reservation(13, 3),
+            1,
+            "tiny area still leaves the body room"
+        );
         assert_eq!(max_chart_reservation(13, 1), 0);
     }
 
