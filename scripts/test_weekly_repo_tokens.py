@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import io
 import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -346,6 +348,34 @@ class WeeklyRepoTokensTest(unittest.TestCase):
         self.assertIn("Grok/xAI counted when logged", rendered)
         self.assertIn("Squire no token totals", rendered)
         self.assertIn("Crush lacks repo attribution", rendered)
+
+    def test_cli_writes_json_report_while_rendering_scorecard(self) -> None:
+        report_path = self.root / "output" / "weekly-agent-tokens.json"
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            exit_code = wrt.main(
+                [
+                    "--start",
+                    START.isoformat(),
+                    "--end",
+                    END.isoformat(),
+                    "--home",
+                    str(self.root),
+                    "--repo-home",
+                    str(self.repo_home),
+                    "--format",
+                    "scorecard",
+                    "--json-output",
+                    str(report_path),
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("# Weekly agent-token footprint", stdout.getvalue())
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["window"]["start"], START.isoformat())
+        self.assertEqual(report["window"]["end"], END.isoformat())
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import argparse
 import json
 import re
 import subprocess
+import tempfile
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -1130,6 +1131,27 @@ def parse_cli_time(value: str) -> datetime:
     return parsed
 
 
+def write_json_report(report: Mapping[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            delete=False,
+        ) as handle:
+            json.dump(report, handle, indent=2, sort_keys=False)
+            handle.write("\n")
+            temp_path = Path(handle.name)
+        temp_path.replace(path)
+    except Exception:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", type=parse_cli_time, help="inclusive ISO-8601 start")
@@ -1137,6 +1159,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--days", type=int, default=7, help="local calendar days (default: 7)")
     parser.add_argument("--format", choices=("json", "scorecard"), default="json")
     parser.add_argument("--top", type=int, default=5, help="repository rows in scorecard output")
+    parser.add_argument("--json-output", type=Path, help="also write the full JSON report")
     parser.add_argument("--home", type=Path, default=Path.home())
     parser.add_argument("--repo-home", type=Path)
     args = parser.parse_args(argv)
@@ -1153,6 +1176,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         parser.error(str(error))
     stores = default_store_paths(args.home, args.repo_home)
     report = collect_report(window, stores)
+    if args.json_output:
+        write_json_report(report, args.json_output)
     if args.format == "scorecard":
         print(render_scorecard(report, args.top), end="")
     else:
