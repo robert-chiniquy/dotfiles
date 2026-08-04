@@ -26,11 +26,15 @@ TOKEN_REFRESH_REPORT_DIR=$(dirname -- "$TOKEN_REFRESH_REPORT")
 
 TOKEN_REFRESH_STATUS_TMP=$(/usr/bin/mktemp "$TOKEN_REFRESH_STATUS_DIR/.weekly-agent-tokens.XXXXXX")
 TOKEN_REFRESH_REPORT_TMP=$(/usr/bin/mktemp "$TOKEN_REFRESH_REPORT_DIR/.weekly-agent-tokens.XXXXXX")
+TOKEN_REFRESH_CHART_TMP=$(
+  /usr/bin/mktemp "$TOKEN_REFRESH_STATUS_DIR/.weekly-agent-token-chart.XXXXXX"
+)
 TOKEN_REFRESH_ACTIVE_TMP=
 cleanup() {
   /bin/rm -f -- \
     "$TOKEN_REFRESH_STATUS_TMP" \
     "$TOKEN_REFRESH_REPORT_TMP" \
+    "$TOKEN_REFRESH_CHART_TMP" \
     "$TOKEN_REFRESH_ACTIVE_TMP"
 }
 trap cleanup EXIT HUP INT TERM
@@ -46,14 +50,35 @@ test -s "$TOKEN_REFRESH_REPORT_TMP"
 /usr/bin/grep -q '^# Weekly agent-token footprint$' "$TOKEN_REFRESH_STATUS_TMP"
 /usr/bin/python3 -m json.tool "$TOKEN_REFRESH_REPORT_TMP" >/dev/null
 
+/usr/bin/awk '
+  BEGIN { title = "## Chart: Tokens consumed per repository (millions)" }
+  $0 == title { in_chart = 1 }
+  in_chart && /^## / && $0 != title { exit }
+  in_chart { lines[++count] = $0 }
+  END {
+    while (count > 0 && lines[count] == "") {
+      count--
+    }
+    for (line = 1; line <= count; line++) {
+      print lines[line]
+    }
+  }
+' "$TOKEN_REFRESH_STATUS_TMP" > "$TOKEN_REFRESH_CHART_TMP"
+
+test -s "$TOKEN_REFRESH_CHART_TMP"
+/usr/bin/grep -q '^type: histogram$' "$TOKEN_REFRESH_CHART_TMP"
+
 TOKEN_REFRESH_UPDATE_ACTIVE=0
-if [ ! -L "$TOKEN_REFRESH_ACTIVE" ]; then
-  if [ ! -e "$TOKEN_REFRESH_ACTIVE" ]; then
-    TOKEN_REFRESH_UPDATE_ACTIVE=1
-  elif [ -f "$TOKEN_REFRESH_ACTIVE" ] && \
-    /usr/bin/grep -q '^# Weekly agent-token footprint$' "$TOKEN_REFRESH_ACTIVE"; then
-    TOKEN_REFRESH_UPDATE_ACTIVE=1
-  fi
+if [ ! -L "$TOKEN_REFRESH_ACTIVE" ] && [ -f "$TOKEN_REFRESH_ACTIVE" ] && \
+  /usr/bin/awk '
+    $0 == "<!-- weekly-agent-tokens:begin -->" { begin_count++; begin_line = NR }
+    $0 == "<!-- weekly-agent-tokens:end -->" { end_count++; end_line = NR }
+    END {
+      valid = begin_count == 1 && end_count == 1 && begin_line < end_line
+      exit !valid
+    }
+  ' "$TOKEN_REFRESH_ACTIVE"; then
+  TOKEN_REFRESH_UPDATE_ACTIVE=1
 fi
 
 if [ "$TOKEN_REFRESH_UPDATE_ACTIVE" -eq 1 ]; then
@@ -62,7 +87,26 @@ if [ "$TOKEN_REFRESH_UPDATE_ACTIVE" -eq 1 ]; then
   TOKEN_REFRESH_ACTIVE_TMP=$(
     /usr/bin/mktemp "$TOKEN_REFRESH_ACTIVE_DIR/.weekly-agent-tokens-active.XXXXXX"
   )
-  /bin/cp -f "$TOKEN_REFRESH_STATUS_TMP" "$TOKEN_REFRESH_ACTIVE_TMP"
+  /usr/bin/awk -v chart="$TOKEN_REFRESH_CHART_TMP" '
+    $0 == "<!-- weekly-agent-tokens:begin -->" {
+      print
+      while ((getline line < chart) > 0) {
+        print line
+      }
+      close(chart)
+      replacing = 1
+      next
+    }
+    $0 == "<!-- weekly-agent-tokens:end -->" {
+      replacing = 0
+      print
+      next
+    }
+    !replacing { print }
+  ' "$TOKEN_REFRESH_ACTIVE" > "$TOKEN_REFRESH_ACTIVE_TMP"
+  test -s "$TOKEN_REFRESH_ACTIVE_TMP"
+  /usr/bin/grep -q '^<!-- weekly-agent-tokens:begin -->$' "$TOKEN_REFRESH_ACTIVE_TMP"
+  /usr/bin/grep -q '^<!-- weekly-agent-tokens:end -->$' "$TOKEN_REFRESH_ACTIVE_TMP"
   /bin/chmod 0644 "$TOKEN_REFRESH_ACTIVE_TMP"
 fi
 
