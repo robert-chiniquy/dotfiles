@@ -67,11 +67,22 @@ Install the macOS LaunchAgent to refresh them at login and once an hour:
 scripts/install-scorecard-token-refresh.sh
 ```
 
-The refresh mirrors the managed card into `status.md` only when the active card
-is absent or is already a token card. Replacing `status.md` with another
-scorecard later leaves that card alone while collection continues in the two
-dedicated files. Successful background runs are silent; failures retain the
-last successful outputs and append to
+The refresh never creates or replaces `status.md`. It updates only a chart
+explicitly enclosed by these ownership markers:
+
+```markdown
+<!-- weekly-agent-tokens:begin -->
+## Chart: Tokens consumed per repository (millions)
+type: histogram
+...
+<!-- weekly-agent-tokens:end -->
+```
+
+Everything outside the markers remains unchanged, including ticket rows,
+callouts, and scorecard metadata. A card without exactly one valid marker pair
+is left completely alone while collection continues in the two dedicated
+files. Successful background runs are silent; failures retain the last
+successful outputs and append to
 `~/Library/Logs/scorecard-token-refresh.log`.
 
 For an ad hoc JSON report on stdout:

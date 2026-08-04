@@ -45,9 +45,10 @@ The low-priority `com.rch.scorecard-token-refresh` LaunchAgent runs at login
 and hourly. It silently aggregates local Claude Code, Codex, Grok, Pi,
 OpenCode, Crush, and available Squire telemetry into a dedicated rolling card
 and JSON report. Each output is replaced only after a complete validated run;
-errors retain the prior report and go to `~/Library/Logs`. The generic active
-scorecard is refreshed from the managed card only while the user has not
-replaced it with a different status card.
+errors retain the prior report and go to `~/Library/Logs`. In the generic
+active scorecard, the job owns only the block between the
+`weekly-agent-tokens` markers. It never creates or replaces the card, so ticket
+rows, callouts, metadata, and unmarked scorecards remain untouched.
 
 ## 2026-01-28: Screenshots go to ~/Screenshots
 ```bash
