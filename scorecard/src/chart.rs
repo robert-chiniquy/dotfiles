@@ -1070,16 +1070,20 @@ fn base64(bytes: &[u8]) -> String {
     output
 }
 
-fn iterm_image(png: &[u8], title: &str, width: usize, height: usize) -> String {
+fn iterm_image_sequence(png: &[u8], title: &str, width: usize, height: usize) -> String {
     let name = base64(format!("{}.png", title).as_bytes());
     format!(
-        "\x1b]1337;File=name={};size={};width={};height={};preserveAspectRatio=0;inline=1:{}\x07\n",
+        "\x1b]1337;File=name={};size={};width={};height={};preserveAspectRatio=0;inline=1:{}\x07",
         name,
         png.len(),
         width,
         height,
         base64(png)
     )
+}
+
+fn iterm_image(png: &[u8], title: &str, width: usize, height: usize) -> String {
+    format!("{}\n", iterm_image_sequence(png, title, width, height))
 }
 
 fn resolve_mode(
@@ -1123,6 +1127,47 @@ pub(crate) fn desired_rows(charts: &[Chart], mode: ChartMode) -> usize {
         ChartMode::Image => charts.len() * 9,
         ChartMode::Text | ChartMode::Auto => charts.iter().map(text_rows).sum(),
     }
+}
+
+pub(crate) fn render_image_sidecar_rows(
+    charts: &[Chart],
+    width: usize,
+    mut budget: usize,
+) -> Vec<String> {
+    let mut chart_count = 0usize;
+    let mut remaining = budget;
+    for _ in charts {
+        let image_rows = remaining.saturating_sub(1).min(8);
+        if image_rows < 3 {
+            break;
+        }
+        chart_count += 1;
+        remaining = remaining.saturating_sub(image_rows + 1);
+    }
+
+    let mut rows = Vec::new();
+    for (chart_index, chart) in charts.iter().take(chart_count).enumerate() {
+        let image_rows = budget.saturating_sub(1).min(8);
+        rows.push(trunc_text(
+            &format!(
+                "CHART {} · {}{}",
+                chart.title,
+                chart.kind.label(),
+                axis_caption(chart)
+            ),
+            width,
+        ));
+        let pixel_width = (width * 8).clamp(320, 960);
+        let pixel_height = (image_rows * 20).clamp(60, 240);
+        let png = render_png(chart, pixel_width, pixel_height, chart_index, chart_count);
+        rows.push(format!(
+            "\x1b7{}\x1b8",
+            iterm_image_sequence(&png, &chart.title, width, image_rows)
+        ));
+        rows.resize(rows.len() + image_rows.saturating_sub(1), String::new());
+        budget = budget.saturating_sub(image_rows + 1);
+    }
+    rows
 }
 
 pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget: usize) -> String {
@@ -1336,6 +1381,19 @@ type: time-series
         assert!(sequence.contains("width=80"));
         assert!(sequence.contains("height=7"));
         assert!(sequence.ends_with("\u{7}\n"));
+    }
+
+    #[test]
+    fn image_sidecar_rows_reserve_a_caption_and_cursor_safe_image() {
+        let rows = render_image_sidecar_rows(&parse(TABLE), 40, 9);
+
+        assert_eq!(rows.len(), 9);
+        assert!(rows[0].starts_with("CHART Reveal latency"));
+        assert!(rows[1].starts_with("\x1b7\x1b]1337;File="));
+        assert!(rows[1].contains("width=40"));
+        assert!(rows[1].contains("height=8"));
+        assert!(rows[1].ends_with("\x07\x1b8"));
+        assert!(rows[2..].iter().all(String::is_empty));
     }
 
     #[test]
