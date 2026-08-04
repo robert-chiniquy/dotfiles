@@ -37,6 +37,18 @@ defaults write com.apple.screencapture disable-shadow -bool true && killall Syst
 ```
 Screenshots are cleaner without the drop shadow, easier to use in docs and chat.
 
+## 2026-08-03: Automatic weekly agent-token collection
+```sh
+~/repo/dotfiles/scripts/install-scorecard-token-refresh.sh
+```
+The low-priority `com.rch.scorecard-token-refresh` LaunchAgent runs at login
+and hourly. It silently aggregates local Claude Code, Codex, Grok, Pi,
+OpenCode, Crush, and available Squire telemetry into a dedicated rolling card
+and JSON report. Each output is replaced only after a complete validated run;
+errors retain the prior report and go to `~/Library/Logs`. The generic active
+scorecard is refreshed from the managed card only while the user has not
+replaced it with a different status card.
+
 ## 2026-01-28: Screenshots go to ~/Screenshots
 ```bash
 mkdir -p ~/Screenshots

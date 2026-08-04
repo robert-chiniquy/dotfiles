@@ -47,15 +47,34 @@ Generate a local seven-day repository breakdown from the token metadata saved
 by installed agent clients:
 
 ```sh
-python3 scripts/weekly_repo_tokens.py --format scorecard --top 5 \
-  > ~/.config/scorecard/status.md
+scripts/update-weekly-token-scorecard.sh
 ```
 
 The collector supports Claude Code, Codex, Grok, Pi, and OpenCode directly,
 plus Crush and Squire records when they contain both token and repository
 fields. Pi and OpenCode are provider-agnostic, so their xAI, Gemini, Claude,
 OpenAI, and local-model usage is included under the same repository totals.
-JSON output includes per-source, provider, model, and telemetry-gap details:
+The refresh writes two atomically replaced rolling outputs:
+
+```text
+~/.config/scorecard/weekly-agent-tokens.md
+~/.local/share/scorecard/weekly-agent-tokens.json
+```
+
+Install the macOS LaunchAgent to refresh them at login and once an hour:
+
+```sh
+scripts/install-scorecard-token-refresh.sh
+```
+
+The refresh mirrors the managed card into `status.md` only when the active card
+is absent or is already a token card. Replacing `status.md` with another
+scorecard later leaves that card alone while collection continues in the two
+dedicated files. Successful background runs are silent; failures retain the
+last successful outputs and append to
+`~/Library/Logs/scorecard-token-refresh.log`.
+
+For an ad hoc JSON report on stdout:
 
 ```sh
 python3 scripts/weekly_repo_tokens.py --format json
