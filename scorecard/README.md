@@ -116,6 +116,7 @@ Front matter — `key: value` lines before the first `##`:
 | `note` | short line appended to the tiles row |
 | `footer` | dim footer (a trailing `> quote` line also works) |
 | `groups` | `name=priority, …` — group priorities (higher = kept longer) |
+| `chart-layout` | `stacked` (default) or `side-by-side` for an image sidecar |
 
 Sections are `## Label (xN)` followed by a GFM table. **Criteria** rows have five
 cells (header/`---` rows are ignored):
@@ -172,8 +173,15 @@ The protocol can also display agent-supplied animated GIFs; generated charts
 stay static PNGs so startup output is deterministic and bounded.
 Use `--charts image` to force inline images when the downstream terminal handles
 the protocol, `--charts text` for deterministic text, or `--charts off`.
-`SCORECARD_CHARTS` sets the default. Fit mode bounds charts to at most one third
-of the usable pane.
+`SCORECARD_CHARTS` sets the default.
+
+Charts are stacked below the card by default. Set `chart-layout: side-by-side`
+in the front matter to keep the card as native terminal text and place image
+charts in a right-hand column. The sidecar activates only for image rendering
+with at least 118 terminal columns; text mode, narrower terminals, and
+unavailable image support fall back to the stacked layout. In fit mode the two
+columns share the same vertical row budget, so the sidecar does not displace
+ticket rows merely to make room for a chart.
 
 ## Content-groups
 

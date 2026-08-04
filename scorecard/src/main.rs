@@ -307,6 +307,23 @@ struct Section {
     crits: Vec<Crit>,
     banners: Vec<Banner>,
 }
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum ChartLayout {
+    #[default]
+    Stacked,
+    SideBySide,
+}
+
+impl ChartLayout {
+    fn from(value: &str) -> ChartLayout {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "side-by-side" => ChartLayout::SideBySide,
+            _ => ChartLayout::Stacked,
+        }
+    }
+}
+
 #[derive(Default)]
 struct Doc {
     title: String,
@@ -317,6 +334,7 @@ struct Doc {
     score: Option<(u32, u32)>,
     pass: Option<u32>,
     groups: HashMap<String, i32>,
+    chart_layout: ChartLayout,
     sections: Vec<Section>,
 }
 
@@ -494,6 +512,7 @@ fn parse(input: &str) -> Doc {
                     "footer" => doc.footer = val,
                     "score" => doc.score = parse_score(&val),
                     "pass" | "threshold" => doc.pass = val.parse().ok(),
+                    "chart-layout" => doc.chart_layout = ChartLayout::from(&val),
                     "groups" => {
                         for part in val.split(',') {
                             if let Some((n, p)) = part.split_once('=') {
@@ -1101,6 +1120,71 @@ fn render(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>) -> 
     format!("\n{}\n", build_lines(doc, w, file, hidden).join("\n"))
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SideBySideColumns {
+    card: usize,
+    gap: usize,
+    chart: usize,
+}
+
+fn side_by_side_columns(width: usize) -> Option<SideBySideColumns> {
+    const MIN_CARD_WIDTH: usize = 84;
+    const MIN_CHART_WIDTH: usize = 32;
+    const MAX_CHART_WIDTH: usize = 56;
+    const GAP: usize = 2;
+
+    let available = width.checked_sub(MIN_CARD_WIDTH + GAP)?;
+    if available < MIN_CHART_WIDTH {
+        return None;
+    }
+    let chart = available.min(MAX_CHART_WIDTH);
+    Some(SideBySideColumns {
+        card: width - GAP - chart,
+        gap: GAP,
+        chart,
+    })
+}
+
+fn render_side_by_side_card(
+    doc: &Doc,
+    charts: &[chart::Chart],
+    columns: SideBySideColumns,
+    file: Option<&str>,
+    mode: Mode,
+    terminal_height: Option<usize>,
+) -> Option<String> {
+    let desired_chart_rows = chart::desired_rows(charts, chart::ChartMode::Image);
+    let (hidden, chart_budget) = match (mode, terminal_height) {
+        (Mode::Fit, Some(height)) => {
+            let usable = height.saturating_sub(3);
+            (
+                fit(doc, columns.card, file, usable),
+                desired_chart_rows.min(usable),
+            )
+        }
+        _ => (HashSet::new(), desired_chart_rows),
+    };
+    let sidecar = chart::render_image_sidecar_rows(charts, columns.chart, chart_budget);
+    if sidecar.is_empty() {
+        return None;
+    }
+
+    let card = build_lines(doc, columns.card, file, &hidden);
+    let rows = card.len().max(sidecar.len());
+    let mut output = String::new();
+    output.push('\n');
+    for row in 0..rows {
+        let left = card.get(row).map(String::as_str).unwrap_or("");
+        output.push_str(left);
+        if let Some(right) = sidecar.get(row).filter(|right| !right.is_empty()) {
+            output.push_str(&" ".repeat(columns.card.saturating_sub(vlen(left)) + columns.gap));
+            output.push_str(right);
+        }
+        output.push('\n');
+    }
+    Some(output)
+}
+
 fn render_card(
     input: &str,
     width: usize,
@@ -1111,6 +1195,15 @@ fn render_card(
 ) -> String {
     let doc = parse(input);
     let charts = chart::parse(input);
+    if doc.chart_layout == ChartLayout::SideBySide && chart_mode == chart::ChartMode::Image {
+        if let Some(columns) = side_by_side_columns(width) {
+            if let Some(output) =
+                render_side_by_side_card(&doc, &charts, columns, file, mode, terminal_height)
+            {
+                return output;
+            }
+        }
+    }
     let desired_chart_rows = chart::desired_rows(&charts, chart_mode);
     let (hidden, chart_rows) = match (mode, terminal_height) {
         (Mode::Fit, Some(height)) => fit_with_chart_rows(
@@ -1357,7 +1450,10 @@ include zero so column heights remain comparable.
 
 Charts are PNGs in an interactive iTerm2 TTY and compact Unicode everywhere
 else. Override with `--charts auto|image|text|off` or `SCORECARD_CHARTS`.
-Fit mode bounds chart space so the card remains within one pane.
+Charts stack below the card by default. Set front-matter
+`chart-layout: side-by-side` to place image charts beside the native-text card
+when at least 118 columns are available. Text rendering and narrower terminals
+fall back to stacked. In fit mode both columns share the same vertical budget.
 
 Run `scorecard demo [file]` for a feature-complete built-in card followed by
 the selected scorecard (or `$SCORECARD_FILE` by default). The demo always uses
@@ -1738,6 +1834,145 @@ note: two at-risk gates in review
     }
 
     #[test]
+    fn parses_chart_layout_metadata() {
+        assert_eq!(parse("# t\n").chart_layout, ChartLayout::Stacked);
+        assert_eq!(
+            parse("# t\nchart-layout: side-by-side\n").chart_layout,
+            ChartLayout::SideBySide
+        );
+        assert_eq!(
+            parse("# t\nchart-layout: stacked\n").chart_layout,
+            ChartLayout::Stacked
+        );
+        assert_eq!(
+            parse("# t\nchart-layout: typo\n").chart_layout,
+            ChartLayout::Stacked
+        );
+    }
+
+    #[test]
+    fn side_by_side_columns_preserve_minimum_card_and_chart_widths() {
+        assert_eq!(side_by_side_columns(117), None);
+        assert_eq!(
+            side_by_side_columns(118),
+            Some(SideBySideColumns {
+                card: 84,
+                gap: 2,
+                chart: 32,
+            })
+        );
+        assert_eq!(
+            side_by_side_columns(170),
+            Some(SideBySideColumns {
+                card: 112,
+                gap: 2,
+                chart: 56,
+            })
+        );
+    }
+
+    const CHART_CARD: &str = "\
+# Chart card
+## Work
+| A | risk | 3 | Ship the chart | native [ticket](https://example.com/tickets/chart-layout) link |
+## Chart: Tokens per repository
+type: histogram
+| repository | tokens |
+| --- | ---: |
+| occult | 10 |
+| scorecard | 6 |
+";
+
+    #[test]
+    fn stacked_chart_layout_remains_the_default() {
+        let explicit =
+            CHART_CARD.replacen("# Chart card\n", "# Chart card\nchart-layout: stacked\n", 1);
+        let implicit = render_card(
+            CHART_CARD,
+            120,
+            None,
+            Mode::All,
+            chart::ChartMode::Image,
+            None,
+        );
+        let explicit = render_card(
+            &explicit,
+            120,
+            None,
+            Mode::All,
+            chart::ChartMode::Image,
+            None,
+        );
+
+        assert_eq!(implicit, explicit);
+        assert!(!implicit.contains("\x1b7"));
+        assert!(implicit.contains("width=120"));
+    }
+
+    #[test]
+    fn side_by_side_image_chart_shares_rows_with_native_card_text() {
+        let source = CHART_CARD.replacen(
+            "# Chart card\n",
+            "# Chart card\nchart-layout: side-by-side\n",
+            1,
+        );
+        let rendered = render_card(&source, 120, None, Mode::All, chart::ChartMode::Image, None);
+
+        let caption_row = rendered
+            .lines()
+            .find(|line| line.contains("CHART Tokens per repository"))
+            .unwrap();
+        let image_row = rendered
+            .lines()
+            .find(|line| line.contains("\x1b]1337;File="))
+            .unwrap();
+        assert!(caption_row.contains('┌'));
+        assert!(image_row.contains('│'));
+        assert!(image_row.contains("width=34"));
+        assert!(image_row.contains("height=8"));
+        assert!(image_row.contains("\x1b7"));
+        assert!(image_row.contains("\x1b8"));
+        assert!(rendered.contains("\x1b]8;;https://example.com/tickets/chart-layout\x1b\\"));
+        assert!(rendered.lines().all(|line| vlen(line) <= 120));
+    }
+
+    #[test]
+    fn side_by_side_chart_does_not_displace_card_rows_in_fit_mode() {
+        let source = CHART_CARD.replacen(
+            "# Chart card\n",
+            "# Chart card\nchart-layout: side-by-side\n",
+            1,
+        );
+        let rendered = render_card(
+            &source,
+            120,
+            None,
+            Mode::Fit,
+            chart::ChartMode::Image,
+            Some(12),
+        );
+
+        assert!(rendered.contains("Ship the chart"));
+        assert!(rendered.contains("width=34"));
+        assert!(rendered.lines().count() <= 10); // leading blank + height - prompt reserve
+    }
+
+    #[test]
+    fn side_by_side_metadata_falls_back_for_text_and_narrow_rendering() {
+        let source = CHART_CARD.replacen(
+            "# Chart card\n",
+            "# Chart card\nchart-layout: side-by-side\n",
+            1,
+        );
+        let text = render_card(&source, 120, None, Mode::All, chart::ChartMode::Text, None);
+        let narrow = render_card(&source, 117, None, Mode::All, chart::ChartMode::Image, None);
+
+        assert!(!text.contains("\x1b7"));
+        assert!(!narrow.contains("\x1b7"));
+        assert!(narrow.contains("width=117"));
+    }
+
+    #[test]
     fn chart_tables_are_not_parsed_as_criteria() {
         let source = "# t\n\
 ## Work\n\
@@ -2016,6 +2251,7 @@ footer: review [c1#21847]({github_url})\n\
                 && PRIME.contains("groups:")
                 && PRIME.contains("fit")
                 && PRIME.contains("## Chart:")
+                && PRIME.contains("chart-layout: side-by-side")
                 && PRIME.contains("scorecard refresh")
         );
         assert!(PRIME_NUDGE.contains("--srs") && PRIME_NUDGE.contains("tokens"));
