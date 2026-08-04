@@ -106,21 +106,6 @@ fn pad_end(s: &str, w: usize) -> String {
         format!("{}{}", s, " ".repeat(w - v))
     }
 }
-fn trunc(s: &str, w: usize) -> String {
-    let count = s.chars().count();
-    if count <= w {
-        return s.to_string();
-    }
-    if w == 0 {
-        return String::new();
-    }
-    if w == 1 {
-        return "…".to_string();
-    }
-    let head: String = s.chars().take(w - 1).collect();
-    format!("{}…", head.trim_end())
-}
-
 // ---- percent-encoding for action URLs ----
 fn percent_encode(s: &str) -> String {
     let mut out = String::new();
@@ -899,13 +884,17 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
     cv.top();
     if !hidden.contains("header") {
         if !doc.title.is_empty() {
-            cv.boxln(&sty(ACCENT, true, &trunc(&doc.title, iw)));
+            cv.boxln(&render_field(
+                &doc.title,
+                iw,
+                &format!("{}{}", c(ACCENT), BOLD),
+            ));
         }
         if !doc.sub.is_empty() {
-            cv.boxln(&sty(MUTED, false, &trunc(&doc.sub, iw)));
+            cv.boxln(&render_field(&doc.sub, iw, &c(MUTED)));
         }
         if !doc.meta.is_empty() {
-            cv.boxln(&sty(FAINT, false, &trunc(&doc.meta, iw)));
+            cv.boxln(&render_field(&doc.meta, iw, &c(FAINT)));
         }
     }
     cv.rule();
@@ -1039,7 +1028,7 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
                         &render_field(&cr.id, id_width, &format!("{}{}", c(cr.sev.color()), BOLD)),
                         id_width,
                     );
-                    let name = pad_end(&trunc(&cr.name, cv.nw), cv.nw);
+                    let name = pad_end(&render_field(&cr.name, cv.nw, ""), cv.nw);
                     let score = pad_end(&cr.score, score_width);
                     let left = format!(
                         "{}▌{} {} {}{} {} {}{}{}{}",
@@ -1099,12 +1088,10 @@ fn build_lines(doc: &Doc, w: usize, file: Option<&str>, hidden: &HashSet<String>
 
     cv.rule();
     if !doc.footer.is_empty() && !hidden.contains("footer") {
-        cv.boxln(&format!(
-            "{}{}{}{}",
-            DIM,
-            c(FAINT),
-            trunc(&doc.footer, iw),
-            RESET
+        cv.boxln(&render_field(
+            &doc.footer,
+            iw,
+            &format!("{}{}", DIM, c(FAINT)),
         ));
     }
     cv.bot();
@@ -1875,6 +1862,35 @@ type: time-series\n\
                 }
             }
         }
+    }
+
+    #[test]
+    fn truncated_prose_preserves_complete_hyperlink_targets() {
+        let title_url = "https://example.com/title/complete-destination";
+        let sub_url = "https://example.com/subtitle/complete-destination";
+        let linear_url = "https://linear.app/ductone/issue/VAULT-805/complete-linear-destination";
+        let github_url = "https://github.com/ductone/c1/pull/21847";
+        let criterion_url = "https://example.com/criterion/complete-destination";
+        let source = format!(
+            "# [A deliberately long linked title that must be shortened without damaging its destination]({title_url})\n\
+sub: [status...]({sub_url})\n\
+meta: residual [VAULT-805...]({linear_url})\n\
+footer: review [c1#21847]({github_url})\n\
+## Work\n\
+| A | risk | 3 | [A deliberately long linked criterion name]({criterion_url}) | note |\n"
+        );
+
+        let rendered = render(&parse(&source), 84, None, &empty());
+
+        for url in [title_url, sub_url, linear_url, github_url, criterion_url] {
+            assert!(
+                rendered.contains(&format!("\x1b]8;;{url}\x1b\\")),
+                "missing complete OSC 8 target for {url}: {rendered:?}"
+            );
+        }
+        assert!(rendered.contains('…'));
+        assert!(rendered.contains("status..."));
+        assert!(rendered.lines().all(|line| vlen(line) <= 84));
     }
 
     #[test]
