@@ -41,6 +41,26 @@ cargo install --path . --root ~/.local     # installs to ~/.local/bin/scorecard
 scorecard install-handler                    # register scorecard:// (macOS, once)
 ```
 
+## Weekly token footprint
+
+Generate a local seven-day repository breakdown from the token metadata saved
+by installed agent clients:
+
+```sh
+python3 scripts/weekly_repo_tokens.py --format scorecard --top 5 \
+  > ~/.config/scorecard/status.md
+```
+
+The collector supports Claude Code, Codex, Grok, Pi, and OpenCode directly,
+plus Crush and Squire records when they contain both token and repository
+fields. Pi and OpenCode are provider-agnostic, so their xAI, Gemini, Claude,
+OpenAI, and local-model usage is included under the same repository totals.
+JSON output includes per-source, provider, model, and telemetry-gap details:
+
+```sh
+python3 scripts/weekly_repo_tokens.py --format json
+```
+
 ## Modes
 
 - **fit** (default) — drop whole content-groups until the card fits in
