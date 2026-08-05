@@ -3,7 +3,7 @@ name: scramble
 description: >-
   Tactically assemble a short-term plan of many parallel options, then pursue
   as much local action as possible in the moment — rebases, protogen, PR pushes,
-  tracker state updates, sqfan fleet dispatch. Not a survey (orient/sitrep) and
+  tracker state updates, squire fleet dispatch. Not a survey (orient/sitrep) and
   not a single-threaded task: a multi-option sprint where the agent fans out
   everything it can do locally right now. Triggers on "scramble", "max delta-v",
   "30 minute sprint", "parallel push", "many options at once", "as much local
@@ -33,7 +33,7 @@ Time-boxed sprint (default **30 minutes**): build an option board of everything 
 |---|---|
 | close-in-review | chain ready to land; rebase blocker, re-request review, or Done if merged |
 | unblock-in-progress | branches exist; needs protogen, rebase, conflict fix, draft PR |
-| fleet-dispatch | Todo item well-scoped for sqfan; write batch + fire |
+| fleet-dispatch | Todo item well-scoped for parallel squire envs; write briefs + fire |
 | tracker-hygiene | wrong state |
 | open-PR | branch pushed, no PR yet |
 | local-test | targeted tests to unblock a push |
@@ -49,7 +49,7 @@ Unblock-in-progress: fetch + rebase every repo in the chain; local protogen/test
 
 c1 protogen — always local, one at a time per clone (docker lock), so start it early alongside other repos: merge origin/main, fix .proto by hand (drop duplicate rpc stubs), `make protogen`, targeted `go test`, push.
 
-Fleet-dispatch (Todo → sqfan):
+Fleet-dispatch (Todo → squire):
 
 | Signal | Dispatch? |
 |---|---|
@@ -61,7 +61,7 @@ Fleet-dispatch (Todo → sqfan):
 | Blocked on in-flight stack merge | No |
 | <15 min of local work | No — do it locally |
 
-Write `sqfan-batches/<slug>/batch.yaml` + prompts; dispatch fire-and-forget via sqfan MCP — don't poll to completion during the scramble. Cap 2–3 dispatches per scramble.
+Write briefs under `scramble-briefs/<slug>/`; dispatch fire-and-forget via `squire new <name> -p` (short prompts) or `squire task create --env <env> --prompt-file <brief>` (long briefs) — don't poll to completion during the scramble. Cap 2–3 dispatches per scramble.
 
 Tracker hygiene (throughout):
 
@@ -93,7 +93,7 @@ Tracker hygiene (throughout):
 |---|---|
 | Which milestone is active | tactical-sitrep (before scramble if unclear) |
 | c1 dispatch briefs | c1-squire-dispatch |
-| sqfan mechanics | sqfan |
+| squire mechanics | squire-env-management |
 | CI red on blocker PR | gh-fix-ci |
 
 Project defaults (Latchkey reviewer sets, milestone IDs, repo chains): `references/latchkey.md`.

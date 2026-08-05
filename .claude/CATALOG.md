@@ -1,8 +1,11 @@
 # Skills Catalog
 
 Shared skill index for **Claude Code, Grok Build, Codex, and other harnesses**.
-Canonical skill tree: `~/.claude/skills/`. `~/.agents/skills/` is symlinked to it.
-Grok also loads `~/.grok/skills/` (Grok-only harness skills) and project skills.
+Canonical skill tree: `~/.claude/skills/`. Codex's user-skill root,
+`~/.agents/skills/`, is symlinked to it. OMX separately manages
+`~/.codex/skills/`; Codex may show both entries when an OMX skill and a shared
+skill have the same name. Grok also loads `~/.grok/skills/` (Grok-only harness
+skills) and project skills.
 
 Count the tree with `ls ~/.claude/skills | wc -l`. Always-on skills are listed in
 `~/.claude/Claude.md` and (for Grok) `~/.grok/AGENTS.md` — agents must **read the
@@ -31,7 +34,7 @@ skill bodies**, not only this index.
 | terraform / terraform-skill | .tf files, HCL, infrastructure pipelines |
 | protogen | .proto files, gRPC, codegen |
 | documentation | Writing or reviewing docs |
-| subagent-prompt-review | Before Agent() / sqfan dispatch / scheduled remote agents |
+| subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness before kill/restart |
 | gestalt-consistency-review | Correct-but-odd-one-out APIs; convention drift |
 | calendaring | Multi-month personal master schedule |
@@ -41,10 +44,11 @@ skill bodies**, not only this index.
 | systematic-feature-design | 11-step feature design methodology |
 | socratic-discovery | Progressive questions for consensus / assumptions |
 | rigorous-critique | Complexity / fundamentals / feasibility critique |
+| overcorrection-review | Challenge needless complexity, premature exclusions, and unsupported cost/value estimates |
 | post-change-verification | After Go code changes: fmt/lint/build/test protocol |
 | golang-code-review | Go PR / architecture / test quality review |
 | pr-pass / pr-status | Open PR triage and status |
-| github-pr-threads | Reply/resolve PR review threads after fixes |
+| github-pr-threads | After fixes: `Addressed in <sha>` + resolve addressed PR threads (mandatory) |
 | pr-deep-review | Multi-agent deep PR review |
 | squire-env-management | Ephemeral remote agents and task pools |
 | c1-squire-dispatch / c1-dev-stack-in-squire | c1-specific squire dispatch |
@@ -55,7 +59,7 @@ skill bodies**, not only this index.
 | bar-chart-comparison | Narrow ASCII bar charts for metric comparisons |
 | readiness-scorecard | Scorecard TUI only when explicitly requested |
 | neon-grit-image-style | Personal dark countercultural image aesthetic |
-| security / review personas | insecure-defaults, sharp-edges, oauth-oidc-review, authorization-model-review, key-lifecycle-review, ssrf-confused-deputy-review, custom-crypto-detection, secrets-in-llm-output, rust-unsafe-ffi-review, differential-review, security-threat-model, audit-context-building, trailmark, static-analysis-triage |
+| security / review personas | overcorrection-review, insecure-defaults, sharp-edges, oauth-oidc-review, authorization-model-review, key-lifecycle-review, ssrf-confused-deputy-review, custom-crypto-detection, secrets-in-llm-output, rust-unsafe-ffi-review, differential-review, security-threat-model, audit-context-building, trailmark, static-analysis-triage |
 | agent orchestration | abc-agent-management, peace-agent-interview, scramble, new-rfc, open-work-recap (always), agent-verify-workflows |
 | comment-discipline | Comment review: describe code, not process |
 | skill-brevity | Authoring/editing skills: keep only necessary lines |
@@ -101,6 +105,13 @@ pptx, execute-plan, resume-*, game-*, etc.). Prefer project/user skills when nam
 3. **Grok-only** workflows belong in `~/.grok/skills/`; shared engineering skills belong under Claude.
 4. **Project skills** live in `<repo>/.claude/skills/` or `<repo>/.grok/skills/`.
 5. After layout changes, run `grok inspect` (Grok) or confirm Claude skill list still resolves.
+6. **Codex/agents mirror:** `scripts/install-shared-agent-skills.sh` makes
+   `~/.agents/skills` a symlink to the canonical tree. `install.sh` runs it;
+   never restore a hand-picked per-skill subset.
+7. **OMX overlaps are separate:** Codex does not merge same-name skills from
+   `~/.codex/skills/` and `~/.agents/skills/`. Keep both roots intact; resolve a
+   real semantic collision by renaming or disabling one explicit skill path,
+   not by shrinking the shared mirror.
 
 ## Backup
 

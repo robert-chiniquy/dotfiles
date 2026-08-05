@@ -1,11 +1,12 @@
 ---
 name: subagent-prompt-review
 description: |
-  Review a prompt about to be sent to a subagent (Agent tool, sqfan dispatch,
+  Review a prompt about to be sent to a subagent (Agent tool, squire dispatch,
   squire env, scheduled remote agent, MCP-driven worker) for defects that
   cause silent failure, wasted runs, or runaway scope. Single-axis review:
   is this prompt fit-to-dispatch? Use proactively before any Agent() call
-  whose prompt is more than a sentence or two, before `sqfan dispatch`,
+  whose prompt is more than a sentence or two, before `squire new -p` /
+  `squire task create`,
   before `/schedule`-style remote-agent creation, and on demand. Triggers
   on: review this prompt, lint this prompt, check this subagent prompt,
   is this prompt OK, prompt review, prompt lint, subagent prompt review,
@@ -17,8 +18,8 @@ description: |
 
 Single axis: is this prompt fit to dispatch? Subagents start cold — no
 parent context, no shared state unless given, no follow-up questions.
-Applies to any dispatch surface: Agent tool, `sqfan dispatch` /
-`sqfan nudge`, `squire task create`, scheduled remote agents.
+Applies to any dispatch surface: Agent tool, `squire new -p`,
+`squire task create`, `squire attach <task-id> -p`, scheduled remote agents.
 
 Skip trivial one-liners ("run `make test`") — they don't need cwd,
 branch, or success criteria, and the review costs more than it saves.
@@ -27,9 +28,9 @@ branch, or success criteria, and the review costs more than it saves.
 
 - Nonexistent model name. Verify against the canonical source, never
   training data:
-  - sqfan: `defaultAllowedModels` in
-    `/Users/rch/repo/sqfan/pkg/opencode/allowlist.go` plus
-    `allowed_models` in `~/.sqfan/config.yaml`.
+  - squire envs: the env's OpenCode whitelist —
+    `squire ssh <env> -- "cat /home/squire/.config/opencode/opencode.json | jq '.provider.anthropic.whitelist'"`
+    (see squire-env-management "Model Enforcement").
   - Agent tool `model:` must be `sonnet` | `opus` | `haiku` | `fable`;
     anything else fails with `InputValidationError`.
   - `/schedule`-style remote agents: `claude-{opus,sonnet,haiku}-{version}`
@@ -43,7 +44,7 @@ branch, or success criteria, and the review costs more than it saves.
   env" with no env named; "open a PR" with no repo. The subagent picks
   one at random.
 - Destructive action without scope: "delete stale branches",
-  "force-push if needed", "rm -rf /tmp/sqfan-*". Narrow the scope or
+  "force-push if needed", "rm -rf /tmp/scratch-*". Narrow the scope or
   strip the authorization.
 - Empty or whitespace-only prompt.
 - Wrong model class: Haiku for diagnosis/bugfix (fabricates on failure
@@ -75,7 +76,7 @@ branch, or success criteria, and the review costs more than it saves.
 - Stale references (bd-id, PR number, path). The subagent cannot repair
   a broken reference; it fabricates or fails opaquely. Verify before
   dispatch.
-- Tool/command references that don't exist (`sqfan foo`, `bd bar`) —
+- Tool/command references that don't exist (`squire foo`, `bd bar`) —
   verify against the actual CLI surface.
 
 ## NIT

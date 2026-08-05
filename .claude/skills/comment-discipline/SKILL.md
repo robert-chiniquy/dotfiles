@@ -60,9 +60,9 @@ Apply in order. The first matching rule wins.
 Any reference to *how the code came to exist* gets cut.
 
 * "Phase 1 ships X" → DELETE
-* "bead sqfan-XYZ" inside a code comment → DELETE
-  (cross-references belong in commit messages or bead descriptions,
-  not in source)
+* "bead proj-xyz" / any bead id inside a code comment → DELETE
+  (bead ids are internal-only: never in source, commits, PRs, or
+  other published text — see global CLAUDE.md)
 * "Sixth bug from the dogfood pass" → DELETE
 * "Closes #123 / Implements feature-flag-name" → DELETE
 * "Used to be X before the refactor" → DELETE
@@ -168,7 +168,8 @@ keeps this persona's output narrow and reviewable.
 
 Comments are a camera trained on the code in front of the reader.
 Comments are not a narration of how the code was written. The
-process that produced the code lives in commit messages, bead
-descriptions, design docs, and chat history — not in the source.
+process that produced the code lives in commit messages (without
+bead ids), local tracker notes, design docs, and chat history —
+not in the source.
 A source file should read the same whether you wrote it just now
 or inherited it from a stranger five years ago.

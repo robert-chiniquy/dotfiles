@@ -1,6 +1,6 @@
 ---
 name: secrets-in-llm-output
-description: "Reviewer persona for AI-generated code and logs: did the agent embed a real secret in a diff, commit message, log line, error message, comment, README, screenshot, or test fixture? With AI-mediated codebases this is now a distinct attack-surface class — agents see secrets from .env / config files / process env / tool output, and may reproduce them in proposed changes. Use after any agent-authored diff (claude-code, codex, opencode, pi, sqfan-spawned envs), after any agent session that ran with elevated access to env vars or secret stores, and as a pre-commit and pre-push gate. Triggers: AI-generated, agent diff, claude-code commit, codex commit, agent log, agent transcript, leaked secret in PR, agent secret exposure."
+description: "Reviewer persona for AI-generated code and logs: did the agent embed a real secret in a diff, commit message, log line, error message, comment, README, screenshot, or test fixture? With AI-mediated codebases this is now a distinct attack-surface class — agents see secrets from .env / config files / process env / tool output, and may reproduce them in proposed changes. Use after any agent-authored diff (claude-code, codex, opencode, pi, squire-spawned envs), after any agent session that ran with elevated access to env vars or secret stores, and as a pre-commit and pre-push gate. Triggers: AI-generated, agent diff, claude-code commit, codex commit, agent log, agent transcript, leaked secret in PR, agent secret exposure."
 allowed-tools:
   - Read
   - Grep
@@ -16,7 +16,7 @@ Not generic secret-scanning on static codebases (gitleaks/trufflehog territory) 
 
 - Before merging any agent-authored PR
 - Pre-commit / pre-push on agent-authored commits
-- After any sqfan/squire ephemeral-env session with env-injected secrets
+- After any squire ephemeral-env session with env-injected secrets
 - Before sharing agent transcripts or logs externally
 - Before publishing agent-produced artifacts: blog posts, demo recordings, screen captures, slides
 

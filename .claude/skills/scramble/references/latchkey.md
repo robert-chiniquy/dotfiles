@@ -10,7 +10,7 @@ When building the scramble plan, these are typical **parallel local options** fo
 - `make protogen` on any branch with proto conflicts (main clone, not broken worktree)
 - Push + open draft PR for branches that exist on 4 repos but have no PR
 - Linear state hygiene on mis-bucketed issues (no comments)
-- sqfan dispatch for IGA-2446-style adjacent Todo work
+- squire dispatch for IGA-2446-style adjacent Todo work
 - Pin SDK `Cargo.toml` proto rev after latchkey-proto push
 
 Remote-blocked (board only, don't execute): human review on open c1 PR, merge approval.
@@ -64,16 +64,15 @@ source <project>/.env   # LINEAR_API_KEY
 
 State updates only during scramble — no comments.
 
-## Sqfan batch layout
+## Squire dispatch brief layout
 
 ```
-sqfan-batches/<issue-slug>/
-  batch.yaml
-  prompts/
-    <task>.txt
+scramble-briefs/<issue-slug>/
+  <task>.txt        # one brief per env/task; deliver via
+                    # squire task create --prompt-file
 ```
 
-Copy from an existing fleet (e.g. `iga-2416-2417-review-fleet` or `iga-2446-display-context`).
+Copy the brief shape from an earlier dispatch's brief files when one exists.
 
 ## Todo → fleet suitability (Latchkey-specific)
 

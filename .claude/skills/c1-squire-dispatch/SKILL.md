@@ -13,9 +13,9 @@ description: >-
 
 # c1 squire dispatch
 
-The c1-specific instantiation of the protocols now defined in the `sqfan` skill (originally in `squire-env-management`, since folded into sqfan). The host skill provides the *shape* — gate bundle pattern, brief-templates concept, beads manifest format, failure debrief protocol. This skill provides the c1 *content* that fills those shapes.
+The c1-specific instantiation of the protocols defined in `squire-env-management`. That skill provides the *shape* — gate bundle pattern, brief-templates concept, beads manifest format, failure debrief protocol. This skill provides the c1 *content* that fills those shapes. (sqfan, the batch orchestrator formerly layered on these protocols, is deprecated — never use it.)
 
-Read `sqfan` for the protocol mechanics. Read this skill for what to plug into them. `squire-env-management` retains the single-env reference content (Core Commands, OpenCode API Protocol, etc.) but its multi-env orchestration sections are deprecated in favor of sqfan.
+Read `squire-env-management` for the protocol mechanics. Read this skill for what to plug into them.
 
 Pairs with `c1-dev-stack-in-squire` (the env shape for tasks that need a running c1 backend).
 
@@ -112,6 +112,6 @@ Run these in the dispatching session against the returned PR or against PR histo
 
 ## What this skill is NOT
 
-- Not the dispatch protocol — see `sqfan` (originally documented in `squire-env-management`; now folded into the sqfan skill).
+- Not the dispatch protocol — see `squire-env-management`.
 - Not policy for the c1 repo — this is personal workflow. Do not commit it into c1's `.claude/`.
 - Not a substitute for reading the individual c1 skill SKILL.md files — the tables list names; the skills themselves carry the details.

@@ -110,14 +110,7 @@
       "Bash(~/.local/bin/bd:*)",
       "Bash(squire:*)",
       "Bash(SQUIRE_DEBUG=1 squire env)",
-      "Bash(sqfan:*)",
-      "Bash(~/.local/bin/sqfan:*)",
-      "Bash(/Users/rch/.local/bin/sqfan:*)",
-      "Bash(build/sqfan:*)",
-      "Bash(./build/sqfan:*)",
-      "Bash(/Users/rch/repo/sqfan/build/sqfan:*)",
       "Read(//Users/rch/.local/bin/**)",
-      "Read(//Users/rch/.sqfan/**)",
       "Read(//Users/rch/repo/**)",
       "Read(//tmp/**)",
       "Read(//private/tmp/**)",
@@ -135,7 +128,7 @@
     ],
     "defaultMode": "acceptEdits"
   },
-  "model": "fable",
+  "model": "claude-fable-5[1m]",
   "hooks": {
     "PreCompact": [
       {
@@ -190,10 +183,6 @@
           },
           {
             "type": "command",
-            "command": "sqfan prime --brief"
-          },
-          {
-            "type": "command",
             "command": "~/.claude/hooks/large-transcript-warn"
           }
         ]
@@ -232,5 +221,6 @@
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "editorMode": "normal",
-  "verbose": true
+  "verbose": true,
+  "remoteControlAtStartup": true
 }
