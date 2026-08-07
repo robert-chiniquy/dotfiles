@@ -17,6 +17,20 @@ allowed-tools:
 
 Run this checklist before creating a PR. Every item is a mistake that has actually happened.
 
+
+## Common Mistakes
+
+These are the mistakes that show up most often in review:
+
+1. **Error returned but not wrapped** — bare `return err` loses context. Wrap with what was being attempted.
+2. **Test added but only tests happy path** — if the function can fail, test the failure.
+3. **Resource opened in a loop, closed after** — must close each iteration or collect for batch close.
+4. **Boolean parameter** — `doThing(true, false)` is unreadable. Use named options or separate functions.
+5. **Magic numbers** — `if len(items) > 100` — where does 100 come from? Name it.
+6. **Goroutine leak** — launched goroutine has no way to stop when parent context is cancelled.
+7. **Logging sensitive data** — user tokens, credentials, PII in log output.
+8. **Changed behavior, unchanged tests** — modified a function but the old tests still pass because they're too loose.
+
 ## Process
 
 1. Identify changed files: `git diff --name-only HEAD~1` or `git diff --name-only main`
@@ -103,19 +117,6 @@ Run this checklist before creating a PR. Every item is a mistake that has actual
 | Async error handling | Every `async` function has error handling or propagates correctly |
 | Type narrowing | Union types narrowed before use, not cast with `as` |
 
-## Common Mistakes
-
-These are the mistakes that show up most often in review:
-
-1. **Error returned but not wrapped** — bare `return err` loses context. Wrap with what was being attempted.
-2. **Test added but only tests happy path** — if the function can fail, test the failure.
-3. **Resource opened in a loop, closed after** — must close each iteration or collect for batch close.
-4. **Boolean parameter** — `doThing(true, false)` is unreadable. Use named options or separate functions.
-5. **Magic numbers** — `if len(items) > 100` — where does 100 come from? Name it.
-6. **Goroutine leak** — launched goroutine has no way to stop when parent context is cancelled.
-7. **Logging sensitive data** — user tokens, credentials, PII in log output.
-8. **Changed behavior, unchanged tests** — modified a function but the old tests still pass because they're too loose.
-
 ## Output
 
 Produce a table:
@@ -133,3 +134,9 @@ Go-specific         PASS
 ```
 
 Fix all FAILs before proceeding.
+
+## Before finishing
+
+- [ ] Common Mistakes checked against this run?
+- [ ] Required outputs exist (PR/branch/status)?
+- [ ] No trailers in published text?

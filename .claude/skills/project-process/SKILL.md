@@ -1,90 +1,70 @@
 ---
 name: project-process
 description: >
-  Thin project process: optional local artifacts, and the design →
-  implementation-plan → RFC pipeline. Always active as a hub; load
-  references and sibling skills only when the stage requires them.
+  Design → implementation-plan → RFC pipeline and optional local artifacts.
+  Load when starting non-trivial work, planning, writing DESIGN/PLAN, or
+  choosing whether an RFC is needed. Not always-on.
 ---
 
 # Project process
 
-Keep process light. Prefer working code and verified plans over ceremony.
+Prefer working code and verified plans over ceremony.
 
-## Artifacts (create when useful, not by default)
+## Common Mistakes
 
-| File / place | When |
-|--------------|------|
-| `LEARNINGS.md` | You discovered something that would otherwise be lost |
-| README **Sources** section | External or cross-repo inputs inform the work (no separate DATA_SOURCES.md) |
-| `FAILURES.md` | An approach proved impossible |
-| `DESIGN_<topic>.md` | Stage 1 output (below) |
-| `PLAN_<OBJECTIVE>.md` | Stage 2 output (below) |
-| `.claude/CLAUDE.md` | Project-local rules (never global prefs that belong in home Claude.md) |
+1. **Skipping stages under "just implement"** — if `DESIGN_*.md` exists, the plan MUST consume it; if `PLAN_*.md` exists, RFC investigation MUST consume it.
+2. **Inventing a parallel design method** — one path only (table below). Do not blend pqthink + systematic-feature-design + freeform essays as competing pipelines.
+3. **Creating GLOSSARY.md or DATA_SOURCES.md** — forbidden; terms in prose; provenance in README `## Sources`.
+4. **Committing local meta in shared repos** — LEARNINGS/PLAN/FAILURES stay local-only unless the user says otherwise.
+5. **Auto-starting implementation from an RFC skill** — RFC ends at owner approval.
 
-Do **not** create `GLOSSARY.md` or `DATA_SOURCES.md`. Define terms in prose where used; list provenance under README `## Sources`.
+## Artifacts (when useful)
 
-In shared repos (has a git remote), local meta docs (`LEARNINGS.md`, `PLAN_*.md`, `FAILURES.md`, …) are **local-only** unless the user says otherwise. README Sources is normal README content and may be committed when safe. See `references/artifacts.md` only if you need templates.
+| Place | When |
+|-------|------|
+| `LEARNINGS.md` | Discovery that would otherwise be lost |
+| README `## Sources` | External / cross-repo provenance |
+| `FAILURES.md` | Approach proved impossible |
+| `DESIGN_<topic>.md` | Stage 1 |
+| `PLAN_<OBJECTIVE>.md` | Stage 2 |
+| `.claude/CLAUDE.md` | Project-local rules only |
 
-## Pipeline: design → plan → RFC
-
-Use this order for non-trivial work. **Each stage consumes the prior stage's artifact.** Do not invent a later stage that ignores an earlier one that exists.
+## Pipeline (one path)
 
 ```
-DESIGN_<topic>.md  →  PLAN_<OBJECTIVE>.md  →  RFC (new-rfc skill)
+DESIGN_<topic>.md  →  PLAN_<OBJECTIVE>.md  →  RFC (new-rfc)
      stage 1                 stage 2              stage 3
 ```
 
-### Stage 1 — Design
+| Stage | Produce | Load exactly one depth skill | Stop when |
+|-------|---------|------------------------------|-----------|
+| 1 Design | `DESIGN_*.md` | default: `design`; large/architecture: `systematic-feature-design` only | Implementer can plan without re-discovering the problem |
+| 2 Plan | `PLAN_*.md` | `rigorous-critique` (manual `/critique` is the same job) | Steps executable without re-arguing design |
+| 3 RFC | approved RFC | `new-rfc` only | Owner approved; **MUST NOT** auto-impl |
 
-**Goal:** problem, constraints, options, chosen direction, open questions.  
-**Produce:** `DESIGN_<topic>.md` (or equivalent path the user names).  
-**How:** `/design` skill, or `systematic-feature-design` when the problem is large.  
-**Stop when:** a competent implementer could draft a plan without re-discovering the problem.
-
-Skip for trivial bugfixes and mechanical renames.
-
-### Stage 2 — Implementation plan
-
-**Goal:** dependency-ordered steps, vertical slices, success criteria, explicit non-goals.  
-**Consumes:** the design doc (required if one exists).  
-**Produce:** `PLAN_<OBJECTIVE>.md`.  
-**How:** plan from the design; run `critique` / `rigorous-critique` before treating the plan as ready.  
-**Stop when:** steps are executable without re-arguing the design.
-
-If design was skipped, the plan must still state problem + constraints in a short header so stage 3 (if used) has input.
-
-### Stage 3 — RFC
-
-**Goal:** adversarially reviewed, owner-approved plan for work that needs rigor, multi-party buy-in, or a durable decision record.  
-**Consumes:** design + implementation plan (or a single combined doc that clearly includes both).  
-**Produce:** approved RFC via the `new-rfc` skill.  
-**Stop when:** owner approves; **do not** auto-start implementation from this skill.
-
-Skip RFC for small solo work where plan + critique is enough. Prefer RFC when the change crosses trust boundaries, migrations, public API, or multi-repo coordination.
-
-### Stage selection
+**MUST:** each stage consumes the prior artifact when it exists.  
+**MUST NOT:** open stage 3 without feeding design+plan (or a combined doc that includes both).
 
 | Situation | Stages |
 |-----------|--------|
-| Typo, lint, tiny fix | none |
-| Clear feature, one owner | plan (2); design if ambiguous |
+| Typo / mechanical fix | none |
+| Clear feature, one owner | 2; add 1 if ambiguous |
 | Large / multi-system / high risk | 1 → 2 → 3 |
-| User asks for RFC only | run `new-rfc`, but feed any existing DESIGN/PLAN in as investigation inputs |
+| User asks for RFC only | 3, but inject any existing DESIGN/PLAN |
 
-## Priorities (short)
+## Hard gates
 
-1. Unblock verified delivery over perfect docs.  
-2. Prefer parallel independent work when dependencies allow.  
-3. Record learnings as you go; do not batch them at the end.  
+- **MUST** write plans to `PLAN_<OBJECTIVE>.md` (not only chat).
+- **MUST** run critique before treating a plan as ready for implementation or RFC.
+- **MUST NOT** treat "out of scope" as forbidden forever without a revisit path (see overcorrection-review when cutting).
 
-Detail on sequencing: `references/priorities.md` (optional).  
-Organization / multi-package layout: `references/organization.md`, `references/multisubproject.md` (optional).
+## Before finishing (pipeline work)
 
-## Related skills (load by stage)
+- [ ] Correct stage for the situation?
+- [ ] Prior-stage artifact read and reflected?
+- [ ] No forbidden meta files (GLOSSARY/DATA_SOURCES)?
+- [ ] Local meta not staged for commit in a shared repo?
+- [ ] Next stage (or implementation) is explicit?
 
-| Stage | Skills |
-|-------|--------|
-| Design | `design`, `systematic-feature-design`, `socratic-discovery` |
-| Plan | `rigorous-critique`, `critique`, `complete-developer-experience` |
-| RFC | `new-rfc` |
-| Judgment | `engineering-guidelines` (on demand) |
+Optional depth: `references/` (artifacts, priorities, organization).  
+Judgment on demand: `engineering-guidelines`.

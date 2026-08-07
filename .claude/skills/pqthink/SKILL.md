@@ -1,16 +1,16 @@
 ---
 name: pqthink
-disable-model-invocation: true
 description: |
-  Pragmatic architecture judgment. Six-pass analysis for design decisions:
-  what works, what breaks, what ships, what costs, what simplifies, what
-  stays. Use when choosing between approaches or evaluating whether to
-  build something. Invoked via /pqthink.
+  Optional judgment lens only — not a design→plan→RFC pipeline. Use when
+  choosing among approaches. Invocable via /pqthink. See project-process
+  for the actual work pipeline.
 ---
 
 # PQThink
 
-Pragmatic CTO-level judgment. Six passes, each asking one question.
+**Lens, not pipeline.** Does not replace `project-process` stages.
+
+Pragmatic judgment. Six passes, each asking one question.
 
 ## Pass 1: Does it work?
 

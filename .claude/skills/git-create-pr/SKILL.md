@@ -19,6 +19,16 @@ allowed-tools:
 
 Complete workflow from dirty working tree to open pull request.
 
+
+## Common Mistakes
+
+1. **Staging generated files** — check .gitignore covers build output, compiled binaries
+2. **Committing debug output** — search for `fmt.Println`, `console.log`, `print()` in staged diff
+3. **PR title too vague** — "updates" or "fixes" says nothing. Name the thing that changed.
+4. **Missing test plan** — reviewer can't verify without knowing how to test
+5. **Huge PR** — if staged diff is >500 lines, consider splitting into smaller PRs
+6. **Wrong branch base** — verify PR targets the right base branch (usually main)
+
 ## Prerequisites
 
 - On a feature branch (not main/master)
@@ -124,11 +134,8 @@ Return the PR URL to the user.
 7. Never include unrelated changes in the PR
 8. If lint/test/check fails, fix it — don't skip it
 
-## Common Mistakes
+## Before finishing
 
-1. **Staging generated files** — check .gitignore covers build output, compiled binaries
-2. **Committing debug output** — search for `fmt.Println`, `console.log`, `print()` in staged diff
-3. **PR title too vague** — "updates" or "fixes" says nothing. Name the thing that changed.
-4. **Missing test plan** — reviewer can't verify without knowing how to test
-5. **Huge PR** — if staged diff is >500 lines, consider splitting into smaller PRs
-6. **Wrong branch base** — verify PR targets the right base branch (usually main)
+- [ ] Common Mistakes checked against this run?
+- [ ] Required outputs exist (PR/branch/status)?
+- [ ] No trailers in published text?

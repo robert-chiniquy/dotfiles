@@ -2,15 +2,22 @@
 name: critique
 disable-model-invocation: true
 description: |
-  Systematically find problems in a design before building it. Four lenses:
-  unnecessary complexity, missing fundamentals, feasibility gaps, and scope
-  mismatch. Use after creating an implementation plan or when a design feels
-  wrong. Invoked via /critique.
+  Manual alias for pipeline stage 2 critique (same job as rigorous-critique).
+  Invoked via /critique after PLAN_*.md. See project-process.
 ---
 
 # Critique
 
-Apply four lenses to the design. Each lens asks different questions.
+**Same job as `rigorous-critique` (stage 2).** Prefer loading that skill; this
+file is the `/critique` entry. Apply the lenses to the **plan** (and design if
+present), not as a free-floating essay.
+
+## Before finishing
+
+- [ ] Findings numbered with lens + fix?
+- [ ] Plan file updated or rejected?
+
+## Lenses
 
 ## Lens 1: Unnecessary Complexity
 
@@ -40,6 +47,17 @@ Apply four lenses to the design. Each lens asks different questions.
 * Are we building Level 2 (polish) before Level 0 (platform)?
 * What's the gap between the demo and production?
 * Which features are solving the wrong problem?
+
+## Lens 5: Overcorrection
+
+Apply `$overcorrection-review` to the design and to the fixes proposed by the
+other lenses.
+
+* Which proposed cuts or guardrails rely on unmeasured difficulty, cost, risk,
+  or value?
+* Has a staged choice become a permanent exclusion?
+* Does each mitigation match the failure it addresses?
+* What evidence would justify the stricter choice?
 
 ## Output Format
 

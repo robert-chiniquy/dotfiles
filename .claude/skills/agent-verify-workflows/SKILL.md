@@ -15,6 +15,18 @@ flows), a runner command template, and whatever executes flows (Playwright,
 HTTP, curl). The manager only reads the manifest, invokes the runner, and
 parses its stdout JSON. Not a substitute for unit/integration tests.
 
+
+## Common Mistakes
+
+- Writing Playwright or driving a DOM from the manager. The manager never
+  spawns a browser — the runner is the seam.
+- Adding assertions in the manager. Assertions live in flows; the manager's
+  only judgment is pass/fail + which step failed.
+- Synthesizing flows on the fly. Flows are additions to the app repo; if a
+  flow isn't in the manifest, ask for it to be added — do not improvise one.
+- Inferring success from logs or partial output. Exit code and JSON `status`
+  are the only sources of truth; malformed output is itself the failure.
+
 ## Manifest
 
 `.verify/workflows.yaml`:
@@ -105,13 +117,8 @@ objects:
 Selectors live in page objects, intent in flows; the manager never sees
 selectors or DOM, only named steps and results.
 
-## Common Mistakes
+## Before finishing
 
-- Writing Playwright or driving a DOM from the manager. The manager never
-  spawns a browser — the runner is the seam.
-- Adding assertions in the manager. Assertions live in flows; the manager's
-  only judgment is pass/fail + which step failed.
-- Synthesizing flows on the fly. Flows are additions to the app repo; if a
-  flow isn't in the manifest, ask for it to be added — do not improvise one.
-- Inferring success from logs or partial output. Exit code and JSON `status`
-  are the only sources of truth; malformed output is itself the failure.
+- [ ] Common Mistakes checked against this run?
+- [ ] Required outputs exist (PR/branch/status)?
+- [ ] No trailers in published text?

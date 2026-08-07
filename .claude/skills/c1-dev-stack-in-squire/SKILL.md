@@ -15,6 +15,14 @@ description: >-
 
 Runbook — follow as a script; skipped steps make the stack flap.
 
+
+## Common Mistakes
+
+1. **Using Tilt in squire c1 env** — runtime is squire-envmgr / process-compose, not Tilt.
+2. **Assuming services are up without `env_status` / health** — verify before client tests.
+3. **Minting clients without ensure-tenant** — order: ensure → ensure-tenant → mint-test-client.
+4. **Long-lived processes over plain ssh without setsid** — they die with the session.
+
 ## When to use
 
 - Driving the Latchkey CLI (or any c1 client) end-to-end against a real c1
@@ -25,9 +33,11 @@ Runbook — follow as a script; skipped steps make the stack flap.
 ## Prerequisites
 
 - `squire` CLI authenticated to the gateway (`squire login` if needed).
-- An entry in `/etc/hosts` mapping `127.0.0.1 c1dev.c1.ductone.com` (one-time;
-  pub-auth resolves the tenant from the Host header; the dev tenant is
-  `c1dev` on installation domain `c1.ductone.com`).
+- An entry in `/etc/hosts` mapping `127.0.0.1 <tenant-subdomain>.<installation-domain>`
+  (one-time). The Host label is **only** for HTTP/gRPC routing via
+  `tenants.SplitDomain`. It is **not** the multipass/latchkey `--tenant` value
+  (that is the tenant **id** from mint-test-client / whoami). Read both from
+  mint output: `tenant_domain=…` vs `tenant_id=…`.
 - The default squire image does **not** ship with c1 cloned, despite what the
   generic squire-env-management skill claims. Clone it manually.
 
@@ -116,6 +126,9 @@ squire ssh <env> -- "sed -i \
 
 ```bash
 # Cold build of all 21 binaries — about 11 minutes on small flavor.
+# SQUIRE_ENV_ID must be set in the shell (squire injects it) so Makefile
+# GO_TAGS=squire lands in every binary; without it be-ratelimit dies on
+# Redis TLS (see "If be-ratelimit crashloops").
 squire ssh <env> -- "nohup nix develop /data/squire/src/c1#localdev \
   --command bash -c 'export GOOS=linux GOARCH=arm64 && \
     make -C /data/squire/src/c1 pc/build && \
@@ -160,8 +173,46 @@ squire ssh <env> -- "curl -sf http://localhost:8080/processes | \
   jq -r '.data[] | \"\(.name): \(.status)\"' | sort"
 ```
 
-Wait until `postgres / valkey / pub-api / pub-auth / be-session / be-vault / be-innkeeper` are
-all `Running` and `ensure: Completed`. Bringup takes 1-2 minutes.
+Wait until `postgres / valkey / pub-api / pub-auth / be-session / be-ratelimit /
+be-vault / be-innkeeper` are all `Running` and `ensure: Completed`. Bringup
+takes 1-2 minutes. **Do not skip `be-ratelimit`** — client errors that mention
+`127.0.0.1:6014` are almost always ratelimit, not session (session is **6015**).
+
+### If `be-ratelimit` crashloops (dial `127.0.0.1:6014` / introspect 503)
+
+Port map (dev process-compose): **be-ratelimit :6014**, **be-session :6015**.
+pub-api uses `API_RATELIMIT_PORT=6014` and `API_SESSION_PORT=6015`. CreateVault,
+introspect, and other gated RPCs fail with `GRPC_UNAVAILABLE` / connection
+refused / TLS handshake errors citing **6014** when ratelimit is down — not
+because session is mis-pointed.
+
+Typical cause on a long-lived env: binary built **without** `-tags=squire`.
+Valkey is TLS-only on `127.0.0.1:6379`; squire builds set Redis TLS `ServerName`
+via `usquire.AdjustRedisTLS` (`pkg/usquire/squire.go`). Production/`!squire`
+builds leave that a no-op (`noop.go`), and init dies with:
+
+`RedisRateLimitCache: ping failed on init: tls: either ServerName or InsecureSkipVerify must be specified`
+
+Makefile auto-sets `GO_TAGS=squire` when `SQUIRE_ENV_ID` is set. Rebuild and
+restart:
+
+```bash
+squire ssh <env> -- 'cd /data/squire/src/c1 && \
+  nix develop .#localdev --command make dev-be-ratelimit GO_TAGS=squire GO_BUILDVCS=false && \
+  curl -sf -X POST http://localhost:8080/process/restart/be-ratelimit'
+# expect Ready + listen *:6014 + https://127.0.0.1:4514/ready
+```
+
+If postgres is also `Restarting` (dirty shutdown / orphaned postmaster), recover
+it first — ratelimit and most be-* services will not stay healthy while
+postgres flaps. Clean stop orphans, then process-compose restart:
+
+```bash
+squire ssh <env> -- 'cd /data/squire/src/c1
+# if a manual/orphan postgres holds 5432, stop it cleanly; then:
+curl -sf -X POST http://localhost:8080/process/restart/postgres
+pg_isready -h 127.0.0.1 -p 5432'
+```
 
 ### If `be-innkeeper: Skipped`
 
@@ -216,19 +267,21 @@ curl -sf -X POST http://localhost:8080/process/restart/pub-api"
 them to `SystemOwnerRoleId`, and mints a personal OAuth2 client.
 
 ```bash
+# TENANT_DOMAIN = innkeeper short domain from ensure / innkeeper (NOT tenant id)
 squire ssh <env> -- "set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a;
 /data/squire/src/c1/build/linux_arm64/dev-util/dev-util mint-test-client \
-  --tenant-domain=c1dev --log_level=error" 2>&1 | grep -E '^(client_|user_|tenant_)'
+  --tenant-domain=\${TENANT_DOMAIN:?set from ensure/tenant_domain} --log_level=error" \
+  2>&1 | grep -E '^(client_|user_|tenant_)'
 ```
 
-Output is grep-able:
+Output is grep-able (save **all** four — they are different identifiers):
 
 ```
-client_id=mellow-flatcar-10265@c1dev.c1.ductone.com/pcc
-client_secret=secret-token:conductorone.com:v1:eyJrdHk...
-user_id=3D5vAVJPtjmttwCTphpWsZ2uVav
-tenant_id=3D5ijhr15puycSTgo0ol87hz4yE
-tenant_domain=c1dev
+client_id=<cute-name>@<tenant_domain>.<installation_domain>/pcc
+client_secret=secret-token:conductorone.com:v1:…
+user_id=<user id>
+tenant_id=<tenant id>          # multipass --tenant / device register --tenant
+tenant_domain=<short domain>   # authorize --tenant-domain ONLY
 ```
 
 **Multi-principal tests: pass `--user-email`.** The user is keyed by email
@@ -237,20 +290,49 @@ without `--user-email` mints a new client for the SAME user, which silently
 defeats any two-principal flow (share-to-self). For a second principal:
 `--user-email=test-cli-b@dev.local --display-name=test-cli-b`.
 
-The client_id encodes the tenant's installation domain (`c1.ductone.com`
-in this default config). If the env has a different `INNKEEPER_INSTALLATION_DOMAIN`
-(squire envs sometimes get squire-specific ones like
-`envoy--<env-id>.us-west-2.squire.ductone.com`), the client_id will look
-different and the laptop /etc/hosts entry won't apply.
+The client_id encodes the tenant Host (tenant_domain + installation domain).
+If the env has a different `INNKEEPER_INSTALLATION_DOMAIN` (squire public
+hosts use the `--` collapsed form), the client_id host portion changes and
+the laptop `/etc/hosts` entry must match **that** Host, not a guessed label.
+
+### Step 5b — stuck value grant after share (dogfood)
+
+With Latchkey FF grant-activated placement, ShareSecret grants **metadata**
+now and files a **value** grant ticket. If that ticket never reaches
+PROVISION_COMPLETE (App-owner approval with no current approver is common in
+dev), the grantee can accept/join MLS and still fail OpenSecret
+(`UserHasVaultValueAccess` false → remapped `NOT_FOUND`).
+
+Bypass for dogfood (product path remains ticket auto-provision):
+
+```bash
+squire ssh <env> -- "set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a;
+/data/squire/src/c1/build/linux_arm64/dev-util/dev-util complete-value-grant \
+  --tenant-domain=\${TENANT_DOMAIN} \
+  --vault-boundary-id=vault-… \
+  --user-id=<grantee-bare-user-id> \
+  --log_level=warn"
+# expect: value_grant_completed=true post_value_access=true
+# optional: --owner-user-id=… (default: first ListVaultOwnerUserIDs)
+```
+
+Rebuild dev-util after pulling the command (branch or main once merged):
+`go build -o build/linux_arm64/dev-util/dev-util ./cmd/dev-util` under
+`nix develop #localdev` with dev-shell.env sourced.
 
 ## Step 6 — drive a client from your laptop
 
 ```bash
+# TENANT_HOST = <tenant_domain>.<installation_domain> from mint client_id
+# (the part between @ and /pcc). Never use this string as multipass --tenant.
+TENANT_HOST="<tenant_domain>.<installation_domain>"
+
 # (a) tunnel envoy 2443 — squire's own `tunnel` mangles TLS bytes; use ssh -L
-ssh -fN -L 12443:127.0.0.1:2443 <env>.squire
+# Prefer local :2443 so gRPC :authority matches the default installation port.
+ssh -fN -L 2443:127.0.0.1:2443 <env>.squire
 
 # (b) /etc/hosts (one-time, requires sudo)
-echo "127.0.0.1 c1dev.c1.ductone.com" | sudo tee -a /etc/hosts
+echo "127.0.0.1 ${TENANT_HOST}" | sudo tee -a /etc/hosts
 
 # (c) pull the dev CA fresh — it's regenerated by certgen on each pc/init
 scp <env>.squire:/data/squire/src/c1/.dev/pki/service-ca.crt /tmp/c1-dev-ca.pem
@@ -260,24 +342,24 @@ Then drive the client. For Latchkey:
 
 ```bash
 latchkey \
-  --c1-url https://c1dev.c1.ductone.com:12443 \
+  --c1-url "https://${TENANT_HOST}:2443" \
   --tls-trust-cert /tmp/c1-dev-ca.pem \
   --tls-server-name localhost \
-  --client-id "mellow-flatcar-10265@c1dev.c1.ductone.com/pcc" \
-  --client-secret "secret-token:..." \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
   vault list
 ```
 
 Why these flags:
-- URL host is the **tenant** subdomain so pub-auth's `tenants.SplitDomain`
-  finds the c1dev tenant and pub-api's authn middleware accepts the request.
+- URL host is the **routing** Host so pub-auth `tenants.SplitDomain` finds the
+  tenant. It is **not** the multipass `--tenant` argument (use `tenant_id=`).
 - `--tls-server-name=localhost` because the dev cert SAN is `localhost` plus
-  internal-service DNS names — it doesn't include `c1dev.c1.ductone.com`. The
-  override tells tonic + reqwest to validate against the `localhost` SAN
-  while the URL host stays `c1dev.c1.ductone.com` for routing.
-- The CLI exchanges client_credentials against
-  `https://c1dev.c1.ductone.com:12443/auth/v1/token` (pub-auth, not the
-  legacy `/auth/token`) on startup, then uses the access token as Bearer.
+  internal-service DNS names — not the tenant Host. Validate against
+  `localhost` while the URL Host stays the routing label.
+- Token URL is `{c1-url}/auth/v1/token` (pub-auth). Keep **pub-api and
+  pub-auth build tags aligned** (`GO_TAGS=squire` or not): squire builds
+  expect the `--` Host separator; untagged builds expect `.`. Mixing tags
+  yields `invalid domain` / `invalid installation domain` on one surface.
 
 ## Smoke test (30s) — is this env still healthy?
 
@@ -292,26 +374,28 @@ CLIENT_SECRET="..."
 # (1) Inside the env — pc states + critical service health.
 squire ssh "$ENV" -- '
   cd /data/squire/src/c1
-  pc/list 2>/dev/null | grep -E "envoy|pub-api|pub-auth|be-session|be-innkeeper|postgres|valkey" \
+  pc/list 2>/dev/null | grep -E "envoy|pub-api|pub-auth|be-session|be-ratelimit|be-innkeeper|postgres|valkey" \
     | awk "{ printf \"%-20s %s\n\", \$1, \$2 }"
   echo "---"
   curl -ksf https://localhost:2443/healthz/ready && echo "envoy: OK" || echo "envoy: FAIL"
+  ss -lntp 2>/dev/null | grep -E ":6014|:6015" || true
 '
 
 # (2) From the laptop — OAuth round-trip against the SSH-forwarded envoy.
 #     Returns the access_token if pub-auth + dev CA + tunnel all work.
+#     TENANT_HOST from mint client_id (see Step 5).
 curl -sf --cacert /tmp/c1-dev-ca.pem \
-  --resolve c1dev.c1.ductone.com:12443:127.0.0.1 \
+  --resolve "${TENANT_HOST}:2443:127.0.0.1" \
   -d grant_type=client_credentials \
   -d client_id="$CLIENT_ID" \
   -d client_secret="$CLIENT_SECRET" \
-  https://c1dev.c1.ductone.com:12443/auth/v1/token \
+  "https://${TENANT_HOST}:2443/auth/v1/token" \
   | jq -r '.access_token // .error_description // .error' | head -c 80; echo
 
 # (3) Trivial gRPC roundtrip via the CLI. Empty list = stack is
 #     healthy and your principal has Latchkey perms.
 latchkey \
-  --c1-url https://c1dev.c1.ductone.com:12443 \
+  --c1-url "https://${TENANT_HOST}:2443" \
   --tls-trust-cert /tmp/c1-dev-ca.pem \
   --tls-server-name localhost \
   --client-id "$CLIENT_ID" \
@@ -327,11 +411,15 @@ Failure mapping:
   has flapped. Open `pc/attach`, restart the failing service, and consult the
   Verification chain table for root causes (postgres unix-socket perms,
   innkeeper Zoho env, etc.).
+- **(1) be-ratelimit not Running / nothing on :6014**: rebuild with
+  `GO_TAGS=squire` (see "If be-ratelimit crashloops" above). Do not chase
+  multipass/session knobs first.
 - **(2) returns `error` / `error_description`**: pub-auth is up but rejecting
   the credentials. Re-mint with `dev-util mint-test-client` and update
   CLIENT_ID/CLIENT_SECRET.
 - **(2) curl exits non-zero**: SSH tunnel is dead or `/etc/hosts` lost the
-  `c1dev.c1.ductone.com` mapping. Re-run the laptop setup one-liners.
+  routing Host mapping. Re-run the laptop setup one-liners with the Host
+  from the current mint client_id.
 - **(3) succeeds with `{"list":[]}` but you expected vaults**: principal
   mints but lacks Latchkey perms — re-check the SystemOwner ServiceRoles +
   tenant Latchkey FF (Verification table).
@@ -347,12 +435,44 @@ per-tenant flow.
 | Symptom | Meaning |
 |---|---|
 | `transport: error sending request` | Stale CA cert. SCP `/data/squire/src/c1/.dev/pki/service-ca.crt` fresh. |
-| `Invalid input domain: 'localhost:12443'` | Forgot the /etc/hosts entry; URL host needs to be the tenant subdomain. |
+| `Invalid input domain: 'localhost:…'` | Forgot the /etc/hosts entry; URL Host must be `<tenant_domain>.<installation>` (routing Host), not localhost. |
+| `Invalid input domain` with a dotted Host while pub-api is `-tags=squire` | Squire builds use `--` Host separator; untagged builds use `.`. Rebuild pub-api/pub-auth with the **same** `GO_TAGS` or switch Host form. |
+| multipass `DEVICE_KEY_TENANT_MISMATCH` after `--tenant <label>` | You passed `tenant_domain` / Host label. Use mint `tenant_id=` (or whoami `tenant`). |
 | `dynamo: no item found` (mint-test-client) | be-innkeeper never came up; CrossTenantSettings missing. Restart innkeeper + re-run ensure. |
 | `not_found (5)` from `/auth/v1/token` | Client_id/secret don't match a row in postgres. Re-run mint-test-client. |
 | `oauth2 invalid_client` (CLI) | Same as above; CLI maps OAuth `invalid_client` to `Unauthenticated`. |
 | `policy_denied (PermissionDenied: ...)` | Auth chain works — user just lacks permissions for the specific RPC. `SystemOwnerRoleId`'s `ServiceRoles` list is a hand-rolled allowlist in `pkg/builtin_roles/builtin_roles.go::GetSystemOwner` — newer services aren't in it by default (e.g. Latchkey). Add `latchkey_v1.LatchkeyServiceOwnerRole` (or whichever new service-role) to the slice and rebuild + restart pub-api **and** be-session (be-session builds the passport). The persisted role record in dynamo is overlayed by `builtin_roles.ApplyBuiltinAttributes` on every read, so rebuilding the binaries is enough — no DB migration needed. |
 | `unauthenticated` | Bearer token invalid or expired (default lifetime is 30 min). Re-run with fresh creds. |
+| Client `GRPC_UNAVAILABLE` / dial **`127.0.0.1:6014`** (CreateVault, introspect 503) | **be-ratelimit** down, not session. Session is **6015**. Rebuild `be-ratelimit` with `GO_TAGS=squire` (Redis TLS ServerName); fix postgres if it is also flapping. See "If be-ratelimit crashloops". |
+| be-ratelimit log: `RedisRateLimitCache: ping failed` + `ServerName or InsecureSkipVerify` | Binary missing `-tags=squire`. `make dev-be-ratelimit GO_TAGS=squire` and restart. |
+
+## GO_TAGS consistency (pub-api / pub-auth Host separator)
+
+**Never rebuild only one of `pub-api` / `pub-auth` with a different `GO_TAGS`
+than the rest of the front-door pair.**
+
+`usquire.SubdomainSeparator()` is compile-time:
+
+| Build | Separator | Routing Host form |
+|---|---|---|
+| `-tags=squire` | `--` | `<tenant>--<installation>` |
+| untagged (`!squire`) | `.` | `<tenant>.<installation>` |
+
+If pub-api is squire-tagged and pub-auth is not (or the reverse):
+
+- Token exchange can succeed while gRPC returns `invalid domain` / `Unauthenticated`
+- Or token returns `invalid installation domain` while gRPC would accept the other form
+
+Dogfood incident (2026-08): rebuilt **only** pub-api with `GO_TAGS=squire` for a
+diagnostic patch; produce path died on Host form until pub-api was rebuilt to
+**match** live pub-auth tags. When patching a single binary: either
+`make pc/restart/pub-api` (inherits Makefile `GO_TAGS ?= squire` when
+`SQUIRE_ENV_ID` is set — rebuild the **pair** if you need untagged Hosts), or
+explicitly pass the same `GO_TAGS` both services already run with.
+
+Also: `be-ratelimit` **must** be squire-tagged for Redis TLS (`AdjustRedisTLS`).
+That is independent of the pub Host form — ratelimit stays squire; the
+constraint above is specifically **pub-api ↔ pub-auth** Host parsing.
 
 ## Squire-env-specific caveats
 
@@ -367,10 +487,9 @@ per-tenant flow.
   `assistant message prefill` 400 error mid-session and stop streaming. The
   partial work is salvageable — check `git log` and `git ls-remote origin`
   from the env; if a branch is pushed, drive the rest from outside.
-- Each squire env's `INNKEEPER_INSTALLATION_DOMAIN` is set per-env. In
-  cloud-routed envs it's a squire subdomain; otherwise the default is
-  `c1.ductone.com`. Check `.dev/env/be-innkeeper.env` before composing
-  tenant URLs.
+- Each squire env's `INNKEEPER_INSTALLATION_DOMAIN` is set per-env. Check
+  `.dev/env/be-innkeeper.env` before composing routing Hosts. Never use that
+  Host (or the innkeeper short domain) as multipass `--tenant`.
 
 ## Running c1 integration tests in a Squire env (no docker)
 
@@ -448,3 +567,10 @@ squire env delete <env-id>
 
 State on EFS persists between stop/start; the dev CA + postgres data + minted
 clients all survive.
+
+## Before finishing
+
+- [ ] Env healthy and required services up?
+- [ ] Client credentials minted correctly?
+- [ ] No Tilt-based instructions left in the runbook for this env?
+

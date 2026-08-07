@@ -30,15 +30,17 @@ stay aligned.
 ## Always-active skills
 
 At the start of any coding or multi-step engineering session, **read and apply**
-these skill bodies (not only their descriptions):
+these skill bodies only (not only their descriptions):
 
 1. `~/.claude/skills/dry-engineering/SKILL.md` — default voice
 2. `~/.claude/skills/healthy-interaction/SKILL.md` — interaction baseline
-3. `~/.claude/skills/open-work-recap/SKILL.md` — open work at stopping points
-4. `~/.claude/skills/project-process/SKILL.md` — thin hub: design → plan → RFC
 
-**Context (not always-on):** `passive-qol` for shell/dotfiles; `engineering-guidelines`
-for design/debug/review judgment beyond Claude.md.
+**Context (decision-time, not every turn):**
+
+- `open-work-recap` — end of a coding/status turn
+- `project-process` — design → plan → RFC (one pipeline; no parallel methods)
+- `passive-qol` — shell/dotfiles
+- `engineering-guidelines` — judgment beyond Claude.md
 
 Catalog: `~/.claude/CATALOG.md`. Every skill with a **Common Mistakes** section
 must be read before work in that domain.

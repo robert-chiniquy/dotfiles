@@ -19,6 +19,49 @@ Squire provisions ephemeral dev environments — per-env container, services,
 and agent session. The in-env agent is OpenCode, NOT Claude Code. The CLI
 surface moves; when a flag matters, verify with `--help` before scripting it.
 
+
+## Common Mistakes
+
+- **Passing a long brief as a shell argument** — backticks and `$(...)` in
+  the brief get shell-interpreted. Use `squire task create --prompt-file`
+  (or scp a brief file in and send a one-line pointer prompt).
+- **Assuming `-p` attaches** — `squire new -p` now exits immediately
+  (fire-and-forget by default); `--attach` to watch. Older docs said the
+  opposite.
+- **Using `git clone` URL for repos not in the GitHub App** — use bundle +
+  scp. Symptom: `could not read Username for 'https://github.com/...'`.
+- **Assuming `gh` is authenticated in-env** — installed but NOT logged in.
+  Either pre-stage data via scp before dispatch (cheapest for bounded tasks
+  like review), or mint a short-lived token via the envmgr `git_token` MCP
+  tool and export `GH_TOKEN` (expires ~30 min; only covers App repos).
+- **Wrong prompt payload** — `{"content": "..."}` does not work; missing
+  `role: "user"` is the silent killer. See the Fallback section.
+- **Talking to port 4096** — the authenticated server is on a random port;
+  a self-started 4096 server lacks the API key.
+- **Editing payload JSON in-env with `jq`** — passes shape checks, fails at
+  model invocation. Write locally, scp in.
+- **The `question` tool** — see above; ban it in every brief.
+- **Stopped envs** — envs auto-stop on idle; `squire env start <name>`
+  wakes them (disk state and commits preserved; the OpenCode port changes).
+  Add "if env stopped, report and stop polling it" to loop prompts.
+- **Committed `[patch]` tables (Rust multi-repo)** — a `[patch]` block
+  pointing at `/data/squire/src/` siblings papers over a missing upstream
+  change; on a clean clone the consumer fails to compile. Make the sibling
+  change in the same dispatch (commits in both repos) or stop at the
+  boundary and document it in the status note.
+- **Piping binary through `squire ssh`** — mangles non-UTF-8. Use `scp`.
+- **Missing quotes around ssh commands** — `squire ssh <id> -- cd /foo &&
+  bar` runs `bar` locally.
+- **Stale bd lock from crashed subagents** — `bd` reports another process
+  holds the lock; verify with `lsof`, then remove
+  `.beads/embeddeddolt/.lock`.
+- **Workspace directory** — verify `/data/squire/src/` contents before
+  dispatch and name full repo paths in the brief; the session `directory`
+  field shows where the agent actually works.
+- **OpenCode log files may not exist** on newer images (`--print-logs`
+  only). For model-drift checks, hit the session API:
+  `curl -sf http://localhost:<port>/session/<sid>/message | jq '.[-1].metadata.assistant.modelID'`.
+
 ## Core Commands
 
 ```bash
@@ -188,12 +231,12 @@ stalled (no changes, no recent activity).
 ```
 
 Delegation split (keeps main context lean):
-- **Haiku-safe (mechanical reads):** batch polling across N envs (task
-  list + git log + git status in one subagent call), bundle extraction,
-  env setup. Always include "do NOT modify any files" in the Haiku prompt.
-- **Keep in the main model (judgment):** stall detection (nudge vs wait vs
-  cut off), cherry-pick/conflict resolution, brief authoring, task
-  selection. Pattern: Haiku collects facts, the main model decides.
+- **Cheap read-only subagent (mechanical reads):** batch polling across N
+  envs (task list + git log + git status), bundle extraction, env setup.
+  Brief MUST say do NOT modify any files.
+- **Main model (judgment):** stall detection (nudge vs wait vs cut off),
+  cherry-pick/conflict resolution, brief authoring, task selection.
+  Pattern: cheap subagent collects facts; main model decides.
 
 ## Dispatch Backlog and Autonomous Queue
 
@@ -254,7 +297,7 @@ per active task across all running envs.
 ## Extracting Work from Envs
 
 Envs without GitHub App access for the repo can't push. Extract via bundle
-(Haiku-delegable):
+(cheap read-only subagent OK):
 
 ```bash
 squire ssh <id> -- "git -C /data/squire/src/repo bundle create /tmp/work.bundle <base-sha>..HEAD"
@@ -368,44 +411,10 @@ otherwise abandon and re-dispatch with the rule embedded.
 only) enables env-to-env delegation; the same options are on `squire new`
 for CLI callers.
 
-## Common Mistakes
+## Before finishing
 
-- **Passing a long brief as a shell argument** — backticks and `$(...)` in
-  the brief get shell-interpreted. Use `squire task create --prompt-file`
-  (or scp a brief file in and send a one-line pointer prompt).
-- **Assuming `-p` attaches** — `squire new -p` now exits immediately
-  (fire-and-forget by default); `--attach` to watch. Older docs said the
-  opposite.
-- **Using `git clone` URL for repos not in the GitHub App** — use bundle +
-  scp. Symptom: `could not read Username for 'https://github.com/...'`.
-- **Assuming `gh` is authenticated in-env** — installed but NOT logged in.
-  Either pre-stage data via scp before dispatch (cheapest for bounded tasks
-  like review), or mint a short-lived token via the envmgr `git_token` MCP
-  tool and export `GH_TOKEN` (expires ~30 min; only covers App repos).
-- **Wrong prompt payload** — `{"content": "..."}` does not work; missing
-  `role: "user"` is the silent killer. See the Fallback section.
-- **Talking to port 4096** — the authenticated server is on a random port;
-  a self-started 4096 server lacks the API key.
-- **Editing payload JSON in-env with `jq`** — passes shape checks, fails at
-  model invocation. Write locally, scp in.
-- **The `question` tool** — see above; ban it in every brief.
-- **Stopped envs** — envs auto-stop on idle; `squire env start <name>`
-  wakes them (disk state and commits preserved; the OpenCode port changes).
-  Add "if env stopped, report and stop polling it" to loop prompts.
-- **Committed `[patch]` tables (Rust multi-repo)** — a `[patch]` block
-  pointing at `/data/squire/src/` siblings papers over a missing upstream
-  change; on a clean clone the consumer fails to compile. Make the sibling
-  change in the same dispatch (commits in both repos) or stop at the
-  boundary and document it in the status note.
-- **Piping binary through `squire ssh`** — mangles non-UTF-8. Use `scp`.
-- **Missing quotes around ssh commands** — `squire ssh <id> -- cd /foo &&
-  bar` runs `bar` locally.
-- **Stale bd lock from crashed subagents** — `bd` reports another process
-  holds the lock; verify with `lsof`, then remove
-  `.beads/embeddeddolt/.lock`.
-- **Workspace directory** — verify `/data/squire/src/` contents before
-  dispatch and name full repo paths in the brief; the session `directory`
-  field shows where the agent actually works.
-- **OpenCode log files may not exist** on newer images (`--print-logs`
-  only). For model-drift checks, hit the session API:
-  `curl -sf http://localhost:<port>/session/<sid>/message | jq '.[-1].metadata.assistant.modelID'`.
+- [ ] Brief via `--prompt-file` (not shell-arg) if long?
+- [ ] Model pinned / whitelisted?
+- [ ] `question` tool banned in brief?
+- [ ] Gates defined and green before claiming done?
+- [ ] No committed env-only `[patch]` tables?

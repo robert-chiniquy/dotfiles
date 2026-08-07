@@ -2,21 +2,31 @@
 name: design
 disable-model-invocation: true
 description: |
-  Feature design methodology. Covers research, comparison, requirements
-  refinement, ideation, implementation planning, and DX completeness.
-  Use when starting a new feature, planning a refactor, or designing APIs.
-  Invoked via /design [topic].
+  Pipeline stage 1 (default depth) for design → plan → RFC. Invoked via
+  /design [topic]. For large/architecture work use systematic-feature-design
+  instead — not both as parallel methods. See project-process.
 argument-hint: "[feature or topic]"
 ---
 
 # Design
 
-**Pipeline stage 1** of design → implementation plan → RFC (see `project-process`).
-Output should land in `DESIGN_<topic>.md` (or a path the user names) so stage 2
-(`PLAN_<OBJECTIVE>.md`) can consume it.
+**Pipeline stage 1 (default).** See `project-process`. Produce `DESIGN_<topic>.md`
+for stage 2. **MUST NOT** invent a second design methodology alongside this.
 
-Structured approach to feature design. Not every step applies to every feature.
-Skip steps that don't add value. The sequence matters more than completeness.
+## Common Mistakes
+
+1. Jumping to implementation without a written design when the problem is ambiguous.
+2. Writing a design that stage 2 cannot consume (no options/choice/open questions).
+3. Running systematic-feature-design *and* this skill as competing full processes.
+
+## Before finishing
+
+- [ ] `DESIGN_*.md` written?
+- [ ] Chosen direction explicit?
+- [ ] Open questions listed?
+- [ ] Ready for `PLAN_*.md` + rigorous-critique?
+
+Not every step below applies; skip what doesn't add value.
 
 ## Steps
 

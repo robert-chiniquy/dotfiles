@@ -21,6 +21,15 @@ allowed-tools:
 Systematic workspace cleanup in six phases. Safe by default — every destructive
 action requires confirmation.
 
+
+## Common Mistakes
+
+1. **Deleting a branch that has unpushed commits** — always check `git log main..branch` before deleting
+2. **Pruning a worktree that's mid-work** — check `git -C <worktree> status` first
+3. **Killing a background process that belongs to another project** — identify the process fully before killing
+4. **Running on a shared repo without coordination** — don't prune remote branches other people use
+5. **Forgetting stashes** — `git stash list` is easy to skip but stashes contain real work
+
 ## When to Use
 
 - End of day/week cleanup
@@ -154,10 +163,8 @@ Present final state. Note any intentional deviations.
 5. **Stale = merged into main or last commit >30 days ago** — not just "old"
 6. **Worktrees with changes are not orphaned** — they have work in progress
 
-## Common Mistakes
+## Before finishing
 
-1. **Deleting a branch that has unpushed commits** — always check `git log main..branch` before deleting
-2. **Pruning a worktree that's mid-work** — check `git -C <worktree> status` first
-3. **Killing a background process that belongs to another project** — identify the process fully before killing
-4. **Running on a shared repo without coordination** — don't prune remote branches other people use
-5. **Forgetting stashes** — `git stash list` is easy to skip but stashes contain real work
+- [ ] Common Mistakes checked against this run?
+- [ ] Required outputs exist (PR/branch/status)?
+- [ ] No trailers in published text?

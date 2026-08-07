@@ -19,13 +19,13 @@ skill bodies**, not only this index.
 |-------|-------------|
 | dry-engineering | Default voice: code review style, commit messages, explanations |
 | healthy-interaction | Baseline interaction dispositions (no sycophancy, no therapy mode) |
-| open-work-recap | Coding stopping-point recap: open PRs/tickets/issues (URLs) + Next |
-| project-process | Thin hub: optional artifacts + design → plan → RFC pipeline |
 
 ## Context-Activated
 
 | Skill | Trigger |
 |-------|---------|
+| open-work-recap | End of coding/status turn: open items + Next checklist |
+| project-process | Non-trivial work: design → plan → RFC hub (one path) |
 | engineering-guidelines | Design, debug, review, or quality judgment beyond Claude.md |
 | passive-qol | Dotfiles, shell config, system QoL, friction |
 | casual-slack-tone | Slack messages, DMs, PR descriptions on own repos |
@@ -35,10 +35,11 @@ skill bodies**, not only this index.
 | terraform / terraform-skill | .tf files, HCL, infrastructure pipelines |
 | protogen | .proto files, gRPC, codegen |
 | documentation | Writing or reviewing docs |
-| design | `/design` — stage 1 of design → plan → RFC |
-| systematic-feature-design | Large feature / architecture design (stage 1 depth) |
-| rigorous-critique / critique | After a plan, before treating it as ready (stage 2) |
-| new-rfc | Stage 3: adversarially reviewed RFC from design+plan |
+| design | Stage 1 default depth (`/design`); see project-process |
+| systematic-feature-design | Stage 1 **only** when large/architecture (not a second pipeline) |
+| rigorous-critique | Stage 2 **only** critique path (canonical) |
+| critique | `/critique` alias for rigorous-critique job |
+| new-rfc | Stage 3 **only** RFC path |
 | socratic-discovery | Progressive questions for consensus / assumptions |
 | complete-developer-experience | Tools + docs + agents for developer-facing features |
 | overcorrection-review | Needless complexity, premature exclusions, cost/value claims |
@@ -136,13 +137,19 @@ pptx, execute-plan, resume-*, game-*, etc.). Prefer project/user skills when nam
    real semantic collision by renaming or disabling one explicit skill path,
    not by shrinking the shared mirror.
 
-## Work pipeline (project-process)
+## Work pipeline (project-process) — one path only
 
-1. **Design** → `DESIGN_<topic>.md` (`design` / `systematic-feature-design`)
-2. **Implementation plan** → `PLAN_<OBJECTIVE>.md` (critique before ready)
-3. **RFC** → `new-rfc` (consumes design + plan; owner gate; no auto-impl)
+1. **Design** → `DESIGN_<topic>.md` — depth skill: `design`, or `systematic-feature-design` if large  
+2. **Plan** → `PLAN_<OBJECTIVE>.md` — critique with `rigorous-critique` before ready  
+3. **RFC** → `new-rfc` only — consumes design+plan; owner gate; no auto-impl  
 
-Skip stages for trivial work; do not invent a later stage that ignores an earlier artifact.
+Skip stages for trivial work. **MUST NOT** invent parallel methodologies (pqthink/socratic are lenses, not alternate pipelines).
+
+## Skill construction (compliance)
+
+- Skills >~100 lines: **Common Mistakes first** (or immediately after a 1-paragraph intro).  
+- High-stakes skills: end with **Before finishing** (≤5 checkboxes).  
+- Gates use MUST/MUST NOT, not prefer/should.
 
 ## Backup
 

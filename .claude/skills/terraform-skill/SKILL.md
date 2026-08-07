@@ -11,6 +11,14 @@ metadata:
 
 Comprehensive Terraform and OpenTofu guidance covering testing, modules, CI/CD, and production patterns. Based on terraform-best-practices.com and enterprise experience.
 
+
+## Common Mistakes
+
+1. **Editing state by hand** — use terraform state subcommands; never hand-edit state files.
+2. **Plan not reviewed before apply** — MUST show plan; apply only after intent matches.
+3. **Hardcoding secrets in .tf** — use variables + secret stores; never commit secrets.
+4. **Partial applies without dependency order** — respect module/resource graph.
+
 ## When to Use This Skill
 
 **Activate this skill when:**
@@ -514,3 +522,10 @@ This skill uses **progressive disclosure** - essential information is in this ma
 This skill is licensed under the **Apache License 2.0**. See the LICENSE file for full terms.
 
 **Copyright © 2026 Anton Babenko**
+
+## Before finishing
+
+- [ ] fmt/validate (and plan when mutating) done?
+- [ ] No secrets in code or plan output committed?
+- [ ] State backend and workspace correct?
+

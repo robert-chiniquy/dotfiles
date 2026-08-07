@@ -32,6 +32,32 @@ issue, one-line problem statement) and produces a plan document that has
 survived at least one round of judge-review. No implementation, no PR
 open. The final artifact is the approved RFC.
 
+
+## Common mistakes
+
+- **Skipping round 1.** The investigation → judge pass is what surfaces
+  the WHY the plan needs to be shaped a specific way. Going straight to
+  plan-write loses that.
+- **Overloading one judge.** One agent with a "review from every angle"
+  brief splits its attention and returns generic findings. Five agents
+  with sharp lenses beat one with wide scope.
+- **Judges seeing each other's outputs.** Round-N judges must be
+  parallel + blind. Serial or shared-context judges converge on the
+  same top-level surface finding and miss the tail.
+- **Judging the plan only against source.** Judges briefed to attack the plan
+  against code cannot see a wrong *architecture*, because the code is consistent
+  with whatever the plan assumed. This has cost three judge rounds and ~180
+  findings on a design whose premise was already settled — differently — in an
+  approved RFC nobody had read. Phase 1 finds the design record; every judge
+  brief requires checking against it.
+- **Grounding drift.** A plan that cites a SHA which has since moved
+  is a plan grounded in fiction. Re-verify grounding on each revision.
+- **Proceeding past a blocking finding to "keep momentum".** Blocking
+  means blocking. Revise the plan; do not paper over.
+- **Auto-advancing past the owner gate.** The skill's contract is that
+  the owner approves the plan. Any auto-dispatch to impl violates
+  that contract.
+
 ## Phase graph
 
 ```
@@ -231,27 +257,10 @@ Write your findings to <path>/<phase>-judges/<lens>.md. Do not print
 them to stdout — the synth step reads the file.
 ```
 
-## Common mistakes
+## Before finishing
 
-- **Skipping round 1.** The investigation → judge pass is what surfaces
-  the WHY the plan needs to be shaped a specific way. Going straight to
-  plan-write loses that.
-- **Overloading one judge.** One agent with a "review from every angle"
-  brief splits its attention and returns generic findings. Five agents
-  with sharp lenses beat one with wide scope.
-- **Judges seeing each other's outputs.** Round-N judges must be
-  parallel + blind. Serial or shared-context judges converge on the
-  same top-level surface finding and miss the tail.
-- **Judging the plan only against source.** Judges briefed to attack the plan
-  against code cannot see a wrong *architecture*, because the code is consistent
-  with whatever the plan assumed. This has cost three judge rounds and ~180
-  findings on a design whose premise was already settled — differently — in an
-  approved RFC nobody had read. Phase 1 finds the design record; every judge
-  brief requires checking against it.
-- **Grounding drift.** A plan that cites a SHA which has since moved
-  is a plan grounded in fiction. Re-verify grounding on each revision.
-- **Proceeding past a blocking finding to "keep momentum".** Blocking
-  means blocking. Revise the plan; do not paper over.
-- **Auto-advancing past the owner gate.** The skill's contract is that
-  the owner approves the plan. Any auto-dispatch to impl violates
-  that contract.
+- [ ] DESIGN/PLAN inputs consumed if they exist?
+- [ ] Judge rounds blind and parallel?
+- [ ] Blocking findings revised (not papered)?
+- [ ] Owner approval gate held (no auto-impl)?
+- [ ] Grounding SHAs still valid?

@@ -187,17 +187,18 @@ For READMEs, design docs, and any markdown file with 5+ sections:
 ## Skills Application
 - **Catalog**: See `~/.claude/CATALOG.md` for the full skill index with categories.
 - **Canonical skill tree**: `~/.claude/skills/` is the single source of truth for shared skills across Claude Code, Grok Build, Codex, and other harnesses. `~/.agents/skills/` is symlinked to it — never maintain a divergent second copy there. Grok-only harness skills live under `~/.grok/skills/`; Grok global adaptations live in `~/.grok/AGENTS.md`.
-- **Always active** (read skill bodies, not only descriptions):
-  - `skills/dry-engineering/SKILL.md` — default voice for all engineering output
+- **Always active** (read skill bodies, not only descriptions) — **only**:
+  - `skills/dry-engineering/SKILL.md` — default voice
   - `skills/healthy-interaction/SKILL.md` — interaction baseline
-  - `skills/open-work-recap/SKILL.md` — open work at coding stopping points
-  - `skills/project-process/SKILL.md` — thin hub: artifacts + design → plan → RFC
-- **Context (not always-on)**: `passive-qol` when touching shell/dotfiles/system QoL; `engineering-guidelines` when design/debug/review needs judgment beyond this file.
-- **Work pipeline**: design (`DESIGN_*.md`) → implementation plan (`PLAN_*.md`) → RFC (`new-rfc`). Each stage consumes the prior. See project-process.
+- **Context (load at decision time, not every turn)**:
+  - `open-work-recap` — end of a coding/status turn (short checklist)
+  - `project-process` — non-trivial design/plan/RFC work
+  - `passive-qol` — shell/dotfiles/system QoL
+  - `engineering-guidelines` — design/debug/review judgment beyond this file
+- **Work pipeline (one path)**: design → plan → RFC via `project-process`. Depth skills: stage 1 `design` (or `systematic-feature-design` if large); stage 2 `rigorous-critique`; stage 3 `new-rfc`. Do not invent parallel methodologies.
 - **git workflows**: Before creating PRs, run skills/git-final-pass. Use skills/git-create-pr for the full PR workflow. Use skills/git-reset-workspace for cleanup.
-- **Design work**: project-process stage 1, then `design` / `systematic-feature-design` as needed; critique before treating a plan as ready.
 - **Architecture**: skills/structural-constraints (compile-time safety over runtime checks).
-- **Every skill with a Common Mistakes section**: read it before doing work in that domain. Mistakes are encoded from real review feedback — they're the highest-value content.
+- **Common Mistakes first**: for skills over ~100 lines, the Common Mistakes section is the primary payload — read it before the narrative.
 - **Skill brevity**: When authoring or editing a skill, keep only lines a competent model wouldn't do unprompted; prefer cutting over qualifying; verify cuts against real use before trusting them. See skills/skill-brevity.
 - **Multi-harness**: When adding permanent "always" guidance, put it in this file (shared). Put harness-only adaptations in the harness home file (e.g. `~/.grok/AGENTS.md` for Grok). Do not fork this rulebook into a second full copy.
 

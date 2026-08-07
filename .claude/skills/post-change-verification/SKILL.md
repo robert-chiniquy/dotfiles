@@ -5,7 +5,16 @@ description: Mandatory verification protocol after code changes for Go projects.
 
 # Post-Change Verification Protocol
 
-After creating, modifying, generating, or refactoring Go code (not after read-only analysis, audits, or docs-only work), run IN ORDER — prefer make targets over direct commands:
+**MUST** run after Go code changes (not read-only/docs-only). Prefer make targets.
+
+## Common Mistakes
+
+1. **Skipping because "it should pass"** — MUST run the sequence anyway.
+2. **Claiming complete on red from your changes** — MUST fix; pre-existing only is reportable.
+3. **Weakening tests to go green** — forbidden (Claude.md).
+4. **Testing the wrong package** — cover the packages you modified.
+
+## Sequence (in order)
 
 1. Format: `make fmt` (else `go fmt ./...`)
 2. Lint: `make lint` (else `golangci-lint run`)
@@ -53,3 +62,9 @@ Unfixed issues caused by the change end with `=== VERIFICATION FAILED - FIX ISSU
 ## Makefile
 
 Go projects MUST have Makefile targets `fmt`, `lint`, `build`, `test` (plus combined `verify: fmt lint build test`). If targets are missing, fall back to direct commands and note it in the report.
+
+## Before finishing
+
+- [ ] fmt → lint → build → test all run or explicitly SKIPPED with reason?
+- [ ] No unfixed failures caused by this change?
+- [ ] Report block included in completion output?

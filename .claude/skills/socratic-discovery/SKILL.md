@@ -1,13 +1,14 @@
 ---
 name: socratic-discovery
 description: |
-  Use progressively revealing questions to build consensus and illustrate
-  why changes are needed. Use when stakeholders are skeptical, requirements
-  seem obvious to you but not others, or you need to validate assumptions
-  before committing to solutions.
+  Optional communication lens for skeptical stakeholders — not a design→plan→RFC
+  pipeline. Use when assumptions need shared discovery. See project-process for
+  the work pipeline.
 ---
 
 # Socratic Requirements Discovery
+
+**Lens, not pipeline.** Does not replace `project-process` stages.
 
 Use progressively revealing questions to build consensus and illustrate why changes are needed, rather than stating requirements directly.
 

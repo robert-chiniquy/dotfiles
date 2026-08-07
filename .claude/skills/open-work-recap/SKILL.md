@@ -1,71 +1,40 @@
 ---
 name: open-work-recap
 description: >
-  Always active in any coding context. At every stopping point that is NOT a
-  direct answer to a discrete user question, default to appending a recap:
-  first, a list — with full URLs — of every OPEN PR / ticket / issue that
-  still needs action or has a live status (NEVER merged / closed / done items),
-  then a short "Next:" section of the concrete next work the agent will do.
-  Triggers on: end of a work turn, stopping point, handing control back,
-  "where do things stand", status recap, open PRs, open tickets, what's next.
+  End-of-coding-turn recap checklist. Load when a coding turn stops (not a
+  discrete Q&A answer): open PRs/tickets with full URLs, then numbered Next
+  steps. Triggers: stopping point, handoff, "where do things stand", open PRs,
+  what's next. Not always-on — apply at turn end only.
 ---
 
-# Open-work recap at every stopping point
+# Open-work recap (end of coding turn)
 
-In any coding context, when a turn ends in **work or a status report** — i.e. at
-any stopping point that is NOT simply answering a discrete user question — the
-DEFAULT is to close the turn with a two-part recap, in this order.
+**When:** coding/status turn ends. **Skip:** pure Q&A; or both sections empty.
 
-**Empty lists belong nowhere.** Never print an empty section, a zero-item list,
-or a placeholder line ("none", "N/A", "No open PRs"). A section appears ONLY
-when it has at least one real item; otherwise omit it entirely. If BOTH sections
-would be empty, omit the whole recap.
+## MUST
 
-## 1. Open items (with URLs)
+1. List only **open/actionable** PRs/tickets/issues (never merged/closed/DONE).
+2. Each PR list line: **bare full URL as visible text**, then title  
+   `1. https://github.com/org/repo/pull/123 Title`  
+   (Claude.md: multi-PR lists use bare URLs, not markdown anchors.)
+3. Number Next steps uniquely and stably across turns (do not renumber survivors).
+4. **Omit empty sections** — no "none", no empty headings.
 
-List every relevant **open** PR, ticket, or issue that still needs an action or
-has a live status worth reporting. One per line, each with its **full URL
-inline** (never a bare `#123` / `IGA-1234` — hyperlink it):
+## Checklist (before send)
+
+- [ ] Any live open item missing?
+- [ ] Every multi-PR line has a copyable full URL?
+- [ ] Next steps numbered and concrete?
+- [ ] Empty sections removed?
+
+## Line shapes
 
 ```
-- [<id>](full-url) — <status> — <what it needs / what's blocking> — deps: <ids>
+1. https://github.com/org/repo/pull/123 Title of PR
+
+Next:
+1. rebase #123 onto main
+2. address remaining thread on auth
 ```
 
-- **Open and actionable only.** NEVER list merged, closed, or DONE/resolved
-  items — at a stopping point they are noise that buries the live ones. If an
-  item's only remaining status is DONE / CLOSED / MERGED, drop it.
-- **Show deps when they fit.** If the line has room, append the item's
-  dependencies — what it's blocked by, waiting on, or built atop (hyperlink any
-  that are themselves PRs/tickets). Deps make the action/merge order obvious at
-  a glance. Omit the segment when there are none, or when the line is already
-  long enough that deps would hurt readability.
-- Include: PRs awaiting review / merge / CI, failing checks, unresolved review
-  threads, tickets in progress or blocked, issues waiting on a decision — any
-  live loop.
-- **Nothing open? OMIT the entire section** — no empty list, no "none" line.
-  Show it only when it has at least one real item (per "Empty lists belong
-  nowhere" above).
-
-## 2. Next
-
-Then, under the short heading **`Next:`**, the concrete next work the agent will
-do. **Number every step** (`1.`, `2.`, `3.` …) so the user can refer to one by
-number ("do 2"). Keep the numbering **stable across recaps**: a live step keeps
-its number turn-to-turn; when a step is done, drop it but do NOT renumber the
-survivors (leave the gap), and give a genuinely new step the next unused number
-— so "#3" always means the same thing. One terse line each, not prose. No next
-work? **Omit this section** — no placeholder.
-
-## When NOT to recap
-
-- The turn is a **discrete user question** (a lookup, yes/no, or explanation) —
-  just answer it; no recap.
-- Both sections would be empty (nothing open, nothing next) — a recap is noise;
-  skip it.
-
-## Why
-
-At a stopping point the user's first question is always "what's live, and what's
-next?" Surfacing the open loops (with clickable URLs) and the next action every
-time means they never have to ask or scroll back. Merged / closed items are
-finished — listing them only hides the ones that still need attention.
+Deps/status prose after the list is fine; do not bury URLs in `[text](url)` inside multi-PR lists.

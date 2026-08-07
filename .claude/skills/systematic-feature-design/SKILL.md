@@ -1,19 +1,31 @@
 ---
 name: systematic-feature-design
 description: |
-  Rigorous 11-step methodology for designing new features and systems. Use
-  when starting new feature design, planning major refactoring, designing
-  developer-facing tools or APIs, or any work requiring architectural
-  decisions. Covers research, compare, refine, ideate, discover, implement,
-  critique, double-back, consolidate, and document steps.
+  Pipeline stage 1 depth only — large feature / architecture design.
+  Not a parallel pipeline to /design. Use when the problem is large; otherwise
+  use design. Writes DESIGN_<topic>.md for stage 2. See project-process.
 ---
 
 # Systematic Feature Design
 
-**Pipeline stage 1 (depth)** of design → plan → RFC (see `project-process`). Prefer
-this over `/design` when the problem is large; write `DESIGN_<topic>.md` for stage 2.
+**Pipeline stage 1 (large only).** See `project-process`. **MUST** write
+`DESIGN_<topic>.md`. **MUST NOT** also run full `/design` as a second process.
 
-Apply a rigorous 11-step methodology for designing new features and systems, ensuring fundamentals are addressed before polish.
+## Common Mistakes
+
+1. Using this for small features (use `design` instead).
+2. Skipping written DESIGN output (chat-only design dies at stage 2).
+3. Treating critique/double-back inside this skill as a substitute for stage 2
+   `rigorous-critique` on the plan.
+
+## Before finishing
+
+- [ ] `DESIGN_*.md` exists and is consumable by PLAN?
+- [ ] Level 0 before Level 2?
+- [ ] Existing RFCs/plans searched before inventing?
+
+11-step methodology (research → … → document). Critique steps here inform the
+design; stage 2 still runs `rigorous-critique` on the plan.
 
 Steps: Research, Compare, Refine (qualitative to quantitative), Design Documentation Ontology, Ideate, Discover (existing codebase), Implement (detailed paths), Critique, Double Back, Consolidate, Document Decisions.
 
