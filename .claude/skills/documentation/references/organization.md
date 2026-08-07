@@ -42,8 +42,10 @@ Examples:
 02_CORE_CONCEPTS.md
 03_BUILDING_CONNECTORS.md
 06_COOKBOOK.md
-10_GLOSSARY.md
 ```
+
+Define terms in the section that introduces them; do not maintain a separate glossary doc.
+
 
 Internal docs (at root):
 ```

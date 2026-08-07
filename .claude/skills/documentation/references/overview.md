@@ -48,7 +48,7 @@ When to start new phase:
 | L0 | Critical | Getting Started, Core Concepts | First |
 | L1 | Important | Main workflows, Deployment | After L0 |
 | L2 | Supporting | Cookbook, Advanced | After L1 |
-| L3 | Reference | Appendices, Glossary, FAQ | Last |
+| L3 | Reference | Appendices, FAQ | Last |
 
 Work order: L0 before L1, L1 before L2, etc.
 
@@ -60,4 +60,3 @@ Work order: L0 before L1, L1 before L2, etc.
 - `doc-verify.md` - Verification and audits
 - `doc-learnings.md` - Hard-won lessons
 - `doc-organization.md` - File structure
-- `rap_documentation.md` - Agent-optimized docs

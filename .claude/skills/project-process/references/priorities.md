@@ -14,7 +14,7 @@ Work ordering and momentum rules.
 When new data source or research topic arrives:
 1. Immediately promote to highest priority
 2. Investigate before continuing other work
-3. Update DATA_SOURCES.md
+3. Update README Sources if new provenance landed
 4. Document findings in LEARNINGS.md
 
 New information may change decisions. Investigate first to prevent wasted effort.

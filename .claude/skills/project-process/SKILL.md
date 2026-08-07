@@ -12,17 +12,18 @@ Keep process light. Prefer working code and verified plans over ceremony.
 
 ## Artifacts (create when useful, not by default)
 
-| File | When |
-|------|------|
+| File / place | When |
+|--------------|------|
 | `LEARNINGS.md` | You discovered something that would otherwise be lost |
-| `DATA_SOURCES.md` | External or cross-repo inputs inform the work |
-| `GLOSSARY.md` | Domain terms of art need a shared definition |
+| README **Sources** section | External or cross-repo inputs inform the work (no separate DATA_SOURCES.md) |
 | `FAILURES.md` | An approach proved impossible |
 | `DESIGN_<topic>.md` | Stage 1 output (below) |
 | `PLAN_<OBJECTIVE>.md` | Stage 2 output (below) |
 | `.claude/CLAUDE.md` | Project-local rules (never global prefs that belong in home Claude.md) |
 
-In shared repos (has a git remote), meta docs above are **local-only** — do not commit unless the user says so. See `references/artifacts.md` only if you need templates or edge cases.
+Do **not** create `GLOSSARY.md` or `DATA_SOURCES.md`. Define terms in prose where used; list provenance under README `## Sources`.
+
+In shared repos (has a git remote), local meta docs (`LEARNINGS.md`, `PLAN_*.md`, `FAILURES.md`, …) are **local-only** unless the user says otherwise. README Sources is normal README content and may be committed when safe. See `references/artifacts.md` only if you need templates.
 
 ## Pipeline: design → plan → RFC
 

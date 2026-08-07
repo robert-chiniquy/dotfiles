@@ -4,9 +4,8 @@ version: 1.5.0
 disable-model-invocation: true
 description: |
   Initialize current directory with the global project process framework.
-  Creates DATA_SOURCES.md, LEARNINGS.md, GLOSSARY.md, .Codex/AGENTS.md,
-  .envrc, and Makefile. Usage: /project [topic] where topic describes
-  the project focus (e.g., /project research-ducks).
+  Creates LEARNINGS.md, README Sources, .Codex/AGENTS.md, .envrc, and
+  Makefile. No GLOSSARY.md or DATA_SOURCES.md. Usage: /project [topic].
 allowed-tools:
   - Read
   - Write
@@ -38,15 +37,10 @@ Initialize the current working directory with the global project process framewo
 2. Topic = first argument if provided (e.g., `research-ducks`)
 3. If no topic provided, ask: "What is this project about?"
 
-### Step 2: Ensure Initial Data Source
+### Step 2: Ensure Initial Source
 
-**MANDATORY: Every project must have at least one data source from the start.**
-
-1. Check for existing .md files: `ls *.md 2>/dev/null`
-2. If .md files exist, scan them for data sources (URLs, file paths, references)
-3. If no existing data sources found, ask: "What is the first data source? (URL, file path, or reference)"
-
-Do NOT proceed to file creation without at least one data source. A project without a data source has no grounding.
+Prefer at least one concrete source (URL, path, or reference) in README Sources
+from the start. If none is known, ask once; do not invent one.
 
 ### Step 3: Choose Accent Color
 
@@ -64,21 +58,16 @@ Select from vaporwave palette based on topic keywords:
 
 **Only create these files. Other artifacts created on-demand.**
 
-#### DATA_SOURCES.md
+#### README.md (Sources section)
+
+Create README.md if missing. Ensure a `## Sources` section exists and list the
+initial source from Step 2. Do not create DATA_SOURCES.md or GLOSSARY.md.
 
 ```markdown
-# Data Sources
+## Sources
 
-Track provenance of all information. Add sources as consulted, not retroactively.
-
-## Filesystem
-
-## URLs
-
-## Other
+- <path or URL> — what it contributes
 ```
-
-**Populate with the initial data source from Step 2.** Place it under the appropriate section (Filesystem for paths, URLs for links, Other for everything else).
 
 #### LEARNINGS.md
 
@@ -86,17 +75,6 @@ Track provenance of all information. Add sources as consulted, not retroactively
 # Learnings
 
 Preserve discoveries with dated headers. Append-only.
-```
-
-#### GLOSSARY.md
-
-```markdown
-# Glossary
-
-Domain-specific terminology for this project.
-
-| Term | Definition |
-|------|------------|
 ```
 
 #### Makefile
@@ -189,12 +167,11 @@ After completion, summarize:
 Project "{PROJECT_NAME}" initialized
 Accent: {COLOR_NAME} ({HEX})
 Phase: Research
-Initial data source: {DATA_SOURCE}
+Initial source: {SOURCE}
 
 Created:
-  DATA_SOURCES.md (with initial source)
+  README.md (Sources section)
   LEARNINGS.md
-  GLOSSARY.md
   Makefile
   .envrc
   .Codex/AGENTS.md
@@ -260,13 +237,12 @@ Which project meta-files can be committed depends on visibility:
 
 | File | Private Project | Public Project |
 |------|-----------------|----------------|
-| `DATA_SOURCES.md` | Never commit | Review carefully - may reference private paths |
+| README Sources | Review carefully — may reference private paths | Commit when sources are public-safe |
 | `LEARNINGS.md` | Never commit | **May commit** - useful project knowledge |
-| `GLOSSARY.md` | Never commit | **May commit** - domain terminology |
 | `RESUME_CONTEXT.md` | Never commit | Never commit |
 | `.envrc` | Never commit | Never commit |
 
-For public projects, LEARNINGS.md and GLOSSARY.md provide valuable context for contributors. Only exclude them if they accidentally contain private information.
+For public projects, LEARNINGS.md may provide useful context. Only exclude it if it contains private information.
 
 ### Publishing Flow
 
@@ -294,14 +270,14 @@ When a private project publishes to a public project, track it in `project.md`:
 - `data/` - Contains internal identifiers
 - `reports/` - Contains private analysis
 - `scripts/` - References internal paths
-- `DATA_SOURCES.md` - Lists private sources
+- Private paths in README Sources until sanitized
 ```
 
 Exports must be whitelisted. Common blacklist items:
 - `./data/` - Often contains raw, unsanitized data
 - `./reports/` - May contain internal analysis with private references
 - `./scripts/` - May hardcode internal paths or credentials
-- Project meta-files (DATA_SOURCES.md, LEARNINGS.md, project.md)
+- Project meta-files (LEARNINGS.md, project.md, private README source lines)
 
 ### When Data Sources Are Private
 
@@ -309,7 +285,7 @@ If you encounter a private project among your data sources:
 1. **Ask what to do** - don't assume
 2. **Never reference it in public outputs** - no paths, URLs, or identifiers
 3. **Anonymize any derived information** - change names, IDs, specifics
-4. **Document the boundary** - note in DATA_SOURCES.md that certain sources are private
+4. **Document the boundary** - note under README Sources that certain sources are private (without leaking them)
 
 ### Indicators of Private Projects
 
@@ -457,7 +433,7 @@ When an upstream agent (working on higher-level planning or design) has knowledg
 1. **Read the downstream agent's work** - Before planning, review:
    - The downstream project's goals and scope
    - Existing approaches and implementations
-   - DATA_SOURCES.md for what they've already researched
+   - README Sources for what they've already researched
    - LEARNINGS.md for discoveries that inform upstream decisions
 
 2. **Coordinate, don't duplicate** - Upstream work should:
@@ -465,10 +441,9 @@ When an upstream agent (working on higher-level planning or design) has knowledg
    - Note dependencies on downstream deliverables
    - Flag conflicts between upstream design and downstream implementation
 
-3. **Document the relationship** - In DATA_SOURCES.md:
+3. **Document the relationship** - Under README Sources:
    ```markdown
-   ## Related Projects
-   - `/path/to/downstream/project` - Implementing X (downstream)
+   - related project (path or URL) — implementing X (downstream)
    ```
 
 4. **Respect convergence** - If a downstream project started independently and later became relevant to upstream work, treat its existing approaches as constraints unless explicitly told to override.

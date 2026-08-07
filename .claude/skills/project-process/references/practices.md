@@ -101,7 +101,7 @@ When ticketing system or wiki integrations are available:
 ## Self-Check
 
 Before any phase complete:
-- [ ] DATA_SOURCES.md current
+- [ ] README Sources current
 - [ ] LEARNINGS.md captures discoveries
 - [ ] TODO.md empty or truly blocked
 - [ ] Deprecated code in old/ with docs

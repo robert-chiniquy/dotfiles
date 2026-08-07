@@ -33,7 +33,7 @@ project/
 
 Top-level files (keep at root):
 - CLAUDE.md, README.md, project.md
-- DATA_SOURCES.md, GLOSSARY.md, LEARNINGS.md
+- LEARNINGS.md; provenance in README Sources
 - TODO.md, COMPLETED.md
 
 Categorization:

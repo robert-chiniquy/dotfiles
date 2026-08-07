@@ -19,7 +19,7 @@
 Checklist:
 - [ ] Prerequisite docs exist
 - [ ] This doc's place in reader journeys is clear
-- [ ] Glossary terms defined
+- [ ] Domain terms defined at first use in the prose
 - [ ] No blocking TODOs
 
 ```markdown
@@ -117,7 +117,7 @@ Checklist:
 | Scope creep | Split into multiple docs |
 | Contradiction discovered | Note it, may revise earlier sections |
 | Reader journey broken | Fix navigation first |
-| Glossary gap | Add to glossary immediately |
+| Undefined term | Define at first use in the section that needs it |
 
 When to new phase vs fix in place:
 - Minor fixes: Fix in current phase

@@ -22,7 +22,7 @@ Skip steps that don't add value. The sequence matters more than completeness.
 
 ### 1. Research
 What exists? Read the codebase. Read competing implementations. Read the docs.
-Capture findings in DATA_SOURCES.md.
+Capture provenance under README `## Sources`.
 
 ### 2. Compare
 How do others solve this? Build a comparison matrix: feature vs platform.

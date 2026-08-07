@@ -1,32 +1,24 @@
 # Project Artifacts
 
-Mandatory files for projects. Create these in project root.
+Create when useful, not by default. No GLOSSARY.md. No DATA_SOURCES.md.
 
-## DATA_SOURCES.md
+## README `## Sources`
 
-Track provenance of all information.
+Track provenance in the project README (committed when safe), not a separate file.
 
 ```markdown
-# Data Sources
+## Sources
 
-## Filesystem
-- `/path/to/repo/` - What was learned
-- `/path/to/file.go:123-456` - Specific code referenced
-
-## URLs
-- https://example.com/docs - Content description
-
-## Other
-- [2025-01-14] Slack conversation - Key insight
+- `path/to/file.go` — what was learned from it
+- https://example.com/docs — content used
+- [2025-01-14] conversation note — non-permanent; rephrase if private
 ```
 
 Rules:
 - Add sources as consulted, not retroactively
-- Include line numbers for code references
+- Prefer repo-relative paths and public URLs (no private local absolute paths in committed READMEs)
 - Date-stamp non-permanent sources
-
-Bad: "from code analysis"
-Good: `/Users/rch/repo/baton-okta/pkg/connector/app.go:334-336`
+- Every entry should inform a decision or code; unused sources are gaps
 
 ## LEARNINGS.md
 
@@ -161,12 +153,13 @@ Project meta-documentation has different commit rules based on project type.
 ### Shared Codebases (has git remote)
 
 These files must NEVER be committed:
-- `DATA_SOURCES.md`
 - `LEARNINGS.md`
-- `GLOSSARY.md`
 - `TODO.md`
 - `PLAN_*.md`
+- `FAILURES.md`
 - `.claude/plans/`
+
+README Sources is normal README content — commit when the listed sources are safe to publish.
 
 Setup global gitignore to prevent accidents:
 
@@ -175,10 +168,9 @@ Setup global gitignore to prevent accidents:
 cat >> ~/.gitignore_global << 'EOF'
 # Project meta-documentation (local-only, never commit)
 PLAN_*.md
-DATA_SOURCES.md
 LEARNINGS.md
-GLOSSARY.md
 TODO.md
+FAILURES.md
 .claude/plans/
 EOF
 
@@ -234,7 +226,7 @@ Rules:
 - Wait for input from upstream before starting implementation
 - Goals are added to downstream project for execution
 - Downstream agent works from goals without needing upstream context
-- Document in DATA_SOURCES.md: "Design from upstream project (private)"
+- Note under README Sources: design from upstream project (private), without secret detail
 
 ### Information Flow
 
@@ -267,14 +259,14 @@ Purpose:
 - Allow human study of reference materials
 - Version-pin external dependencies
 
-README.md should include:
+`sources/README.md` should include:
 - Original URL for each artifact
 - Date downloaded
 - Brief description of contents
-- Which DATA_SOURCES.md entries reference it
+
+Also list major sources under the project README `## Sources` section.
 
 Rules:
 - Add to .gitignore if artifacts are large or have redistribution concerns
 - Prefer PDFs over HTML (more stable)
 - Include version/date in filename when content may change
-- Reference local paths in DATA_SOURCES.md after caching

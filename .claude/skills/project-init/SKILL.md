@@ -2,9 +2,9 @@
 name: project-init
 disable-model-invocation: true
 description: |
-  Initialize a directory with the project framework. Creates DATA_SOURCES.md,
-  LEARNINGS.md, GLOSSARY.md, .claude/CLAUDE.md, .envrc with accent color.
-  Usage: /project-init [topic]
+  Initialize a directory with the project framework. Creates LEARNINGS.md,
+  .claude/CLAUDE.md, .envrc with accent color; ensures README has a Sources
+  section. Usage: /project-init [topic]
 argument-hint: "[topic]"
 allowed-tools:
   - Read
@@ -21,11 +21,10 @@ Initialize `$ARGUMENTS` as a project. If no argument, use the current directory'
 
 ## Create These Files
 
-1. **DATA_SOURCES.md** — empty template with header
-2. **LEARNINGS.md** — empty with `## YYYY-MM-DD HH:MM: [topic]` format note
-3. **GLOSSARY.md** — empty with header
-4. **.claude/CLAUDE.md** — project-specific instructions (document index, build commands, key context)
-5. **.envrc** — `export PROMPT_ACCENT="#color"` (pick from vaporwave palette based on project character)
+1. **LEARNINGS.md** — empty with `## YYYY-MM-DD HH:MM: [topic]` format note
+2. **.claude/CLAUDE.md** — project-specific instructions (document index, build commands, key context)
+3. **.envrc** — `export PROMPT_ACCENT="#color"` (pick from vaporwave palette based on project character)
+4. **README.md** — create or update with a `## Sources` section for provenance (no DATA_SOURCES.md, no GLOSSARY.md)
 
 ## If Existing Codebase
 
@@ -36,10 +35,9 @@ These meta-documents are local-only and will not be committed.
 
 Add to `.gitignore`:
 ```
-DATA_SOURCES.md
 LEARNINGS.md
-GLOSSARY.md
 FAILURES.md
+PLAN_*.md
 ```
 
 ## Accent Color Palette

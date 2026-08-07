@@ -10,7 +10,7 @@ Requirements:
 - Own go.mod (or equivalent)
 - Own tests (runnable via root Makefile)
 - Own CLAUDE.md if it has code
-- Own DATA_SOURCES.md if it consulted external sources
+- Own README Sources entries if it consulted external sources
 - Clear interface to other subprojects
 
 Dependencies between subprojects: explicit replace directives during dev, proper module paths for release.
