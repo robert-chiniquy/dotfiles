@@ -21,12 +21,16 @@ allowed-tools:
   - TaskUpdate
 ---
 
-# new-rfc — adversarially-reviewed RFC pipeline
+# new-rfc: adversarially-reviewed RFC pipeline
+
+**Pipeline stage 3** of design → implementation plan → RFC (see `project-process`).
+When `DESIGN_*.md` and/or `PLAN_*.md` already exist for this work, feed them into
+investigation as first-class inputs; do not re-derive a conflicting design.
 
 Single-purpose orchestrator: takes a work reference (Linear URL, GitHub
 issue, one-line problem statement) and produces a plan document that has
 survived at least one round of judge-review. No implementation, no PR
-open — the final artifact is the approved RFC.
+open. The final artifact is the approved RFC.
 
 ## Phase graph
 
@@ -35,7 +39,7 @@ investigate → judge×N (round 1) → plan → judge×N (round 2)
    → (revise → re-judge)* until clean → 🚦 owner approval → DONE
 ```
 
-The two judge rounds are the load-bearing rigor. Round 1 surfaces
+The two judge rounds are the core source of rigor. Round 1 surfaces
 unknowns / dark corners the plan must address. Round 2 adversarially
 validates the plan and drives revisions until no blocking findings.
 
@@ -60,7 +64,8 @@ plans/<slug>/
 │   ├── correctness.md
 │   ├── scale.md
 │   ├── security.md
-│   └── risk.md
+│   ├── risk.md
+│   └── overcorrection.md
 ├── 02-plan.md                       # the RFC itself (may be plan-v1, v2, ...)
 ├── 02-judges/                       # round-2 findings, one file per judge
 │   ├── correctness.md
@@ -70,7 +75,7 @@ plans/<slug>/
 └── <slug>-rfc.md                    # symlink or copy of the approved plan
 ```
 
-## Judge lenses (default: 4)
+## Judge lenses (default: 5)
 
 Distinct viewpoints. Each judge is a separate `Agent` subagent with a
 lens-specific prompt. Judges do NOT know each other's outputs — parallel,
@@ -82,6 +87,7 @@ independent perspectives. Default set (override at start):
 | **scale** | Does it work at production data volumes? Unbounded queries, N+1 loops, per-row RPCs, workflow fan-out that explodes. |
 | **security** | Authz gaps, tenant isolation holes, secret exposure, trust-boundary violations, fail-open defaults, confused-deputy paths. |
 | **risk** | Backward compatibility, migration hazards, rollout order, blast radius, what breaks if this ships wrong. |
+| **overcorrection** | Needless complexity, premature exclusions, disproportionate mitigations, and choices resting on unverified estimates of difficulty, cost, risk, or value. Load and apply `$overcorrection-review`. |
 
 For frontend-heavy RFCs, swap `scale` for **UX-integrity** (a11y, state
 coupling, hydration, render perf). For infra-heavy RFCs, swap `security`
@@ -143,6 +149,13 @@ Every produced plan MUST include, in order:
    the phase graph + owner + slug. This is the durable anchor.
 
 3. **Dispatch investigate.** ONE `Agent` subagent with a phase-1 prompt.
+   The prompt MUST require a **design-record sweep before code ground truth**:
+   find the governing RFCs, specs, and plans for the area — including design
+   repos that are not the code repo — and report what they already decide,
+   exclude, or defer. Name the design repos explicitly; an investigation scoped
+   to code repos will not find them. Whatever the sweep returns becomes an input
+   to every later phase, and anything the plan contradicts is a status-change
+   table row (element 3).
    Deliverable: `01-investigation.md`. The prompt describes ONLY phase 1
    — no downstream orchestration.
 
@@ -181,7 +194,7 @@ Every produced plan MUST include, in order:
 |---|---|
 | `--work-ref <ref>` | Linear URL, GitHub issue, or `requests/<slug>.md` file, or a one-line problem. |
 | `--dir <path>` | Where the phase dir lives. Default: prompt the owner. |
-| `--judges <n>` | Judges per round. Default 4. Pushing higher costs more but tightens findings; going lower risks blind spots. |
+| `--judges <n>` | Judges per round. Default 5. Pushing higher costs more but tightens findings; going lower risks blind spots. |
 | `--lenses <list>` | Override the default lens set. Comma-separated. |
 | `--succeeds <path>` | Path to a canonical RFC this succeeds. Triggers the status-change table. |
 | `--resume` | Continue from the latest phase in an existing dir. |
@@ -202,7 +215,11 @@ table). You do NOT know what other judges are surfacing — bring an
 independent view.
 
 Standing rules:
+- Check the artifact against the **governing design record** surfaced in phase 1,
+  not only against source. A design that contradicts an approved document is the
+  most important finding available to you, and source-only review cannot see it.
 - Scope strictly to the artifact plus its cited grounding files.
+- For the overcorrection lens, load and apply `$overcorrection-review`.
 - For each finding: file:line, what you see, why it matters, a concrete
   fix, severity (critical/high/medium/low). Severity is provisional —
   the synth step arbitrates.
@@ -220,11 +237,17 @@ them to stdout — the synth step reads the file.
   the WHY the plan needs to be shaped a specific way. Going straight to
   plan-write loses that.
 - **Overloading one judge.** One agent with a "review from every angle"
-  brief splits its attention and returns generic findings. Four agents
+  brief splits its attention and returns generic findings. Five agents
   with sharp lenses beat one with wide scope.
 - **Judges seeing each other's outputs.** Round-N judges must be
   parallel + blind. Serial or shared-context judges converge on the
   same top-level surface finding and miss the tail.
+- **Judging the plan only against source.** Judges briefed to attack the plan
+  against code cannot see a wrong *architecture*, because the code is consistent
+  with whatever the plan assumed. This has cost three judge rounds and ~180
+  findings on a design whose premise was already settled — differently — in an
+  approved RFC nobody had read. Phase 1 finds the design record; every judge
+  brief requires checking against it.
 - **Grounding drift.** A plan that cites a SHA which has since moved
   is a plan grounded in fiction. Re-verify grounding on each revision.
 - **Proceeding past a blocking finding to "keep momentum".** Blocking

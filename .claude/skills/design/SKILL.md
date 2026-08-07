@@ -11,6 +11,10 @@ argument-hint: "[feature or topic]"
 
 # Design
 
+**Pipeline stage 1** of design → implementation plan → RFC (see `project-process`).
+Output should land in `DESIGN_<topic>.md` (or a path the user names) so stage 2
+(`PLAN_<OBJECTIVE>.md`) can consume it.
+
 Structured approach to feature design. Not every step applies to every feature.
 Skip steps that don't add value. The sequence matters more than completeness.
 

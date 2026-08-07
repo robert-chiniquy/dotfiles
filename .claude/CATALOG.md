@@ -19,14 +19,15 @@ skill bodies**, not only this index.
 |-------|-------------|
 | dry-engineering | Default voice: code review style, commit messages, explanations |
 | healthy-interaction | Baseline interaction dispositions (no sycophancy, no therapy mode) |
-| open-work-recap | Coding stopping-point recap: open PRs/tickets/issues (URLs) + Next: |
-| passive-qol | Proactive environment QoL — passive, automatic, invisible |
-| project-process | Project framework: artifacts, practices, proverbs (hub + references/) |
+| open-work-recap | Coding stopping-point recap: open PRs/tickets/issues (URLs) + Next |
+| project-process | Thin hub: optional artifacts + design → plan → RFC pipeline |
 
 ## Context-Activated
 
 | Skill | Trigger |
 |-------|---------|
+| engineering-guidelines | Design, debug, review, or quality judgment beyond Claude.md |
+| passive-qol | Dotfiles, shell config, system QoL, friction |
 | casual-slack-tone | Slack messages, DMs, PR descriptions on own repos |
 | technical-writing | Blog posts, articles, long-form external content |
 | technical-writing-voice | Long-form external voice (articles, talks) |
@@ -34,37 +35,59 @@ skill bodies**, not only this index.
 | terraform / terraform-skill | .tf files, HCL, infrastructure pipelines |
 | protogen | .proto files, gRPC, codegen |
 | documentation | Writing or reviewing docs |
-| subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
-| agent-worktree-status | Background agent worktree liveness before kill/restart |
-| gestalt-consistency-review | Correct-but-odd-one-out APIs; convention drift |
-| calendaring | Multi-month personal master schedule |
-| tactical-sitrep | Named milestone + hard deadline → A/B/C readiness |
-| questioning-the-user | Multiple pending decisions → one at a time |
-| complete-developer-experience | Tools + docs + agents for developer-facing features |
-| systematic-feature-design | 11-step feature design methodology |
+| design | `/design` — stage 1 of design → plan → RFC |
+| systematic-feature-design | Large feature / architecture design (stage 1 depth) |
+| rigorous-critique / critique | After a plan, before treating it as ready (stage 2) |
+| new-rfc | Stage 3: adversarially reviewed RFC from design+plan |
 | socratic-discovery | Progressive questions for consensus / assumptions |
-| rigorous-critique | Complexity / fundamentals / feasibility critique |
-| overcorrection-review | Challenge needless complexity, premature exclusions, and unsupported cost/value estimates |
+| complete-developer-experience | Tools + docs + agents for developer-facing features |
+| overcorrection-review | Needless complexity, premature exclusions, cost/value claims |
 | post-change-verification | After Go code changes: fmt/lint/build/test protocol |
 | golang-code-review | Go PR / architecture / test quality review |
 | pr-pass / pr-status | Open PR triage and status |
-| github-pr-threads | After fixes: `Addressed in <sha>` + resolve addressed PR threads (mandatory) |
+| mergeability-walkthrough | One-PR-at-a-time merge decisions |
+| github-pr-threads | After fixes: `Addressed in <sha>` + resolve threads |
 | pr-deep-review | Multi-agent deep PR review |
+| gh-fix-ci | Failing GitHub Actions checks |
 | squire-env-management | Ephemeral remote agents and task pools |
 | c1-squire-dispatch / c1-dev-stack-in-squire | c1-specific squire dispatch |
-| find-delegation-pebbles | Find bounded, independent backlog tasks for remote agents |
+| find-delegation-pebbles | Bounded independent backlog tasks for remote agents |
 | codebase-memory | Structural codebase graph exploration |
-| large-scale-refactor | Guardrails for multi-file / long-running refactors |
+| large-scale-refactor | Multi-file / long-running refactors |
 | jsonl-parsing | Large JSONL / agent log processing |
 | bar-chart-comparison | Narrow ASCII bar charts for metric comparisons |
 | readiness-scorecard | Scorecard TUI only when explicitly requested |
 | neon-grit-image-style | Personal dark countercultural image aesthetic |
-| security / review personas | overcorrection-review, insecure-defaults, sharp-edges, oauth-oidc-review, authorization-model-review, key-lifecycle-review, ssrf-confused-deputy-review, custom-crypto-detection, secrets-in-llm-output, rust-unsafe-ffi-review, differential-review, security-threat-model, audit-context-building, trailmark, static-analysis-triage |
-| agent orchestration | abc-agent-management, peace-agent-interview, scramble, new-rfc, open-work-recap (always), agent-verify-workflows |
-| comment-discipline | Comment review: describe code, not process |
+| refine-illustrations-iteratively | Iterative image edit sessions |
+| calendaring | Multi-month personal master schedule |
+| tactical-sitrep | Named milestone + hard deadline → readiness |
+| questioning-the-user | Multiple pending decisions → one at a time |
+| subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
+| agent-worktree-status | Background agent worktree liveness |
+| agent-verify-workflows | Explicit web workflow verification |
+| abc-agent-management | Improve subagent prompts after poor runs |
+| peace-agent-interview | Elicit uncontaminated account after bad subagent run |
+| scramble | Parallel local tactical push |
+| comment-discipline | Comments describe code, not process |
 | skill-brevity | Authoring/editing skills: keep only necessary lines |
 | property-based-testing | PBT across languages |
-| using-vit | ATProto caps / beacons (when relevant) |
+| using-vit | ATProto caps / beacons |
+| check-feature-flag-conflicts | FEATURE_FLAG_ID conflicts before adding flags |
+| gestalt-consistency-review | Correct-but-odd-one-out APIs |
+| insecure-defaults | Fail-open / weak default security |
+| sharp-edges | Footgun APIs and dangerous config |
+| oauth-oidc-review | OAuth/OIDC implementation review |
+| authorization-model-review | RBAC/ABAC/ReBAC authz review |
+| key-lifecycle-review | Key/secret lifecycle review |
+| ssrf-confused-deputy-review | SSRF / confused deputy |
+| custom-crypto-detection | Hand-rolled crypto |
+| secrets-in-llm-output | Secrets leaked into agent output |
+| rust-unsafe-ffi-review | Rust unsafe / FFI soundness |
+| differential-review | Security-focused PR/diff review |
+| security-threat-model | Explicit threat model request |
+| audit-context-building | Line-by-line audit context |
+| trailmark | Code graph for security analysis |
+| static-analysis-triage | Novel linter output → PRs |
 
 ## Manual Only (`disable-model-invocation: true` where set)
 
@@ -81,7 +104,7 @@ skill bodies**, not only this index.
 | project-init | `/project-init [topic]` | Initialize project framework |
 | project | manual | Project skill hub (if present) |
 | critique | `/critique` | Four-lens design review |
-| design | `/design [topic]` | Feature design methodology |
+| design | `/design [topic]` | Feature design (pipeline stage 1) |
 | pqthink | `/pqthink` | Six-pass pragmatic architecture judgment |
 | review-code | `/review-code` | Multi-agent code review |
 
@@ -112,6 +135,14 @@ pptx, execute-plan, resume-*, game-*, etc.). Prefer project/user skills when nam
    `~/.codex/skills/` and `~/.agents/skills/`. Keep both roots intact; resolve a
    real semantic collision by renaming or disabling one explicit skill path,
    not by shrinking the shared mirror.
+
+## Work pipeline (project-process)
+
+1. **Design** → `DESIGN_<topic>.md` (`design` / `systematic-feature-design`)
+2. **Implementation plan** → `PLAN_<OBJECTIVE>.md` (critique before ready)
+3. **RFC** → `new-rfc` (consumes design + plan; owner gate; no auto-impl)
+
+Skip stages for trivial work; do not invent a later stage that ignores an earlier artifact.
 
 ## Backup
 

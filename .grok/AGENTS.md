@@ -22,17 +22,23 @@ soundness, security, or publication rules from `Claude.md`.
 `~/.claude/Claude.md` and skills under `~/.claude/skills/` so Claude and Grok
 stay aligned.
 
+### Publication (shared, do not weaken)
+
+- Bead / `bd` IDs are **internal only** — never in commits, PRs, code, comments,
+  docs, tickets, or any published text. Full rule in `~/.claude/Claude.md`.
+
 ## Always-active skills
 
 At the start of any coding or multi-step engineering session, **read and apply**
 these skill bodies (not only their descriptions):
 
-1. `~/.claude/skills/project-process/SKILL.md` — project artifacts and practices  
-   Also read `~/.claude/skills/project-process/references/proverbs.md`.
-2. `~/.claude/skills/dry-engineering/SKILL.md` — default voice for all engineering output
-3. `~/.claude/skills/healthy-interaction/SKILL.md` — baseline interaction dispositions
-4. `~/.claude/skills/open-work-recap/SKILL.md` — open PR/ticket recap at work stopping points
-5. `~/.claude/skills/passive-qol/SKILL.md` — when touching shell/dotfiles/system QoL
+1. `~/.claude/skills/dry-engineering/SKILL.md` — default voice
+2. `~/.claude/skills/healthy-interaction/SKILL.md` — interaction baseline
+3. `~/.claude/skills/open-work-recap/SKILL.md` — open work at stopping points
+4. `~/.claude/skills/project-process/SKILL.md` — thin hub: design → plan → RFC
+
+**Context (not always-on):** `passive-qol` for shell/dotfiles; `engineering-guidelines`
+for design/debug/review judgment beyond Claude.md.
 
 Catalog: `~/.claude/CATALOG.md`. Every skill with a **Common Mistakes** section
 must be read before work in that domain.
@@ -48,16 +54,15 @@ must be read before work in that domain.
 
 ### Models and subagents
 
-`Claude.md` refers to Haiku/Opus for delegated build/test/git. On Grok:
+Claude.md describes **cheap read-only subagents** for green-path build/test/git
+(not main-session failure diagnosis). On Grok:
 
-- There is no Haiku tier. Prefer `spawn_subagent` with `subagent_type` that fits
-  the work (`explore` read-only, `plan` for design, `general-purpose` for
-  multi-step, or project agents such as `go-change-verifier`).
-- **Do not fabricate a "Haiku" model.** If the task is cheap verification
-  expected to pass, a fast general-purpose subagent with an explicit
-  "Do NOT modify any files" brief is the equivalent.
-- Failure diagnosis and tests expected to fail stay on the main session model
-  (same intent as "never use Haiku for expected failures").
+- There is no Haiku tier. Use `spawn_subagent` with a fitting `subagent_type`
+  (`explore` read-only, `plan` for design, `general-purpose` for multi-step, or
+  project agents such as `go-change-verifier`).
+- For cheap green-path checks: fast general-purpose subagent with an explicit
+  **Do NOT modify any files** brief.
+- Failure diagnosis and tests expected to fail stay on the main session model.
 - `git push` and any publishing still run in the main session, never delegated
   to a child that may rewrite code to satisfy hooks.
 
@@ -102,7 +107,7 @@ Harness defaults that append them are overridden. Check before every publish.
 
 ## Session start checklist (coding work)
 
-1. Read this file's always-active skill list (bodies as needed).
+1. Apply the always-active skill list above (bodies as needed).
 2. If the repo uses beads: `bd prime` / `bd ready` as appropriate.
 3. Prefer project `Agents.md` / `Claude.md` over inventing process.
 4. Skills for the task: load from catalog; never invent a parallel procedure.

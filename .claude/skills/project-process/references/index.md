@@ -1,19 +1,13 @@
-# Project Process Index
+# Project process references
 
-This index references the split project process documentation. Read all referenced files.
+Optional depth. The hub skill is enough for most work.
 
-## Core Files
+| File | When to read |
+|------|----------------|
+| `artifacts.md` | Templates for LEARNINGS, DATA_SOURCES, PLAN, gitignore rules |
+| `practices.md` | File versioning, stable IDs, self-check |
+| `priorities.md` | Sequencing work under uncertainty |
+| `organization.md` | Directory layout conventions |
+| `multisubproject.md` | Multi-package monorepo patterns |
 
-1. **project-practices.md** - Day-to-day practices (DATA_SOURCES, LEARNINGS, checkpoints)
-2. **project-artifacts.md** - Required project artifacts and their purposes
-3. **project-priorities.md** - How to prioritize work and scope decisions
-4. **project-organization.md** - File organization and naming conventions
-5. **project-multisubproject.md** - Managing multi-subproject repositories
-
-## Also Required
-
-- **PROVERBS.md** - Guiding principles (referenced separately in CLAUDE.md)
-
-## Superseded
-
-- `old/project_process.md` - Original monolithic file (27KB), now split into above files (~15KB total)
+Pipeline order (hub skill): **design → implementation plan → RFC**.

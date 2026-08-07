@@ -4,7 +4,7 @@ description: |
   Long-form technical writing voice for blog posts, deep dives, architecture
   explanations, and conference talks. Use when writing technical articles,
   blog posts, or any long-form content for external audiences. Distinct from
-  dry-witted-engineering (terse work comms) and casual-slack-tone (chat).
+  dry-engineering (terse work comms) and casual-slack-tone (chat).
 ---
 
 # Technical Writing Voice

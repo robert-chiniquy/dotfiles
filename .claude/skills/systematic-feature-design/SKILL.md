@@ -10,6 +10,9 @@ description: |
 
 # Systematic Feature Design
 
+**Pipeline stage 1 (depth)** of design → plan → RFC (see `project-process`). Prefer
+this over `/design` when the problem is large; write `DESIGN_<topic>.md` for stage 2.
+
 Apply a rigorous 11-step methodology for designing new features and systems, ensuring fundamentals are addressed before polish.
 
 Steps: Research, Compare, Refine (qualitative to quantitative), Design Documentation Ontology, Ideate, Discover (existing codebase), Implement (detailed paths), Critique, Double Back, Consolidate, Document Decisions.
