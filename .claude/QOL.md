@@ -9,6 +9,16 @@ macOS defaults and system tweaks applied for quality of life. All changes are pa
 # Rejects
 
 - Terminal cursor color unification (2026-06-26) — iTerm rewrites its plist from memory on quit, so live edits get clobbered; safe path would require quitting iTerm first. Vaporwave dynamic profile write went sideways under zsh noclobber and left an empty file. Not worth the risk for one color.
+- SSH connection multiplexing (2026-07-30) — declined despite 91 ssh git remotes with no ControlMaster set. Not wanted.
+- Disable spelling autocorrect + double-space→period (2026-07-30) — declined; user keeps these on (wants prose autocorrect in Slack/Notion) even though smart quotes/dashes/caps are off.
+- rebase.missingCommitsCheck=error + commit.verbose=true (2026-07-30) — declined; not wanted for manual git.
+- iTerm App Nap disable (2026-07-30) — not offered; iTerm plist-clobber wall (same as cursor-color reject) + marginal benefit for actively-working tabs.
+- Finder extension-change warning + LSQuarantine + WarnOnEmptyTrash off (2026-07-30) — declined all three; user keeps these dialogs (incl. Gatekeeper quarantine prompt + empty-trash safety net).
+- git help.autocorrect prompt (2026-07-30) — declined; no typo-guessing prompt wanted.
+- git diff.wsErrorHighlight all (2026-07-30) — declined.
+- Disable window open/close animation NSAutomaticWindowAnimationsEnabled (2026-07-30) — declined; the zoom is useful visual feedback with the PaperWM tiling WM. Keep window animations ON even though Finder/Mission-Control/resize/launch animations are off.
+- Mute system alert beep com.apple.sound.beep.volume 0 (2026-07-30) — declined; keeps the audible error cue.
+- Faster space-switch via com.apple.dock workspaces-swoosh-animation-off (2026-08-10) — set + user-tested, no effect on Darwin 25 (Apple ignores the legacy key); reverted. The reliable lever (Reduce Motion) was declined — user keeps motion for the WM/aesthetic. No config path to speed just the Ctrl-arrow space slide.
 
 Never suggest these again:
 - Raycast/Alfred - don't need launcher
@@ -30,6 +40,15 @@ Never suggest these again:
 - Sudo hint on permission denied - annoying
 
 # Applied
+
+## 2026-07-30: One canonical skill tree across harnesses
+```text
+~/.claude/skills/ -> canonical source
+~/.agents/skills  -> ~/.claude/skills
+```
+Added `scripts/install-shared-agent-skills.sh` and wired it into `install.sh`.
+Codex/agents consumers now see every shared skill automatically instead of a
+stale hand-picked subset, so newly added skills require no second install step.
 
 ## 2026-01-28: Disable screenshot shadows
 ```bash
@@ -626,3 +645,118 @@ Generated restore scripts use `grok --resume <session-id>`.
 
 ## 2026-07-29: neon-grit-inverse-filter + scorecard chart palette
 `bin/neon-grit-inverse-filter` approximate inverse of neon-grit-filter (same intensity dials). Scorecard chart image palette retuned to neon grit (tar bg, dirty ivory axis, cyan/magenta/acid-yellow/toxic-green/deep-red series).
+
+## 2026-07-30: git branch/tag recent-first + zdiff3 conflict style
+```bash
+git config --global branch.sort -committerdate
+git config --global tag.sort -version:refname
+git config --global merge.conflictStyle zdiff3
+```
+`git branch` / `git tag` now list most-recent first (pairs with the already-set `column.ui auto` — the branch/tag you last touched surfaces at the top instead of buried alphabetically; useful with many `rch/*` branches + c1 worktrees). `merge.conflictStyle` upgraded `diff3` → `zdiff3`: same base-showing 3-way markers, but lines common to both conflict sides are hoisted out of the conflict region, so there's less noise to resolve. Complements the existing rerere + rebase.updateRefs + rebase.autoStash workflow. Applies in every context git runs (CLI, agents, hooks) per the whole-computer-consistency axiom.
+
+## 2026-07-30: rerere auto-stages reused conflict resolutions
+```bash
+git config --global rerere.autoUpdate true
+```
+rerere was already enabled (records how you resolve a conflict, replays that resolution when the same conflict recurs). Without autoUpdate it replays the resolution into the working tree but leaves it unstaged, so you still `git add` it; with autoUpdate the reused resolution is staged automatically — during a rebase, a recurring conflict now resolves AND stages itself, and you just continue. Completes the existing rerere + rebase.updateRefs + rebase.autoStash rebase workflow. (Checked but skipped: `fetch.pruneTags` — can silently delete local-only tags.)
+
+## 2026-07-30: Touch ID for sudo in the terminal
+```bash
+sudo sh -c "sed 's/^#auth/auth/' /etc/pam.d/sudo_local.template > /etc/pam.d/sudo_local"
+```
+Creates the update-safe `/etc/pam.d/sudo_local` (already `auth include`d by `/etc/pam.d/sudo`) with `auth sufficient pam_tid.so` uncommented → `sudo` in iTerm/Terminal accepts Touch ID instead of a typed password. Lives in `sudo_local`, so it survives macOS updates (the OS overwrites `sudo`, not `sudo_local`). Works in GUI terminal sessions; not over SSH or in tmux (no pam_reattach). User ran it in a TTY; verified `sudo_local` present with the pam_tid auth line.
+
+## 2026-07-30: Kill the floating screenshot thumbnail preview
+```bash
+defaults write com.apple.screencapture show-thumbnail -bool false && killall SystemUIServer
+```
+After ⌘⇧4 / ⌘⇧5 the capture now saves straight to `~/Screenshots` instead of parking a floating preview in the bottom-right corner (which delayed the file landing and sat on top of whatever was framed next). Completes the existing screenshot config (location=~/Screenshots + disable-shadow, both already set). Verified show-thumbnail=0.
+
+## 2026-07-30: "Quiet by default" QoL principle + noise-reduction sweep
+Added a "Quiet by default is a QoL axis" section to `skills/passive-qol/SKILL.md` (silence banners / MOTD / telemetry / update-nags / post-command spam / repetitive advice — but NEVER silence real signal: direnv logs, fastfetch, prompt/git-status counts, destructive-action warnings). Universalized across the tools:
+```bash
+npm config set fund false            # no "N packages are looking for funding" block on every install
+npm config set audit false           # no vuln summary spam on install (explicit `npm audit` still works)
+npm config set update-notifier false # no npm self-update nag
+go telemetry off                     # was 'local'; matches Homebrew/Siri/ads analytics already off
+git config --global advice.detachedHead false        # kills the multi-line detached-HEAD block on checkout <sha>/<tag>
+git config --global advice.skippedCherryPicks false  # kills "skipped previously applied commit" noise during rebase
+```
+Already quiet (verified, no change needed): `~/.hushlogin` (Last-login line), `HOMEBREW_NO_*` hints/analytics (.zshenv), fzf/sysctl startup errors (.zshrc guards). Deliberately kept as real signal: `advice.addIgnoredFile` (explains a no-op `git add`), gh interactive prompt, direnv load/unload lines, fastfetch greeting.
+
+## 2026-07-30: cargo fetches git deps via the system git CLI
+```toml
+# ~/.cargo/config.toml (was absent)
+[net]
+git-fetch-with-cli = true
+```
+19 Rust projects across ~/repo have git dependencies. cargo now fetches them through the `git` CLI instead of its built-in fetcher, so they honor `~/.gitconfig`, credentials, and ssh config (consistency axis) and avoid the built-in fetcher's occasional auth quirks on private git deps. Not in dotfiles (cargo's own config dir) — recreate on a new machine if wanted.
+
+## 2026-07-30: gh clones/forks over SSH (protocol parity with existing remotes)
+```bash
+gh config set git_protocol ssh
+```
+gh's `git_protocol` was `https` while all 91 repos use ssh remotes — so `gh repo clone`/`fork` pulled new repos over https, splitting the auth path. Now gh uses `git@github.com:` URLs like everything else. Consistency axis.
+
+## 2026-07-30: FZF_DEFAULT_COMMAND uses fd (fzf entry-point parity)
+```zsh
+# ~/repo/dotfiles/.zshrc (fzf block)
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git --exclude cache --exclude plugin --exclude plugins'
+```
+`FZF_CTRL_T_COMMAND` and `FZF_ALT_C_COMMAND` already used fd, but `FZF_DEFAULT_COMMAND` (the base command for `**<Tab>` completion and bare `fzf`) was unset → it fell back to `find` (slow, walked `.git/` and gitignored files). Set to match Ctrl+T so every fzf entry point is fast + gitignore-aware. Backed up `.zshrc`, validated `zsh -n`. Effective in new shells.
+
+## 2026-07-30: git rebase auto-squashes fixup!/squash! commits
+```bash
+git config --global rebase.autosquash true
+```
+`git commit --fixup <sha>` / `--squash <sha>` commits are now automatically reordered next to their target and marked fixup/squash during `git rebase -i`, without passing `--autosquash` each time. Completes the rebase stack (rebase.updateRefs + autoStash + rerere.autoUpdate).
+
+## 2026-07-30: diff.colorMoved zebra (moved-code readability)
+```bash
+git config --global diff.colorMoved zebra
+```
+Upgraded from `default`: `zebra` alternates the shade for consecutive moved blocks, so adjacent relocations read as distinct instead of blending. Pure diff coloring, no behavior change. (Marginal tier — the non-marginal QoL well is dry; nearly every clean config is already set.)
+
+## 2026-07-30: npm loglevel warn (quieter installs)
+```bash
+npm config set loglevel warn
+```
+Drops npm from `notice` to `warn` — hides http/notice chatter during installs (and the "added N packages" summary), keeps warnings + errors. Extends the quiet-by-default sweep to npm's own verbosity. (Trivial tier.)
+
+## 2026-07-30: Pin HOMEBREW_BUNDLE_FILE to the tracked Brewfile
+```zsh
+# ~/.zshenv
+export HOMEBREW_BUNDLE_FILE="$HOME/repo/dotfiles/Brewfile"
+```
+Was unset → `brew bundle` / `dump` / `check` operated on `./Brewfile` in the current cwd, so a dump from the wrong dir scattered a stray Brewfile and never updated the tracked 336-line one. Now every brew bundle op targets `~/repo/dotfiles/Brewfile` regardless of cwd — the Brewfile stays authoritative for machine migration / portability. In `.zshenv` for CLI/agents/cron consistency. Backed up `.zshenv`, validated `zsh -n`, resolves to the existing file. Effective in new shells.
+
+## 2026-07-30: FZF_DEFAULT_OPTS carries the vaporwave palette to every fzf
+```zsh
+# ~/repo/dotfiles/.zshrc (fzf block)
+export FZF_DEFAULT_OPTS="--color=$FZF_COLORS"
+```
+`FZF_COLORS` was applied to `FZF_CTRL_T_OPTS` / `FZF_ALT_C_OPTS` but `FZF_DEFAULT_OPTS` was unset → bare `fzf` and `**<Tab>` completion used fzf's default colors, an outlier against the vaporwave Ctrl-T/Alt-C. Now the palette applies to every fzf entry point (Ctrl-T/Alt-C layer preview windows on top and inherit it). Aesthetic-consistency axis. Backed up `.zshrc`, validated `zsh -n` + resolves interactively. Effective in new shells.
+
+## 2026-07-30: git status surfaces stashed work
+```bash
+git config --global status.showStash true
+```
+`git status` now prints "Your stash currently has N entries" whenever a stash exists, so set-aside work doesn't silently rot / get forgotten. Invisible when the stash is empty. Real workflow safety (pairs with rebase.autoStash).
+
+## 2026-07-30: Agent permission allowlist — 20 read-only patterns
+Scanned 32 recent transcripts (~56k tool calls) via the fewer-permission-prompts skill; added the top read-only, not-auto-allowed, non-code-exec patterns to `~/.claude/settings.local.json` (global + gitignored/PRIVATE — deliberately NOT the dotfiles-tracked `settings.json`, since several are internal tool names: C1_Internal / sqfan / squire / workflowy, which must not go in the public repo). 16 → 36 allow entries. Added: `Bash(bd show/list/ready/search *)`, `Bash(sqfan status *)`, `Bash(gh search *)`, `Bash(workflowy get *)`, `Bash(squire env list)`, and MCP reads (Linear list/get_issue, notion search/fetch, codebase-memory get_code_snippet/search_code/search_graph, Slack read_thread/search_public, slack conversations_history, C1_Internal describe). Dropped: auto-allowed (`git status` 3535, cat/ls/grep…), mutating (bd update/create/close, git push, linear create), code-exec (`squire ssh` 1276, `rtk proxy` 223, C1 execute 115). Backed up + validation gauntlet (valid JSON + size floor + sentinel survived + new entry present). Follow-up: added 9 runner-up read-only patterns (count 4–11: `squire env info/task list *`, `bd memories/help *`, `defaults read *`, linear get_issue/list_projects, Google_Calendar list_events, slack channels_list) → 45 allow entries.
+
+## 2026-07-30: gitignore *.bak globally + session backup cleanup
+Added `*.bak` to `~/.gitignore_global` (next to `*.orig`) so config-edit backups never get committed in any repo. Removed this session's 3 redundant dotfiles `.bak` files (validated `.zshrc`/`.zshenv` backups); kept the two `~/.claude/settings.local.json.bak` as a short safety net for the just-edited permissions file.
+
+## 2026-07-30: Disable desktop tinting of window chrome
+```bash
+defaults write -g AppleReduceDesktopTinting -bool YES
+```
+Stops macOS tinting window chrome/toolbars to match the wallpaper. With the vaporwave wallpaper rotating every 10 min, window chrome now stays neutral/consistent instead of shifting hue as the wallpaper cycles — aesthetic-consistency axis. Fully applies after next login. (Its companion `NSAutomaticWindowAnimationsEnabled` was deliberately left ON — see Rejects; the window open/close zoom is useful feedback with PaperWM.)
+
+## 2026-07-30: Disable cursor shake-to-magnify
+```bash
+defaults write .GlobalPreferences CGDisableCursorLocationMagnification -bool true
+```
+Jiggling the mouse no longer balloons the pointer huge. Fully applies after next login.
