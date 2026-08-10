@@ -94,7 +94,28 @@ SCORECARD_ACTIVE_FILE="$TOKEN_TEST_ACTIVE" \
 TOKEN_REPORT_FILE="$TOKEN_TEST_REPORT" \
 TOKEN_REFRESH_COLLECTOR="$TOKEN_TEST_COLLECTOR" \
   "$TOKEN_TEST_REFRESH" >/dev/null 2>&1
-/usr/bin/grep -qx '# Other scorecard' "$TOKEN_TEST_ACTIVE"
+cat > "$TOKEN_TEST_ROOT/expected-appended-active.md" <<'MD'
+# Other scorecard
+
+<!-- weekly-agent-tokens:begin -->
+## Chart: Tokens consumed per repository (millions)
+type: histogram
+| repository | tokens (M) |
+| --- | ---: |
+| occult | 42.0 |
+<!-- weekly-agent-tokens:end -->
+MD
+/usr/bin/cmp -s "$TOKEN_TEST_ROOT/expected-appended-active.md" "$TOKEN_TEST_ACTIVE"
+
+cat > "$TOKEN_TEST_ROOT/expected-created-active.md" <<'MD'
+<!-- weekly-agent-tokens:begin -->
+## Chart: Tokens consumed per repository (millions)
+type: histogram
+| repository | tokens (M) |
+| --- | ---: |
+| occult | 42.0 |
+<!-- weekly-agent-tokens:end -->
+MD
 
 cat > "$TOKEN_TEST_ACTIVE" <<'MD'
 # Malformed managed block
@@ -125,7 +146,7 @@ SCORECARD_ACTIVE_FILE="$TOKEN_TEST_ACTIVE" \
 TOKEN_REPORT_FILE="$TOKEN_TEST_REPORT" \
 TOKEN_REFRESH_COLLECTOR="$TOKEN_TEST_COLLECTOR" \
   "$TOKEN_TEST_REFRESH" >/dev/null 2>&1
-test ! -e "$TOKEN_TEST_ACTIVE"
+/usr/bin/cmp -s "$TOKEN_TEST_ROOT/expected-created-active.md" "$TOKEN_TEST_ACTIVE"
 
 echo 'old-status' > "$TOKEN_TEST_STATUS"
 echo 'old-report' > "$TOKEN_TEST_REPORT"

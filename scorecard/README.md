@@ -67,8 +67,9 @@ Install the macOS LaunchAgent to refresh them at login and once an hour:
 scripts/install-scorecard-token-refresh.sh
 ```
 
-The refresh never creates or replaces `status.md`. It updates only a chart
-explicitly enclosed by these ownership markers:
+The refresh preserves all existing `status.md` content. It updates a chart
+enclosed by these ownership markers, appends that managed block when it is
+absent, and creates `status.md` with the block when the file does not exist:
 
 ```markdown
 <!-- weekly-agent-tokens:begin -->

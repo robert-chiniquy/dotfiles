@@ -68,42 +68,77 @@ test -s "$TOKEN_REFRESH_REPORT_TMP"
 test -s "$TOKEN_REFRESH_CHART_TMP"
 /usr/bin/grep -q '^type: histogram$' "$TOKEN_REFRESH_CHART_TMP"
 
-TOKEN_REFRESH_UPDATE_ACTIVE=0
-if [ ! -L "$TOKEN_REFRESH_ACTIVE" ] && [ -f "$TOKEN_REFRESH_ACTIVE" ] && \
-  /usr/bin/awk '
-    $0 == "<!-- weekly-agent-tokens:begin -->" { begin_count++; begin_line = NR }
-    $0 == "<!-- weekly-agent-tokens:end -->" { end_count++; end_line = NR }
-    END {
-      valid = begin_count == 1 && end_count == 1 && begin_line < end_line
-      exit !valid
-    }
-  ' "$TOKEN_REFRESH_ACTIVE"; then
-  TOKEN_REFRESH_UPDATE_ACTIVE=1
+TOKEN_REFRESH_ACTIVE_MODE=skip
+if [ ! -L "$TOKEN_REFRESH_ACTIVE" ]; then
+  if [ -f "$TOKEN_REFRESH_ACTIVE" ]; then
+    TOKEN_REFRESH_ACTIVE_MODE=$(
+      /usr/bin/awk '
+        $0 == "<!-- weekly-agent-tokens:begin -->" { begin_count++; begin_line = NR }
+        $0 == "<!-- weekly-agent-tokens:end -->" { end_count++; end_line = NR }
+        END {
+          if (begin_count == 0 && end_count == 0) {
+            print "append"
+          } else if (begin_count == 1 && end_count == 1 && begin_line < end_line) {
+            print "replace"
+          }
+        }
+      ' "$TOKEN_REFRESH_ACTIVE"
+    )
+    [ -n "$TOKEN_REFRESH_ACTIVE_MODE" ] || TOKEN_REFRESH_ACTIVE_MODE=skip
+  elif [ ! -e "$TOKEN_REFRESH_ACTIVE" ]; then
+    TOKEN_REFRESH_ACTIVE_MODE=create
+  fi
 fi
 
-if [ "$TOKEN_REFRESH_UPDATE_ACTIVE" -eq 1 ]; then
+if [ "$TOKEN_REFRESH_ACTIVE_MODE" != skip ]; then
   TOKEN_REFRESH_ACTIVE_DIR=$(dirname -- "$TOKEN_REFRESH_ACTIVE")
   /bin/mkdir -p "$TOKEN_REFRESH_ACTIVE_DIR"
   TOKEN_REFRESH_ACTIVE_TMP=$(
     /usr/bin/mktemp "$TOKEN_REFRESH_ACTIVE_DIR/.weekly-agent-tokens-active.XXXXXX"
   )
-  /usr/bin/awk -v chart="$TOKEN_REFRESH_CHART_TMP" '
-    $0 == "<!-- weekly-agent-tokens:begin -->" {
-      print
-      while ((getline line < chart) > 0) {
-        print line
-      }
-      close(chart)
-      replacing = 1
-      next
-    }
-    $0 == "<!-- weekly-agent-tokens:end -->" {
-      replacing = 0
-      print
-      next
-    }
-    !replacing { print }
-  ' "$TOKEN_REFRESH_ACTIVE" > "$TOKEN_REFRESH_ACTIVE_TMP"
+  case "$TOKEN_REFRESH_ACTIVE_MODE" in
+    replace)
+      /usr/bin/awk -v chart="$TOKEN_REFRESH_CHART_TMP" '
+        $0 == "<!-- weekly-agent-tokens:begin -->" {
+          print
+          while ((getline line < chart) > 0) {
+            print line
+          }
+          close(chart)
+          replacing = 1
+          next
+        }
+        $0 == "<!-- weekly-agent-tokens:end -->" {
+          replacing = 0
+          print
+          next
+        }
+        !replacing { print }
+      ' "$TOKEN_REFRESH_ACTIVE" > "$TOKEN_REFRESH_ACTIVE_TMP"
+      ;;
+    append)
+      /usr/bin/awk -v chart="$TOKEN_REFRESH_CHART_TMP" '
+        { print }
+        END {
+          if (NR > 0) print ""
+          print "<!-- weekly-agent-tokens:begin -->"
+          while ((getline line < chart) > 0) print line
+          close(chart)
+          print "<!-- weekly-agent-tokens:end -->"
+        }
+      ' "$TOKEN_REFRESH_ACTIVE" > "$TOKEN_REFRESH_ACTIVE_TMP"
+      ;;
+    create)
+      /usr/bin/awk -v chart="$TOKEN_REFRESH_CHART_TMP" '
+        BEGIN {
+          print "<!-- weekly-agent-tokens:begin -->"
+          while ((getline line < chart) > 0) print line
+          close(chart)
+          print "<!-- weekly-agent-tokens:end -->"
+        }
+      ' /dev/null > "$TOKEN_REFRESH_ACTIVE_TMP"
+      ;;
+  esac
   test -s "$TOKEN_REFRESH_ACTIVE_TMP"
   /usr/bin/grep -q '^<!-- weekly-agent-tokens:begin -->$' "$TOKEN_REFRESH_ACTIVE_TMP"
   /usr/bin/grep -q '^<!-- weekly-agent-tokens:end -->$' "$TOKEN_REFRESH_ACTIVE_TMP"
@@ -113,6 +148,6 @@ fi
 /bin/chmod 0644 "$TOKEN_REFRESH_STATUS_TMP" "$TOKEN_REFRESH_REPORT_TMP"
 /bin/mv -f "$TOKEN_REFRESH_STATUS_TMP" "$TOKEN_REFRESH_STATUS"
 /bin/mv -f "$TOKEN_REFRESH_REPORT_TMP" "$TOKEN_REFRESH_REPORT"
-if [ "$TOKEN_REFRESH_UPDATE_ACTIVE" -eq 1 ]; then
+if [ "$TOKEN_REFRESH_ACTIVE_MODE" != skip ]; then
   /bin/mv -f "$TOKEN_REFRESH_ACTIVE_TMP" "$TOKEN_REFRESH_ACTIVE"
 fi
