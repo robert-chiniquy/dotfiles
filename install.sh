@@ -127,6 +127,13 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 success "Symlinks done"
 
+# === Shared agent skills ===
+header "Shared Agent Skills"
+if [ -x scripts/install-shared-agent-skills.sh ]; then
+  spin "Linking canonical skill tree" scripts/install-shared-agent-skills.sh
+  success "Shared agent skills installed"
+fi
+
 # === Codex guidance ===
 header "Codex Guidance"
 if [ -x scripts/install-codex-guidance.sh ]; then
