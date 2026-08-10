@@ -5,9 +5,15 @@ installer = "internal"
 max_thoughts_width = 120
 fork_secondary_model = "grok-build"
 yolo = false
-compact_mode = false
+compact_mode = true
 permission_mode = "always-approve"
 theme = "groknight"
+keep_text_selection = "word_select"
+remember_tool_approvals = true
+screen_mode = "fullscreen"
+show_timeline = false
+collapsed_edit_blocks = true
+combine_queued_prompts = true
 
 [models]
 default = "grok-composer-2.5-fast"
@@ -20,9 +26,6 @@ default_skills_installs_purged = true
 name = "xAI Official"
 git = "https://github.com/xai-org/plugin-marketplace.git"
 
-# Claude compatibility: skills, rules, agents, mcps stay on (defaults).
-# hooks=false: Claude Bash matchers are not Grok-native; agent runs bd prime etc. itself.
-# Shared guidance: ~/.claude/Claude.md + ~/.claude/skills/ (see ~/.grok/AGENTS.md).
 [compat.claude]
 hooks = false
 skills = true
@@ -30,11 +33,14 @@ rules = true
 agents = true
 mcps = true
 
-# Shared skills live in ~/.claude/skills (canonical). ~/.agents/skills is a
-# symlink farm for Codex/other consumers; content is identical. Grok may list
-# the agents path for overlapping names (discovery order) — bodies resolve to
-# the Claude tree via symlink.
-[skills]
-
 [mcp_servers.linear]
 url = "https://mcp.linear.app/mcp"
+
+[mcp_servers.slack]
+command = "/opt/homebrew/bin/mcp-slack"
+args = []
+enabled = true
+
+[mcp_servers.slack.env]
+SLACK_MCP_XOXB_TOKEN = "${SLACK_MCP_XOXB_TOKEN}"
+SLACK_MCP_TEAM_ID = "T01B7BY5ULB"
