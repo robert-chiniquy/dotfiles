@@ -36,6 +36,9 @@ export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_INSTALL_CLEANUP=1
 export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_NO_ENV_HINTS=true
+# brew bundle install/dump/check always target the tracked Brewfile, not
+# ./Brewfile in the current dir — keeps it authoritative regardless of cwd.
+export HOMEBREW_BUNDLE_FILE="$HOME/repo/dotfiles/Brewfile"
 export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
 
 # Shared cargo target — every Rust build across every checkout/worktree

@@ -974,6 +974,12 @@ bindkey '^P' _fuzzy_history_widget
 
 # fzf keybindings
 if command -v fzf &>/dev/null; then
+  # Base command for **<Tab> completion and bare `fzf`: match Ctrl+T so every
+  # fzf entry point uses fd (fast, gitignore-aware) instead of the find fallback.
+  export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git --exclude cache --exclude plugin --exclude plugins'
+  # Base opts (colors) for every fzf entry point, so bare `fzf` / **<Tab> match
+  # the vaporwave palette that Ctrl+T/Alt+C already layer on top.
+  export FZF_DEFAULT_OPTS="--color=$FZF_COLORS"
   # Ctrl+T: Fuzzy file search with smart preview (bat for text, xxd for binaries)
   export FZF_CTRL_T_COMMAND='fd --type f --hidden --follow --exclude .git --exclude cache --exclude plugin --exclude plugins'
   export FZF_CTRL_T_OPTS="--preview 'if file -b --mime {} | grep -q text; then bat --color=always --style=numbers --line-range=:500 {}; else xxd -l 512 {}; fi' --preview-window=right:60%:wrap --color=$FZF_COLORS"
