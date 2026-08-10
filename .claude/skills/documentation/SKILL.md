@@ -23,4 +23,3 @@ Hub skill. Reference files cover the full methodology:
 | `references/tone-matrixing.md` | Adjusting tone for audience |
 | `references/marketing-lens.md` | When docs need to communicate value |
 | `references/learnings.md` | What we've learned about writing docs |
-| `references/rap.md` | Read-Assess-Plan method |

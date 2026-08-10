@@ -1,0 +1,4 @@
+interface:
+  display_name: "Overcorrection Review"
+  short_description: "Catch needless complexity and premature scope cuts"
+  default_prompt: "Use $overcorrection-review to challenge this review or design for needless complexity and premature exclusions."

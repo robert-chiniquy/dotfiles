@@ -2,7 +2,7 @@
 name: review-code
 description: Run a multi-agent code review on recent changes. Spawns a team of specialized reviewers (bugs, security, perf, tests, usability, etc.), collects findings, triages into fix-now vs defer, and optionally applies fixes. Use when asked to "review code", "review changes", "review this PR", or "get a second opinion".
 disable-model-invocation: true
-argument-hint: [--apply] [--defer-file <path>]
+argument-hint: "[--apply] [--defer-file <path>]"
 ---
 
 # Multi-Agent Code Review
@@ -24,11 +24,15 @@ If the branch is ahead of main, review the full branch diff (`git diff origin/ma
 
 First check the project for domain-specific reviewer skills: `skills/CATALOG.md` and `skills/*-review/SKILL.md` (convention: names ending in `-review` are reviewer personas). Spawn any whose domain the changeset touches. Prefer these over generic defaults — they encode conventions generic reviewers miss. Their criteria prompt is: "Read `{skill-path}/SKILL.md` and apply its checklist verbatim. Flag any violations."
 
+Always include an overcorrection reviewer and load `$overcorrection-review`.
+It reviews both the changes and the fixes proposed by other reviewers.
+
 Generic roster — pick per what the code touches:
 
 | Reviewer | Focus | Include when |
 |----------|-------|--------------|
 | bugs-reviewer | Logic bugs, edge cases, error handling, concurrency | Always — baseline |
+| overcorrection-reviewer | Needless complexity, premature exclusions, ungrounded cost/value estimates, disproportionate fixes | Always; apply `$overcorrection-review` |
 | security-reviewer | Injection, path traversal, credentials, DoS | External input, file I/O, exec, network, auth |
 | perf-reviewer | Allocations, leaks, timeouts, limit calibration | I/O, subprocesses, large data, concurrency |
 | test-reviewer | Coverage gaps, test quality, isolation, flakiness | Changeset includes or should include tests |
@@ -37,7 +41,9 @@ Generic roster — pick per what the code touches:
 | arch-reviewer | Architectural fit, abstraction boundaries | Non-default: large structural changes |
 | compat-reviewer | Breaking changes, migration paths | Non-default: public API or data format changes |
 
-Never spawn more than 6 reviewers. If project-local skills push past 6, drop the generic ones that overlap (e.g. drop bugs-reviewer if the project has a domain bug-pattern reviewer).
+Never spawn more than 6 reviewers. Keep bugs and overcorrection as the two
+baseline lanes. If project-local skills push past 6, drop generic reviewers
+whose domains overlap.
 
 ## Spawn Team
 
@@ -55,6 +61,10 @@ Create a team via `TeamCreate` (name `code-review`), one task per reviewer, then
 If a reviewer goes idle without sending findings, prompt it once; if still silent after a second prompt, proceed without it and note the gap.
 
 Deduplicate (keep the most detailed finding, note which reviewers flagged it), cross-validate contradictions by reading the code yourself, sort by severity.
+
+Apply the overcorrection finding format to surviving proposed fixes before
+triage. Narrow or drop any fix that exceeds the introduced problem or rests on
+an unsupported estimate.
 
 ## Triage
 

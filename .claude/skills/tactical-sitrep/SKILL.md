@@ -13,10 +13,17 @@ Not this skill: general project state (orient), "what next" with no time pressur
 
 1. **Pin the goal.** State goal name, target date, days remaining (compute from today).
 
-2. **Enumerate scope** from the authoritative tracker via a milestone-filtered query. Per item: id, title, status, assignee, priority, last-updated. Items marked Duplicate / Won't fix / Deferred, or unassigned low-priority with no signs of life: list separately as "effectively descoped" and exclude from the in-scope count.
+2. **Collect configured evidence.** If the current repository provides `xtask sitrep` and `config/sitrep/*.toml`, discover the config whose report/source titles and view keys match the pinned goal. Do not embed or remember organization, repository, PR, project, milestone, assignee, or ticket IDs in this skill.
+   - Run `cargo run -p xtask -- sitrep snapshot <config> --output <temporary-json>`, passing `--as-of` and `--activity-since` only when the pinned goal supplies those windows.
+   - If the configured GitHub credential environment variable is unset but `gh auth status` succeeds, bind `gh auth token` to that configured variable for the collection process only. Never print, log, or persist the token.
+   - Render both `sitrep report` and `sitrep audit` from that saved snapshot. These are the primary tracker, PR, CI, review-thread, blocker, and cross-source-correlation evidence.
+   - A source failure is an explicit evidence gap, not a global failure. Keep successful source results and classify claims requiring the failed source as unknown. Use a direct source query only to fill a missing configured view or verify deploy/production state outside the configured sources.
+   - Use plain JSON or Markdown output. Do not invoke or render a scorecard.
 
-3. **Pull real-world signals per item** (parallel subagent fan-out if more than ~3 items). The tracker says what state the work *claims* to be in; these say whether the claim holds:
-   - PR state: number, draft, mergeStateStatus, mergeable, last-push timestamp, last 3 commit messages.
+3. **Enumerate scope** from the authoritative tracker via a milestone-filtered query or the matching Linear view in the combined report. Per item: id, title, status, assignee, priority, last-updated. Items marked Duplicate / Won't fix / Deferred, or unassigned low-priority with no signs of life: list separately as "effectively descoped" and exclude from the in-scope count.
+
+4. **Pull real-world signals per item** from the combined report first (parallel subagent fan-out if more than ~3 items and material evidence remains outside the configured sources). The tracker says what state the work *claims* to be in; these say whether the claim holds:
+   - PR state: number, draft, mergeStateStatus, mergeable, PR updated timestamp, configured latest commit timestamps, and last 3 commit messages. Do not label a commit timestamp as a push timestamp.
    - CI: pass/fail/pending check counts; first failing job name.
    - Review: latest reviewer + state; approved vs CHANGES_REQUESTED.
    - Comment cadence: review-thread comments in the last 7 days (silent = stalled signal).
@@ -24,20 +31,20 @@ Not this skill: general project state (orient), "what next" with no time pressur
    - Chains: one tracker item spanning coordinated PRs across repos. `proto → SDK → shells → server` is four ordered merges — report it as such, never as 1 item.
    - If the user has wiki / chat / knowledge-base sources, fan out another subagent for recent activity on the same items + assignees. Risks raised in chat but never ticketed are the highest-value signal a sitrep surfaces.
 
-4. **Cross-reference tracker claim vs reality**; surface every mismatch:
+5. **Cross-reference tracker claim vs reality**; surface every mismatch:
    - "In Review": does the PR exist, non-draft, CI green, reviewer assigned? Draft + no reviewer = aspirational.
    - "Done": merged, or only approved? Approved + green + mergeable is one click from merged, but unmerged is not landed. Deployed where the milestone needs it?
    - "Backlog" / low-priority: recent pushes to a related branch by that author override the label.
    - Headline metric ("8% complete"): does it weight the must-ship items, or count low-priority items equally? Decompose if needed.
 
-5. **A/B/C call.** One letter, no hedge; nuance goes in the reasoning bullets (1-2, citing step-4 state). If sub-tracks diverge (engineering ready, decisions blocked), the decisive sub-track's letter is the headline.
+6. **A/B/C call.** One letter, no hedge; nuance goes in the reasoning bullets (1-2, citing step-5 state). If sub-tracks diverge (engineering ready, decisions blocked), the decisive sub-track's letter is the headline.
    - **A — Behind**: will miss at current cadence, OR a must-ship item has no path to landing in time. Language: "Behind on calendar-load. Reason: <item or decision with no landing path>. Most pressing: <action>."
    - **B — Roughly on track**: every in-scope item has a plausible landing path; residual risk is execution/coordination, not unknown work. Language: "Roughly on track. All in-scope items have plausible landing paths. Primary risk: <execution / coordination / review-velocity risk>. Most pressing: <action>."
    - **C — Ahead**: landing faster than the timeline requires; buffer exists. Language: "Ahead. Buffer of <N> days at current cadence. Most pressing: <protect-buffer action — usually 'don't add scope'>."
 
    "B-leaning-A" is not calibrated; pick one. "Tight but doable" is B with risk noted — if tight means will-miss, it is A.
 
-6. **Single most calendar-pressing action.** Exactly one: the action that, if not taken in the next 48 hours, most narrows the path to landing. Name the artifact, not the author. It may not be a PR at all — auditor bookings, vendor commitments, regulatory filings live on no PR board; watch for them whenever the milestone implies one. Fuller punch-list only on request.
+7. **Single most calendar-pressing action.** Exactly one: the action that, if not taken in the next 48 hours, most narrows the path to landing. Name the artifact, not the author. It may not be a PR at all — auditor bookings, vendor commitments, regulatory filings live on no PR board; watch for them whenever the milestone implies one. Fuller punch-list only on request.
 
 ## Output
 

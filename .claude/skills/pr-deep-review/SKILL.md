@@ -3,12 +3,13 @@ name: pr-deep-review
 description: >-
   Deep, multi-agent review of a PR or branch diff: fan out one focused subagent
   per dimension (security, scale, performance, correctness, idiomatic style,
-  plus frontend when the diff warrants), adversarially verify every finding to
-  kill false positives and pre-existing debt, tier what survives, then post
-  agent-shaped inline comments to the PR. Has a re-review mode for when the
-  author has addressed feedback. Use when the user asks to "deep review this
-  branch/PR", "review the PR with subagents", "do a thorough review",
-  "re-review the PR", or wants a higher-rigor pass than a single-shot review.
+  overcorrection, plus frontend when the diff warrants), adversarially verify
+  every finding to kill false positives and pre-existing debt, tier what
+  survives, then post agent-shaped inline comments to the PR. Has a re-review
+  mode for when the author has addressed feedback. Use when the user asks to
+  "deep review this branch/PR", "review the PR with subagents", "do a thorough
+  review", "re-review the PR", or wants a higher-rigor pass than a single-shot
+  review.
 allowed-tools:
   - Read
   - Grep
@@ -29,7 +30,7 @@ Read-only on the code — never edit the branch. Writes externally only via
 
 ## Phase 0 — Triage and pre-flight
 
-Triage by diff size (fan-out costs 8–12+ agent invocations):
+Triage by diff size (fan-out costs 9 to 14+ agent invocations):
 
 ```bash
 git diff --shortstat <base>...HEAD
@@ -85,7 +86,11 @@ the repo-local skills mapped in Phase 0, and the standing rules below.
 | **Performance** | `postgres-query-perf` or repo-local perf rules | redundant DB calls per request, blocking I/O on hot path, repeated work in loops, recomputed schema/form parsing, needless (de)serialization |
 | **Correctness** | `go-conventions` / `rust-conventions` / language-specific repo rules | nil/empty handling, swallowed errors, edge cases, race conditions, proto field semantics, **test-coverage gaps** — do tests assert the gRPC status *code*, not just non-nil? failure paths or only happy path? |
 | **Idiomatic style** | `go-conventions`, `.claude/rules/{backend,frontend,comments}.md`, language style guides | **Reinvented helpers** — hand-rolled map/filter/dedup/pagination/retry/hashing an existing repo utility provides; logging not via repo conventions; gRPC error *codes* misclassified; comment smells; functions that need paragraphs instead of a rename |
+| **Overcorrection** | `$overcorrection-review` | needless abstraction or ceremony, premature feature or platform exclusions, broad restrictions for narrow failures, choices resting on unmeasured difficulty/cost/value, and proposed fixes that exceed the introduced risk |
 | **Frontend** (only when diff is ≥30% frontend files) | `react-patterns`, `.claude/rules/frontend.md` | a11y, state-management coupling, render perf, hydration mismatches, type-narrowing escape hatches, prop-drilling vs. context boundaries |
+
+The Overcorrection dimension is mandatory whenever this skill is used. It
+reviews both the diff's decisions and the eventual review recommendations.
 
 **Standing rules in every dimension agent's prompt:**
 
@@ -155,6 +160,10 @@ code supports it.
 ## Phase 5 — Synthesize and tier (orchestrator — you)
 
 Drop everything refuted. Tier what survives:
+
+Before tiering, apply the Overcorrection lens to every proposed fix. Remove or
+narrow requests that depend on an unmeasured estimate, absorb pre-existing
+debt, permanently exclude valid scope, or exceed the defect they address.
 
 1. **Blocking & in-scope** — real defects or missing tests in *this PR's*
    new code.

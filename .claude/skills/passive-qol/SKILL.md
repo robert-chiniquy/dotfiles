@@ -64,6 +64,34 @@ When suggesting an op that only lands in ONE context, note the parity
 gap in the suggestion and, if a matching setting exists in the sibling
 contexts, offer to apply it there too.
 
+## Quiet by default is a QoL axis
+
+Extraneous output is friction. Every banner, MOTD, update-nag, telemetry
+notice, redundant confirmation, and post-command spam line the user — or an
+agent reading a transcript — has to skim past is a small recurring tax, and
+it pollutes the context window of every agent that shells out. Treat noise
+itself as a QoL problem: prefer the quietest setting that still preserves
+real signal, and quiet it everywhere the same class of noise occurs (per the
+consistency axis — a telemetry opt-out belongs in the universal env file, not
+one shell).
+
+Noise worth silencing:
+* Tool banners / MOTD / "Last login" lines on every new shell
+* Update-available nags (npm, gh, rustup, brew)
+* Analytics / telemetry notices (Homebrew, Go, Siri, ad personalization)
+* Post-command spam (npm fund/audit blocks, verbose installers)
+* Repetitive advice hints for things the user already knows (git
+  detachedHead, skipped-cherry-picks)
+* Redundant confirmation dialogs and floating previews (screenshot
+  thumbnail, routine "are you sure")
+* Crash / error modals for expected failures
+
+NOT noise — never silence real signal:
+* direnv load/unload lines (the user wants them — catches a stale .envrc)
+* fastfetch greeting, prompt segments, git status counts
+* Warnings about genuinely destructive or irreversible actions
+* Errors that indicate a real failure
+
 ## Before Suggesting
 
 Read `~/.claude/QOL.md` first. Never suggest anything in the Rejects list.
@@ -76,6 +104,18 @@ One suggestion at a time:
 Passive QoL: [one-line description]
 [single command or short explanation]
 ```
+
+## Always continue — never stall the stream
+
+After each suggestion — whether the user accepts it, declines it, or you
+apply it — ALWAYS proceed to the next pass automatically: immediately surface
+the next candidate. Do NOT stop the stream, and do NOT ask "want another
+pass?" / "good here?" / "keep going?". Only the user ends it, with an explicit
+stop ("stop", "done", "that's enough", "wrap"). Until then, keep proposing —
+mine a fresh domain when one runs dry rather than winding down. (Consistent
+with the global "no standing by" principle.) When genuinely out of
+non-marginal candidates, say so plainly and offer the marginal tier, but still
+propose the next one rather than halting.
 
 ## Documentation
 

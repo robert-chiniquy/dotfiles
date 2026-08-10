@@ -34,6 +34,9 @@ surface moves; when a flag matters, verify with `--help` before scripting it.
   Either pre-stage data via scp before dispatch (cheapest for bounded tasks
   like review), or mint a short-lived token via the envmgr `git_token` MCP
   tool and export `GH_TOKEN` (expires ~30 min; only covers App repos).
+- **Short model aliases** — `-m opus` resolves to a retired pin and 400s
+  (`unknown or disabled model "anthropic/claude-opus-4-8"`, seen 2026-08-07).
+  Pass a full ID; the 400's `detail` lists what the gateway accepts.
 - **Wrong prompt payload** — `{"content": "..."}` does not work; missing
   `role: "user"` is the silent killer. See the Fallback section.
 - **Talking to port 4096** — the authenticated server is on a random port;
@@ -55,9 +58,11 @@ surface moves; when a flag matters, verify with `--help` before scripting it.
 - **Stale bd lock from crashed subagents** — `bd` reports another process
   holds the lock; verify with `lsof`, then remove
   `.beads/embeddeddolt/.lock`.
-- **Workspace directory** — verify `/data/squire/src/` contents before
-  dispatch and name full repo paths in the brief; the session `directory`
-  field shows where the agent actually works.
+- **Hardcoding a repo path in the brief** — layouts differ per image, and an
+  empty `/data/squire/src/` does not mean the repo is missing (c1 lived at
+  `/data/src/c1` on 2026-08-07). Locate the checkout before dispatch and name
+  the resolved path; the session `directory` field shows where the agent
+  actually landed. See Non-Default Repo Pattern.
 - **OpenCode log files may not exist** on newer images (`--print-logs`
   only). For model-drift checks, hit the session API:
   `curl -sf http://localhost:<port>/session/<sid>/message | jq '.[-1].metadata.assistant.modelID'`.
@@ -65,7 +70,7 @@ surface moves; when a flag matters, verify with `--help` before scripting it.
 ## Core Commands
 
 ```bash
-squire new <name> -p "Fix the login bug" -m opus   # fire-and-forget dispatch
+squire new <name> -p "Fix the login bug" -m anthropic/claude-opus-5   # dispatch
 squire new <name> --no-attach                      # create env, no prompt yet
 squire env                                         # list envs / select one
 squire ssh <id> -- "cd /workspace && git status"   # non-interactive exec (quote it)
@@ -74,9 +79,14 @@ squire attach <id>                                 # watch the agent TUI (multip
 
 `squire new` with `-p` is fire-and-forget BY DEFAULT: the prompt is sent when
 the env is ready and the CLI exits immediately. `--attach` overrides to watch.
-Useful flags (verified 2026-08-05; re-verify, the set moves): `-m/--model`
-(`opus` | `sonnet` | full ID), `-f/--flavor` (`xxsmall`…`xlarge`), `--image`,
-`--git-branch`, `--skip-sync`/`--skip-build`/`--skip-services`, `--timeout`.
+Useful flags (verified 2026-08-05; re-verify, the set moves): `-m/--model`,
+`-f/--flavor` (`xxsmall`…`xlarge`), `--image`, `--git-branch`,
+`--skip-sync`/`--skip-build`/`--skip-services`, `--timeout`.
+
+**Pass `-m` a full model ID, never a short alias.** The aliases resolve to
+retired pins: `-m opus` failed 2026-08-07 with `400 unknown or disabled model
+"anthropic/claude-opus-4-8"`. The 400's `detail` field lists every id the
+gateway currently accepts, so read the error rather than guessing a successor.
 
 ## Agent Tasks (primary dispatch + follow-up surface)
 
@@ -157,14 +167,19 @@ Most Latchkey work spans repos. Enumerate the plausible set up front and
 bundle ALL of them into the env; do not let the agent discover a missing
 dependency at compile time.
 
-| Repo | Path in env | What lives here |
-|---|---|---|
-| `latchkey-proto` | `/data/squire/src/latchkey-proto` | Canonical proto schemas for V4 API + models + service contracts. |
-| `latchkey-mls-core` | `/data/squire/src/latchkey-mls-core` | MLS adapter + OpenMLS shim. |
-| `latchkey-client-sdk` | `/data/squire/src/latchkey-client-sdk` | Rust SDK consumed by every native client. |
-| `latchkey-client-shells` | `/data/squire/src/latchkey-client-shells` | CLI binary + shell scaffolds. |
-| `latchkey-desktop` | `/data/squire/src/latchkey-desktop` | Tauri 2.x desktop client. |
-| `c1` | `/data/squire/src/c1` | The C1 monorepo. |
+Repos you bundle in go under a source root you pick — `/data/squire/src/` is
+the convention below. A repo the IMAGE ships is wherever the image put it
+(c1 was at `/data/src/c1` on 2026-08-07), so resolve those per Non-Default
+Repo Pattern rather than reading a path off this table.
+
+| Repo | What lives here |
+|---|---|
+| `latchkey-proto` | Canonical proto schemas for V4 API + models + service contracts. |
+| `latchkey-mls-core` | MLS adapter + OpenMLS shim. |
+| `latchkey-client-sdk` | Rust SDK consumed by every native client. |
+| `latchkey-client-shells` | CLI binary + shell scaffolds. |
+| `latchkey-desktop` | Tauri 2.x desktop client. |
+| `c1` | The C1 monorepo (image-provided; resolve the path). |
 
 "Add a CLI command" almost always touches the SDK and may touch the proto.
 When bundling: bundle speculatively (bundles are small), clone each to its
@@ -176,9 +191,22 @@ reporting in the status note so extraction can bundle each repo back.
 
 ## Non-Default Repo Pattern
 
-Newer images may launch with `/data/squire/src/` empty. Verify before
-assuming: `squire ssh <id> -- "ls /data/squire/src/"`. c1 clones directly
-(credential helper covers it). Other repos ship via git bundle:
+**Find the checkout; never hardcode its path in a brief.** Image layouts
+differ, and an empty `/data/squire/src/` does NOT mean the repo is absent —
+on the 2026-08-07 c1 image that directory was empty while the checkout sat at
+`/data/src/c1`. A brief that says "clone it if `/data/squire/src/c1` is empty"
+sends the agent to duplicate a repo that already exists. Locate it first:
+
+```bash
+squire ssh <id> -- 'ls /data/squire/src/ /data/src/ 2>/dev/null'
+squire ssh <id> -- 'find / -maxdepth 4 -type d -name <repo> -not -path "*/node_modules/*" 2>/dev/null'
+```
+
+Then name the resolved absolute path in the brief. Filter the `find` hits:
+`*/cache/*` and `*/gocache/*` are build caches, not working trees.
+
+c1 also clones directly if genuinely absent (credential helper covers it).
+Other repos ship via git bundle:
 
 ```bash
 git -C ~/repo/other-repo bundle create /tmp/repo.bundle branch-name
@@ -207,9 +235,10 @@ squire ssh <id> -- "git -C /data/squire/src/<repo> diff --stat"
 Cheaper models produce lower-quality output and subtle bugs; agents can
 drift mid-session. Discipline:
 
-- Pin the model at creation (`squire new -m opus`) and in every raw
-  `prompt_async` payload (the payload model field is authoritative per
-  prompt).
+- Pin the model at creation (`squire new -m anthropic/claude-opus-5`) and in
+  every raw `prompt_async` payload (the payload model field is authoritative
+  per prompt). Full IDs only — short aliases are retired pins (see Core
+  Commands).
 - Approved: the newest Claude Opus available to the env (as of 2026-08:
   `anthropic/claude-opus-5`). Check the env's whitelist BEFORE first
   dispatch — a model ID not in the whitelist fails silently
@@ -287,8 +316,8 @@ failure is expensive (destructive git, deployments).
 Independent work items get independent envs:
 
 ```bash
-squire new auth-fix -p "Fix token refresh bug in pkg/auth" -m opus
-squire new api-perf -p "Profile and optimize the sync endpoint" -m opus
+squire new auth-fix -p "Fix token refresh bug in pkg/auth" -m anthropic/claude-opus-5
+squire new api-perf -p "Profile and optimize the sync endpoint" -m anthropic/claude-opus-5
 ```
 
 Each is isolated. `squire env` lists; `squire attach --mux` opens one pane
