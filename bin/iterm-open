@@ -13,6 +13,14 @@
 file="$1"
 line="$2"
 
+# Debug aid: when ~/.iterm-open-debug exists, record exactly how iTerm invoked
+# us — this reveals whether the path substitution is reaching the script.
+# `rm ~/.iterm-open-debug` to silence.
+if [ -e "$HOME/.iterm-open-debug" ]; then
+  printf '%s  argc=%s  1=[%s]  2=[%s]  all=[%s]\n' \
+    "$(date '+%F %T')" "$#" "$1" "$2" "$*" >>"$HOME/.iterm-open.log"
+fi
+
 # Keep only a numeric line number; iTerm leaves \2 empty when there isn't one.
 case "$line" in
   '' | *[!0-9]*) line="" ;;
