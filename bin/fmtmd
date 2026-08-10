@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# fmtmd — format markdown for readability: align GFM tables + reflow prose to the
+# configured lineWidth (100). Wraps dprint (Rust). Formats IN PLACE, fail-safe.
+#
+#   fmtmd RFC.md               # one file
+#   fmtmd reports/ plans/      # every *.md under those dirs (recursive)
+#   fmtmd .                    # everything under cwd
+#   fmtmd --check reports/     # list what WOULD change; exit 1 if any (read-only)
+#
+# Config: dotfiles/.config/dprint/dprint.json (resolved relative to this script).
+# Override with FMTMD_CONFIG. Width = the lineWidth field there.
+#
+# SAFETY: never overwrites with something worse than the input. A file is rewritten
+# only if dprint exits 0 AND the output is non-empty AND its word count did not drop
+# (a formatter reflows/aligns whitespace; it must not lose words). On dprint error or
+# a failed guard the ORIGINAL is kept and the reason is printed. Symlinks are written
+# THROUGH (the link is preserved, not replaced). Tables are aligned, not wrapped — a
+# cell wider than the width still overruns; width governs prose.
+set -euo pipefail
+
+command -v dprint >/dev/null 2>&1 || { echo "fmtmd: dprint not found — 'brew install dprint'" >&2; exit 1; }
+
+_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
+CONFIG="${FMTMD_CONFIG:-$_dir/../.config/dprint/dprint.json}"
+[ -f "$CONFIG" ] || { echo "fmtmd: config not found at $CONFIG (set FMTMD_CONFIG)" >&2; exit 1; }
+
+mode=fmt; paths=()
+for a in "$@"; do
+  case "$a" in
+    --check) mode=check ;;
+    -h|--help) sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) paths+=("$a") ;;
+  esac
+done
+[ "${#paths[@]}" -gt 0 ] || { echo "usage: fmtmd [--check] <file-or-dir> [...]" >&2; exit 2; }
+
+files=()
+for p in "${paths[@]}"; do
+  if [ -d "$p" ]; then
+    while IFS= read -r f; do files+=("$f"); done \
+      < <(find "$p" -type f -name '*.md' ! -path '*/node_modules/*' ! -path '*/.git/*' 2>/dev/null)
+  elif [ -e "$p" ]; then files+=("$p")
+  else echo "fmtmd: no such path: $p" >&2; fi
+done
+[ "${#files[@]}" -gt 0 ] || { echo "fmtmd: no markdown files found" >&2; exit 0; }
+
+_words() { wc -w < "$1" 2>/dev/null | tr -d ' '; }
+
+rc=0
+for f in "${files[@]}"; do
+  if [ "$mode" = check ]; then
+    if ! dprint fmt --stdin "$f" -c "$CONFIG" < "$f" 2>/dev/null | cmp -s - "$f"; then
+      echo "would reformat: $f"; rc=1
+    fi
+    continue
+  fi
+
+  tmp="$f.fmtmd.$$.tmp"; err="$f.fmtmd.$$.err"
+  # Format via stdin (CWD-independent). Capture stderr; do NOT swallow it.
+  if ! dprint fmt --stdin "$f" -c "$CONFIG" < "$f" > "$tmp" 2>"$err"; then
+    echo "fmtmd: dprint failed on $f (kept original):" >&2; sed 's/^/  /' "$err" >&2
+    rm -f "$tmp" "$err"; rc=1; continue
+  fi
+  rm -f "$err"
+
+  # Integrity guards — refuse to write anything worse than the input.
+  if [ "$(wc -c < "$f" | tr -d ' ')" -gt 0 ] && [ ! -s "$tmp" ]; then
+    echo "fmtmd: REFUSED $f — formatter produced empty output (kept original)" >&2
+    rm -f "$tmp"; rc=1; continue
+  fi
+  inW=$(_words "$f"); outW=$(_words "$tmp")
+  if [ "${outW:-0}" -lt "${inW:-0}" ]; then
+    echo "fmtmd: REFUSED $f — word count dropped ${inW}->${outW}, possible content loss (kept original)" >&2
+    rm -f "$tmp"; rc=1; continue
+  fi
+
+  # Write back only if changed. Preserve symlinks by writing THROUGH them.
+  if cmp -s "$tmp" "$f"; then
+    rm -f "$tmp"
+  elif [ -L "$f" ]; then
+    cat "$tmp" > "$f"; rm -f "$tmp"; echo "formatted: $f (via symlink)"
+  else
+    mv "$tmp" "$f"; echo "formatted: $f"
+  fi
+done
+exit $rc
