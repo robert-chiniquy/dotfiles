@@ -10,8 +10,13 @@
 #   4. plaid-lint / clanker-lint caches
 #   5. Stale WirelessDiagnostics_*.tar.gz in Downloads
 #   6. Old (>30 day) claude session transcripts gzipped in place
+#   7. Non-default, non-pinned rustup toolchains
+#   8. Last resort — Go build cache, only if STILL below threshold after the
+#      above AND the cache exceeds GO_CACHE_TRIGGER_GB (default 40). Go has no
+#      cache size cap of its own; the cache is fully regenerable.
 #
 # NEVER touches: git repos, Colima, ~/.cache/cargo-target, active work.
+# (The Go build cache is regenerable and cleared only as the step-8 last resort.)
 
 set -u
 THRESHOLD_GB=${DISK_EMERGENCY_THRESHOLD_GB:-4}
@@ -93,6 +98,23 @@ if command -v rustup >/dev/null 2>&1; then
     done
 fi
 
+# 8. Last resort: still below threshold after the cheap reclaims? Clear the Go
+#    build cache if it's the bloat. Go has no size cap of its own and the cache
+#    is fully regenerable (recompiles on next build). Only measures size (slow
+#    du on a huge cache) when still-critical, and leaves a lean cache alone.
+after_cheap=$(avail_gb)
+if [ "${after_cheap:-99999}" -lt "$THRESHOLD_GB" ] && command -v go >/dev/null 2>&1; then
+    gc=$(go env GOCACHE 2>/dev/null)
+    if [ -n "$gc" ] && [ -d "$gc" ]; then
+        gc_gb=$(/usr/bin/du -sg "$gc" 2>/dev/null | /usr/bin/awk '{print $1}')
+        if [ "${gc_gb:-0}" -ge "${GO_CACHE_TRIGGER_GB:-40}" ]; then
+            go clean -cache 2>/dev/null && log "  go clean -cache (was ${gc_gb} GB, regenerable)"
+        else
+            log "  Go build cache ${gc_gb:-?} GB (< ${GO_CACHE_TRIGGER_GB:-40} GB trigger) — left intact"
+        fi
+    fi
+fi
+
 sync
 after=$(avail_gb)
 reclaim=$((after - before))
@@ -102,6 +124,6 @@ log "── done: ${before} GB → ${after} GB (reclaimed ${reclaim} GB) ──"
 /usr/bin/osascript -e "display notification \"reclaimed ${reclaim} GB — now ${after} GB free\" with title \"disk-emergency ran\"" 2>/dev/null
 
 if [ "$after" -lt "$THRESHOLD_GB" ]; then
-    log "  WARNING: still below threshold. Manual action needed (Colima, Go cache, repos)."
+    log "  WARNING: still below threshold. Manual action needed (Colima, repos)."
     /usr/bin/osascript -e "display notification \"still ${after} GB free after reclaim. Manual intervention needed.\" with title \"disk-emergency: still critical\"" 2>/dev/null
 fi
