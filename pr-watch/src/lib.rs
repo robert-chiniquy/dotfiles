@@ -2,7 +2,7 @@
 //!
 //! Agents wrap this with the harness monitor, or exec it and wait for exit.
 
-pub mod policy;
+pub mod config;
 pub mod sleep;
 pub mod store;
 

@@ -15,6 +15,7 @@ path = "src/sleep_main.rs"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yaml = "0.9"
 
 [profile.release]
 opt-level = 3

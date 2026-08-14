@@ -4,22 +4,23 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 use std::time::{Duration, Instant, SystemTime};
 
-use pr_watch::policy::Policy;
+use pr_watch::config::{Config, CopilotMode};
 use pr_watch::sleep::{sleep_event_line, sleep_overrun};
 use pr_watch::store::{
     canonical_cwd, catch_up_lines, looks_like_stamp, now_unix, parse_since_stamp, record_event,
     state_dir, Store,
 };
 use pr_watch::{
-    ensure_copilot_gate, fetch_snapshot, next_actions, parse_repo_spec, parse_target,
-    request_copilot, sleep_interval, Snapshot, Until,
+    ensure_copilot_gate, fetch_snapshot, next_actions, parse_target, request_copilot,
+    sleep_interval, Snapshot, Until,
 };
 
 const USAGE: &str = "\
 usage: pr-watch prime
        pr-watch request-copilot [--repo owner/repo] owner/repo#N | N
-       pr-watch skip-copilot owner/repo
-       pr-watch unskip-copilot owner/repo
+       pr-watch set copilot request|skip [--cwd DIR]
+       pr-watch skip-copilot [--cwd DIR]
+       pr-watch unskip-copilot [--cwd DIR]
        pr-watch [--repo owner/repo] [--cwd DIR] [--interval SECS]
                 [--until action|merged|never] [--once] [--since [TIME]]
                 [--emit-snapshot] [--max-wait SECS]
@@ -40,7 +41,10 @@ SLEEP <dur>, MERGED, CLOSED), then NEXT lines for each kind.
 
 request-copilot  POST github-copilot as a reviewer. Do this before asking a
                  human. Do not invent a different reviewer login.
-skip-copilot     record that Copilot review is not required for this repo.
+set copilot      write ~/.config/pr-watch/config.yaml. Without --cwd, sets the
+                 global default (request|skip). With --cwd, overrides that dir.
+skip-copilot     cwd override to skip (default cwd: pwd).
+unskip-copilot   drop the cwd override (inherit the global default).
 
 State: ~/.config/pr-watch/ (override PR_WATCH_STATE_DIR).
 ";
@@ -84,11 +88,15 @@ Do not request a human while COPILOT is NONE or REQUESTED. Address
 COPILOT CHANGES_REQUESTED like any other changes-requested. Login is
 github-copilot (not copilot-pull-request-reviewer).
 
-If this repo has been concluded Copilot-not-required:
+Copilot default lives in ~/.config/pr-watch/config.yaml (`copilot:
+request` or `skip`). A `cwd` map overrides that per canonical working
+directory. COPILOT SKIP replaces the gate when the resolved mode is skip.
 
-    pr-watch skip-copilot owner/repo
+    pr-watch set copilot request
+    pr-watch set copilot skip --cwd /path/to/checkout
+    pr-watch skip-copilot
+    pr-watch unskip-copilot
 
-That writes ~/.config/pr-watch/policy.json. COPILOT SKIP replaces the gate.
 Do not skip unless that conclusion is recorded. Host sleep: SLEEP <dur>
 from a blocking poll, or `sleep-report --since` at the start of each turn.
 ";
@@ -107,13 +115,26 @@ struct Args {
     max_wait: Option<Duration>,
 }
 
+enum CopilotScope {
+    Global,
+    Cwd(Option<String>),
+}
+
 enum ParseOutcome {
     Args(Args),
     Help,
     Prime,
-    RequestCopilot { spec: String, repo: Option<String> },
-    SkipCopilot { spec: String },
-    UnskipCopilot { spec: String },
+    RequestCopilot {
+        spec: String,
+        repo: Option<String>,
+    },
+    SetCopilot {
+        mode: CopilotMode,
+        scope: CopilotScope,
+    },
+    ClearCwd {
+        cwd: Option<String>,
+    },
 }
 
 fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
@@ -131,6 +152,7 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
     let mut request_copilot_cmd = false;
     let mut skip_copilot_cmd = false;
     let mut unskip_copilot_cmd = false;
+    let mut set_copilot = None;
     let mut i = 1;
     while i < argv.len() {
         match argv[i].as_str() {
@@ -146,6 +168,20 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
             }
             "unskip-copilot" if positional.is_empty() && !request_copilot_cmd => {
                 unskip_copilot_cmd = true;
+            }
+            "set" if positional.is_empty() && set_copilot.is_none() => {
+                i += 1;
+                let key = argv
+                    .get(i)
+                    .ok_or("set needs copilot request|skip")?
+                    .as_str();
+                if key != "copilot" {
+                    return Err(format!("set {key} is unknown (want set copilot)"));
+                }
+                i += 1;
+                set_copilot = Some(CopilotMode::parse(
+                    argv.get(i).ok_or("set copilot needs request|skip")?,
+                )?);
             }
             "--once" => once = true,
             "--emit-snapshot" => emit_snapshot = true,
@@ -203,6 +239,29 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
         }
         i += 1;
     }
+    if skip_copilot_cmd || unskip_copilot_cmd || set_copilot.is_some() {
+        if !positional.is_empty() {
+            return Err(
+                "copilot config commands do not take a PR spec; use --cwd DIR to override a directory"
+                    .into(),
+            );
+        }
+        if let Some(mode) = set_copilot {
+            let scope = if cwd.is_some() {
+                CopilotScope::Cwd(cwd)
+            } else {
+                CopilotScope::Global
+            };
+            return Ok(ParseOutcome::SetCopilot { mode, scope });
+        }
+        if skip_copilot_cmd {
+            return Ok(ParseOutcome::SetCopilot {
+                mode: CopilotMode::Skip,
+                scope: CopilotScope::Cwd(cwd),
+            });
+        }
+        return Ok(ParseOutcome::ClearCwd { cwd });
+    }
     let spec = match positional.len() {
         1 => positional[0].clone(),
         2 => format!("{}#{}", positional[0], positional[1]),
@@ -210,12 +269,6 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
     };
     if request_copilot_cmd {
         return Ok(ParseOutcome::RequestCopilot { spec, repo });
-    }
-    if skip_copilot_cmd {
-        return Ok(ParseOutcome::SkipCopilot { spec });
-    }
-    if unskip_copilot_cmd {
-        return Ok(ParseOutcome::UnskipCopilot { spec });
     }
     Ok(ParseOutcome::Args(Args {
         spec,
@@ -253,38 +306,62 @@ fn emit_with_next(
     emit(&next_actions(lines, spec, now, copilot_required))
 }
 
-fn run_skip_copilot(spec: &str, skip: bool) -> ExitCode {
-    let (owner, repo) = match parse_repo_spec(spec) {
-        Ok(v) => v,
+fn run_set_copilot(mode: CopilotMode, scope: CopilotScope) -> ExitCode {
+    let dir = state_dir();
+    let mut cfg = match Config::load(&dir) {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = writeln!(io::stderr(), "{e}");
+            return ExitCode::from(1);
+        }
+    };
+    let line = match scope {
+        CopilotScope::Global => {
+            cfg.set_global(mode);
+            format!("COPILOT {}", mode.as_str().to_ascii_uppercase())
+        }
+        CopilotScope::Cwd(explicit) => {
+            let cwd = match canonical_cwd(explicit.as_deref()) {
+                Ok(c) => c,
+                Err(e) => {
+                    let _ = writeln!(io::stderr(), "{e}");
+                    return ExitCode::from(2);
+                }
+            };
+            cfg.set_cwd(&cwd, mode);
+            format!("COPILOT {} {cwd}", mode.as_str().to_ascii_uppercase())
+        }
+    };
+    if let Err(e) = cfg.save(&dir) {
+        let _ = writeln!(io::stderr(), "{e}");
+        return ExitCode::from(1);
+    }
+    let _ = writeln!(io::stdout(), "{line}");
+    ExitCode::SUCCESS
+}
+
+fn run_clear_cwd(explicit: Option<&str>) -> ExitCode {
+    let cwd = match canonical_cwd(explicit) {
+        Ok(c) => c,
         Err(e) => {
             let _ = writeln!(io::stderr(), "{e}");
             return ExitCode::from(2);
         }
     };
     let dir = state_dir();
-    let mut policy = match Policy::load(&dir) {
-        Ok(p) => p,
+    let mut cfg = match Config::load(&dir) {
+        Ok(c) => c,
         Err(e) => {
             let _ = writeln!(io::stderr(), "{e}");
             return ExitCode::from(1);
         }
     };
-    if skip {
-        policy.skip_copilot(&owner, &repo);
-    } else {
-        policy.unskip_copilot(&owner, &repo);
-    }
-    if let Err(e) = policy.save(&dir) {
+    cfg.clear_cwd(&cwd);
+    if let Err(e) = cfg.save(&dir) {
         let _ = writeln!(io::stderr(), "{e}");
         return ExitCode::from(1);
     }
-    let key = format!("{owner}/{repo}");
-    let line = if skip {
-        format!("COPILOT SKIP {key}")
-    } else {
-        format!("COPILOT REQUIRED {key}")
-    };
-    let _ = writeln!(io::stdout(), "{line}");
+    let _ = writeln!(io::stdout(), "COPILOT DEFAULT {cwd}");
     ExitCode::SUCCESS
 }
 
@@ -335,11 +412,11 @@ fn main() -> ExitCode {
         Ok(ParseOutcome::RequestCopilot { spec, repo }) => {
             return run_request_copilot(&spec, repo.as_deref());
         }
-        Ok(ParseOutcome::SkipCopilot { spec }) => {
-            return run_skip_copilot(&spec, true);
+        Ok(ParseOutcome::SetCopilot { mode, scope }) => {
+            return run_set_copilot(mode, scope);
         }
-        Ok(ParseOutcome::UnskipCopilot { spec }) => {
-            return run_skip_copilot(&spec, false);
+        Ok(ParseOutcome::ClearCwd { cwd }) => {
+            return run_clear_cwd(cwd.as_deref());
         }
         Err(e) => {
             let _ = writeln!(io::stderr(), "{e}");
@@ -379,14 +456,14 @@ fn main() -> ExitCode {
 
     let oneshot = args.once || (args.since && !args.until_set);
     let spec = target.to_string();
-    let policy = match Policy::load(&state_dir()) {
-        Ok(p) => p,
+    let cfg = match Config::load(&state_dir()) {
+        Ok(c) => c,
         Err(e) => {
             let _ = writeln!(io::stderr(), "{e}");
             return ExitCode::from(1);
         }
     };
-    let copilot_required = policy.copilot_required(&target.owner, &target.repo);
+    let copilot_required = cfg.copilot_required(&cwd);
     let mut first_lines = if args.since {
         catch_up_lines(&store, &cwd, &target, &first, now_unix(), args.since_time)
     } else if args.once || args.emit_snapshot {
@@ -535,20 +612,64 @@ mod cli_tests {
         assert!(PRIME.contains("COPILOT REVIEWED"));
         assert!(PRIME.contains("github-copilot"));
         assert!(PRIME.contains("skip-copilot"));
+        assert!(PRIME.contains("config.yaml"));
         assert!(PRIME.contains("sleep-report"));
     }
 
     #[test]
-    fn parse_skip_copilot() {
+    fn parse_skip_copilot_is_cwd_scope() {
+        let argv = vec!["pr-watch".into(), "skip-copilot".into()];
+        let ParseOutcome::SetCopilot { mode, scope } = parse_args(&argv).unwrap() else {
+            panic!("expected set-copilot");
+        };
+        assert_eq!(mode, CopilotMode::Skip);
+        assert!(matches!(scope, CopilotScope::Cwd(None)));
+    }
+
+    #[test]
+    fn parse_set_copilot_global() {
+        let argv = vec![
+            "pr-watch".into(),
+            "set".into(),
+            "copilot".into(),
+            "skip".into(),
+        ];
+        let ParseOutcome::SetCopilot { mode, scope } = parse_args(&argv).unwrap() else {
+            panic!("expected set-copilot");
+        };
+        assert_eq!(mode, CopilotMode::Skip);
+        assert!(matches!(scope, CopilotScope::Global));
+    }
+
+    #[test]
+    fn parse_set_copilot_cwd() {
+        let argv = vec![
+            "pr-watch".into(),
+            "set".into(),
+            "copilot".into(),
+            "request".into(),
+            "--cwd".into(),
+            "/work/docs".into(),
+        ];
+        let ParseOutcome::SetCopilot { mode, scope } = parse_args(&argv).unwrap() else {
+            panic!("expected set-copilot");
+        };
+        assert_eq!(mode, CopilotMode::Request);
+        match scope {
+            CopilotScope::Cwd(Some(p)) => assert_eq!(p, "/work/docs"),
+            CopilotScope::Cwd(None) => panic!("expected explicit cwd"),
+            CopilotScope::Global => panic!("expected cwd override"),
+        }
+    }
+
+    #[test]
+    fn parse_skip_rejects_pr_spec() {
         let argv = vec![
             "pr-watch".into(),
             "skip-copilot".into(),
             "ductone/docs".into(),
         ];
-        let ParseOutcome::SkipCopilot { spec } = parse_args(&argv).unwrap() else {
-            panic!("expected skip-copilot");
-        };
-        assert_eq!(spec, "ductone/docs");
+        assert!(parse_args(&argv).is_err());
     }
 
     #[test]
