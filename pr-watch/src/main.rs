@@ -8,26 +8,34 @@ use pr_watch::store::{
     canonical_cwd, catch_up_lines, looks_like_stamp, now_unix, parse_since_stamp, record_event,
     state_dir, Store,
 };
-use pr_watch::{fetch_snapshot, next_actions, parse_target, sleep_interval, Until};
+use pr_watch::{
+    ensure_copilot_gate, fetch_snapshot, next_actions, parse_target, request_copilot,
+    sleep_interval, Snapshot, Until,
+};
 
 const USAGE: &str = "\
 usage: pr-watch prime
+       pr-watch request-copilot [--repo owner/repo] owner/repo#N | N
        pr-watch [--repo owner/repo] [--cwd DIR] [--interval SECS]
                 [--until action|merged|never] [--once] [--since [TIME]]
                 [--emit-snapshot] [--max-wait SECS]
                 owner/repo#N | https://github.com/owner/repo/pull/N | N
 
 Prints one line per change (CI GREEN, CI RED <check>, REVIEW CHANGES_REQUESTED,
-REVIEW APPROVED, THREADS N, MERGED, CLOSED), then NEXT lines for each kind.
+REVIEW APPROVED, THREADS N, COPILOT NONE|REQUESTED|REVIEWED|CHANGES_REQUESTED,
+MERGED, CLOSED), then NEXT lines for each kind.
 
 --since [TIME]   catch-up vs last read for this cwd+repo+PR (default TIME is
                  that last-read). First look prints the current snapshot.
                  One-shot unless --until is also passed.
 --once           print the current snapshot (also records the cursor)
 --until action   (default when watching) exit on CI green/red, CHANGES_REQUESTED,
-                 merged, closed
+                 COPILOT NONE/REVIEWED/CHANGES_REQUESTED, merged, closed
 --until merged   exit only on merged (0) or closed (1)
 --until never    run until --max-wait or signal
+
+request-copilot  POST github-copilot as a reviewer. Do this before asking a
+                 human. Do not invent a different reviewer login.
 
 State: ~/.config/pr-watch/cursors.json (override PR_WATCH_STATE_DIR).
 ";
@@ -54,11 +62,22 @@ Harness monitor: wrap the same command. Each stdout line is an event.
 MUST NOT start a shell background job (cmd &, nohup, $!).
 
 Events: CI GREEN | CI RED <check> | REVIEW CHANGES_REQUESTED | REVIEW APPROVED
-        | REVIEW REQUIRED | THREADS N | MERGED | CLOSED
+        | REVIEW REQUIRED | THREADS N | COPILOT NONE | COPILOT REQUESTED
+        | COPILOT REVIEWED | COPILOT CHANGES_REQUESTED | MERGED | CLOSED
 
 Each event is followed by NEXT <KIND> <steps>. Follow those steps. Example:
 REVIEW CHANGES_REQUESTED -> read threads; fix if reasonable else ask; after
 each pushed fix reply Addressed in <sha> and resolve; then pr-watch --until action.
+
+Copilot gate: MUST request Copilot and wait for COPILOT REVIEWED before
+asking a human for a review. If COPILOT NONE:
+
+    pr-watch request-copilot owner/repo#N
+    pr-watch --until action owner/repo#N
+
+Do not request a human while COPILOT is NONE or REQUESTED. Address
+COPILOT CHANGES_REQUESTED like any other changes-requested. Login is
+github-copilot (not copilot-pull-request-reviewer).
 ";
 
 struct Args {
@@ -79,6 +98,7 @@ enum ParseOutcome {
     Args(Args),
     Help,
     Prime,
+    RequestCopilot { spec: String, repo: Option<String> },
 }
 
 fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
@@ -93,11 +113,17 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
     let mut emit_snapshot = false;
     let mut max_wait = None;
     let mut positional = Vec::new();
+    let mut request_copilot_cmd = false;
     let mut i = 1;
     while i < argv.len() {
         match argv[i].as_str() {
             "-h" | "--help" => return Ok(ParseOutcome::Help),
-            "prime" if positional.is_empty() => return Ok(ParseOutcome::Prime),
+            "prime" if positional.is_empty() && !request_copilot_cmd => {
+                return Ok(ParseOutcome::Prime)
+            }
+            "request-copilot" if positional.is_empty() && !request_copilot_cmd => {
+                request_copilot_cmd = true;
+            }
             "--once" => once = true,
             "--emit-snapshot" => emit_snapshot = true,
             "--since" => {
@@ -159,6 +185,9 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
         2 => format!("{}#{}", positional[0], positional[1]),
         _ => return Err(USAGE.trim_end().to_string()),
     };
+    if request_copilot_cmd {
+        return Ok(ParseOutcome::RequestCopilot { spec, repo });
+    }
     Ok(ParseOutcome::Args(Args {
         spec,
         repo,
@@ -182,16 +211,44 @@ fn emit(lines: &[String]) -> io::Result<()> {
     out.flush()
 }
 
-fn emit_with_next(lines: &[String]) -> io::Result<()> {
+fn emit_with_next(lines: &[String], spec: &str, now: &Snapshot) -> io::Result<()> {
     if lines.is_empty() {
         return Ok(());
     }
     emit(lines)?;
-    emit(&next_actions(lines))
+    emit(&next_actions(lines, spec, now))
 }
 
 fn persist(store: &Store) -> Result<(), String> {
     store.save(&state_dir())
+}
+
+fn run_request_copilot(spec: &str, repo: Option<&str>) -> ExitCode {
+    let target = match parse_target(spec, repo) {
+        Ok(t) => t,
+        Err(e) => {
+            let _ = writeln!(io::stderr(), "{e}");
+            return ExitCode::from(2);
+        }
+    };
+    if let Err(e) = request_copilot(&target) {
+        let _ = writeln!(io::stderr(), "{e}");
+        return ExitCode::from(1);
+    }
+    let spec = target.to_string();
+    let lines = vec!["COPILOT REQUESTED".to_string()];
+    let now = Snapshot {
+        state: pr_watch::PrState::Open,
+        ci: pr_watch::Ci::Pending,
+        ci_failed: None,
+        review: pr_watch::Review::None,
+        threads: 0,
+        copilot: pr_watch::Copilot::Requested,
+    };
+    if emit_with_next(&lines, &spec, &now).is_err() {
+        return ExitCode::from(1);
+    }
+    ExitCode::SUCCESS
 }
 
 fn main() -> ExitCode {
@@ -205,6 +262,9 @@ fn main() -> ExitCode {
         Ok(ParseOutcome::Prime) => {
             let _ = write!(io::stdout(), "{PRIME}");
             return ExitCode::SUCCESS;
+        }
+        Ok(ParseOutcome::RequestCopilot { spec, repo }) => {
+            return run_request_copilot(&spec, repo.as_deref());
         }
         Err(e) => {
             let _ = writeln!(io::stderr(), "{e}");
@@ -243,14 +303,16 @@ fn main() -> ExitCode {
     };
 
     let oneshot = args.once || (args.since && !args.until_set);
-    let first_lines = if args.since {
+    let spec = target.to_string();
+    let mut first_lines = if args.since {
         catch_up_lines(&store, &cwd, &target, &first, now_unix(), args.since_time)
     } else if args.once || args.emit_snapshot {
         first.snapshot_lines()
     } else {
         Vec::new()
     };
-    if emit_with_next(&first_lines).is_err() {
+    ensure_copilot_gate(&mut first_lines, &first);
+    if emit_with_next(&first_lines, &spec, &first).is_err() {
         return ExitCode::from(1);
     }
     record_event(
@@ -278,7 +340,7 @@ fn main() -> ExitCode {
     loop {
         if let Some(max) = args.max_wait {
             if started.elapsed() >= max {
-                let _ = emit_with_next(&["FAILED timeout".into()]);
+                let _ = emit_with_next(&["FAILED timeout".into()], &spec, &prev);
                 return ExitCode::from(1);
             }
         }
@@ -291,7 +353,7 @@ fn main() -> ExitCode {
             }
         };
         let events = next.events_since(&prev);
-        if emit_with_next(&events).is_err() {
+        if emit_with_next(&events, &spec, &next).is_err() {
             return ExitCode::from(1);
         }
         record_event(
@@ -373,6 +435,39 @@ mod cli_tests {
         assert!(PRIME.contains("CHANGES_REQUESTED"));
         assert!(PRIME.contains("NEXT"));
         assert!(PRIME.contains("~/.config/pr-watch/"));
+        assert!(PRIME.contains("request-copilot"));
+        assert!(PRIME.contains("COPILOT REVIEWED"));
+        assert!(PRIME.contains("github-copilot"));
+    }
+
+    #[test]
+    fn parse_request_copilot() {
+        let argv = vec![
+            "pr-watch".into(),
+            "request-copilot".into(),
+            "ductone/multipass#627".into(),
+        ];
+        let ParseOutcome::RequestCopilot { spec, repo } = parse_args(&argv).unwrap() else {
+            panic!("expected request-copilot");
+        };
+        assert_eq!(spec, "ductone/multipass#627");
+        assert!(repo.is_none());
+    }
+
+    #[test]
+    fn parse_request_copilot_with_repo_flag() {
+        let argv = vec![
+            "pr-watch".into(),
+            "request-copilot".into(),
+            "--repo".into(),
+            "ductone/c1".into(),
+            "23321".into(),
+        ];
+        let ParseOutcome::RequestCopilot { spec, repo } = parse_args(&argv).unwrap() else {
+            panic!("expected request-copilot");
+        };
+        assert_eq!(spec, "23321");
+        assert_eq!(repo.as_deref(), Some("ductone/c1"));
     }
 
     #[test]

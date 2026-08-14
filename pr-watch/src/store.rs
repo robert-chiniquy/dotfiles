@@ -209,6 +209,7 @@ mod tests {
             ci_failed: None,
             review,
             threads: 0,
+            copilot: crate::Copilot::None,
         }
     }
 

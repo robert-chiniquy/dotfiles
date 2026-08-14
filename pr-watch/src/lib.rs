@@ -119,6 +119,15 @@ pub enum PrState {
     Closed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum Copilot {
+    #[default]
+    None,
+    Requested,
+    Reviewed,
+    ChangesRequested,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Snapshot {
     pub state: PrState,
@@ -126,6 +135,8 @@ pub struct Snapshot {
     pub ci_failed: Option<String>,
     pub review: Review,
     pub threads: u32,
+    #[serde(default)]
+    pub copilot: Copilot,
 }
 
 impl Snapshot {
@@ -151,6 +162,14 @@ impl Snapshot {
         }
         if self.threads != prev.threads {
             out.push(format!("THREADS {}", self.threads));
+        }
+        if self.copilot != prev.copilot {
+            out.push(match self.copilot {
+                Copilot::None => "COPILOT NONE".into(),
+                Copilot::Requested => "COPILOT REQUESTED".into(),
+                Copilot::Reviewed => "COPILOT REVIEWED".into(),
+                Copilot::ChangesRequested => "COPILOT CHANGES_REQUESTED".into(),
+            });
         }
         if self.state != prev.state {
             out.push(match self.state {
@@ -179,6 +198,12 @@ impl Snapshot {
                 Review::ChangesRequested => "REVIEW CHANGES_REQUESTED".into(),
             },
             format!("THREADS {}", self.threads),
+            match self.copilot {
+                Copilot::None => "COPILOT NONE".into(),
+                Copilot::Requested => "COPILOT REQUESTED".into(),
+                Copilot::Reviewed => "COPILOT REVIEWED".into(),
+                Copilot::ChangesRequested => "COPILOT CHANGES_REQUESTED".into(),
+            },
         ];
         lines.push(match self.state {
             PrState::Open => "OPEN".into(),
@@ -199,7 +224,12 @@ impl Snapshot {
             Until::Never | Until::Merged => None,
             Until::Action => {
                 if events.iter().any(|e| {
-                    e == "CI GREEN" || e.starts_with("CI RED") || e == "REVIEW CHANGES_REQUESTED"
+                    e == "CI GREEN"
+                        || e.starts_with("CI RED")
+                        || e == "REVIEW CHANGES_REQUESTED"
+                        || e == "COPILOT CHANGES_REQUESTED"
+                        || e == "COPILOT NONE"
+                        || e == "COPILOT REVIEWED"
                 }) {
                     Some(if events.iter().any(|e| e.starts_with("CI RED")) {
                         1
@@ -214,12 +244,26 @@ impl Snapshot {
     }
 }
 
+/// Standing Copilot gate: emit COPILOT NONE even when that is not a
+/// transition, so `--since` and watch start still force a request.
+pub fn ensure_copilot_gate(lines: &mut Vec<String>, now: &Snapshot) {
+    if now.copilot == Copilot::None && !lines.iter().any(|l| l == "COPILOT NONE") {
+        lines.push("COPILOT NONE".into());
+    }
+}
+
 /// One `NEXT <KIND> ...` line per distinct event kind in `events`.
-/// THREADS is omitted when CHANGES_REQUESTED already covers the thread loop.
-pub fn next_actions(events: &[String]) -> Vec<String> {
+/// THREADS is omitted when a changes-requested event already covers the loop.
+/// REVIEW REQUIRED is omitted when a Copilot event in this batch already
+/// tells the agent to request or wait.
+pub fn next_actions(events: &[String], spec: &str, now: &Snapshot) -> Vec<String> {
     let mut out = Vec::new();
     let mut seen = Vec::new();
-    let has_changes_requested = events.iter().any(|e| e == "REVIEW CHANGES_REQUESTED");
+    let has_changes_requested = events
+        .iter()
+        .any(|e| e == "REVIEW CHANGES_REQUESTED" || e == "COPILOT CHANGES_REQUESTED");
+    let copilot_event = events.iter().any(|e| e.starts_with("COPILOT "));
+    let copilot_blocks_human = matches!(now.copilot, Copilot::None | Copilot::Requested);
     for e in events {
         let kind = event_kind(e);
         if seen.iter().any(|k| k == &kind) {
@@ -229,7 +273,10 @@ pub fn next_actions(events: &[String]) -> Vec<String> {
         if kind == "THREADS" && has_changes_requested {
             continue;
         }
-        if let Some(body) = next_action_body(e) {
+        if kind == "REVIEW REQUIRED" && copilot_blocks_human && copilot_event {
+            continue;
+        }
+        if let Some(body) = next_action_body(e, spec, now) {
             out.push(format!("NEXT {kind} {body}"));
         }
     }
@@ -251,6 +298,10 @@ fn event_kind(event: &str) -> &'static str {
             "REVIEW REQUIRED" => "REVIEW REQUIRED",
             "REVIEW APPROVED" => "REVIEW APPROVED",
             "REVIEW CHANGES_REQUESTED" => "REVIEW CHANGES_REQUESTED",
+            "COPILOT NONE" => "COPILOT NONE",
+            "COPILOT REQUESTED" => "COPILOT REQUESTED",
+            "COPILOT REVIEWED" => "COPILOT REVIEWED",
+            "COPILOT CHANGES_REQUESTED" => "COPILOT CHANGES_REQUESTED",
             "OPEN" => "OPEN",
             "MERGED" => "MERGED",
             "CLOSED" => "CLOSED",
@@ -259,10 +310,11 @@ fn event_kind(event: &str) -> &'static str {
     }
 }
 
-fn next_action_body(event: &str) -> Option<&'static str> {
+fn next_action_body(event: &str, spec: &str, now: &Snapshot) -> Option<String> {
     if event.starts_with("CI RED") {
         return Some(
-            "read the failed check log; fix this PR's cause (do not ask to look); push; reply only if a thread named the failure; pr-watch --until action",
+            "read the failed check log; fix this PR's cause (do not ask to look); push; reply only if a thread named the failure; pr-watch --until action"
+                .into(),
         );
     }
     if let Some(rest) = event.strip_prefix("THREADS ") {
@@ -270,34 +322,61 @@ fn next_action_body(event: &str) -> Option<&'static str> {
             return None;
         }
         return Some(
-            "list unresolved review threads; for each: fix if reasonable else ask the user; after a pushed fix reply Addressed in <sha> and resolve; then pr-watch --until action",
+            "list unresolved review threads; for each: fix if reasonable else ask the user; after a pushed fix reply Addressed in <sha> and resolve; then pr-watch --until action"
+                .into(),
         );
     }
-    match event {
-        "REVIEW CHANGES_REQUESTED" => Some(
-            "read every unresolved thread; fix if reasonable else ask the user; after each pushed fix reply Addressed in <sha> and resolve the thread; when all such threads are done, pr-watch --until action",
-        ),
-        "CI GREEN" => Some(
-            "if threads remain, address them before any undraft/merge; do not merge a draft; do not merge unless the user authorized this PR; pr-watch --since after the next push",
-        ),
-        "REVIEW APPROVED" => Some(
-            "if CI is not green, pr-watch --until action; if threads remain, address them; undraft is a separate decision; do not merge unless authorized",
-        ),
-        "REVIEW REQUIRED" => Some(
-            "wait for review; do not nag; if CI is still running, pr-watch --until action",
-        ),
-        "MERGED" => Some(
-            "if this was your branch and origin/main now contains the tip, prune the local worktree and the local+remote branch; do not remind about pushes",
-        ),
-        "CLOSED" => Some(
-            "treat as abandoned until the user says otherwise; do not reopen or recreate the branch",
-        ),
-        "FAILED timeout" => Some(
-            "check gh auth and network; pr-watch --since to catch anything that landed during the wait",
-        ),
-        "CI PENDING" | "REVIEW NONE" | "OPEN" => None,
-        _ => None,
-    }
+    let body = match event {
+        "REVIEW CHANGES_REQUESTED" | "COPILOT CHANGES_REQUESTED" => {
+            "read every unresolved thread; fix if reasonable else ask the user; after each pushed fix reply Addressed in <sha> and resolve the thread; when all such threads are done, pr-watch --until action; do not request a human until COPILOT REVIEWED"
+        }
+        "COPILOT NONE" => {
+            return Some(format!(
+                "pr-watch request-copilot {spec}; do not request a human review yet; pr-watch --until action"
+            ));
+        }
+        "COPILOT REQUESTED" => {
+            "wait for Copilot; do not request a human review yet; pr-watch --until action"
+        }
+        "COPILOT REVIEWED" => {
+            "address any Copilot threads first; a human review may be requested only after those are done"
+        }
+        "CI GREEN" => {
+            return Some(format!(
+                "if threads remain, address them; if COPILOT NONE, pr-watch request-copilot {spec}; do not request a human until COPILOT REVIEWED; do not merge a draft; do not merge unless authorized; pr-watch --since after the next push"
+            ));
+        }
+        "REVIEW APPROVED" => {
+            "if CI is not green, pr-watch --until action; if COPILOT NONE/REQUESTED, do not treat this as human-ready; if threads remain, address them; undraft is a separate decision; do not merge unless authorized"
+        }
+        "REVIEW REQUIRED" => {
+            return Some(match now.copilot {
+                Copilot::None => format!(
+                    "pr-watch request-copilot {spec}; do not request a human review yet; pr-watch --until action"
+                ),
+                Copilot::Requested => {
+                    "wait for Copilot; do not request a human review yet; pr-watch --until action"
+                        .into()
+                }
+                Copilot::Reviewed | Copilot::ChangesRequested => {
+                    "address Copilot threads first if any remain; then a human review may be requested; do not merge a draft; do not merge unless authorized; pr-watch --until action"
+                        .into()
+                }
+            });
+        }
+        "MERGED" => {
+            "if this was your branch and origin/main now contains the tip, prune the local worktree and the local+remote branch; do not remind about pushes"
+        }
+        "CLOSED" => {
+            "treat as abandoned until the user says otherwise; do not reopen or recreate the branch"
+        }
+        "FAILED timeout" => {
+            "check gh auth and network; pr-watch --since to catch anything that landed during the wait"
+        }
+        "CI PENDING" | "REVIEW NONE" | "OPEN" => return None,
+        _ => return None,
+    };
+    Some(body.into())
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -307,6 +386,43 @@ struct GhPrView {
     review_decision: Option<String>,
     #[serde(rename = "statusCheckRollup", default)]
     status_check_rollup: Vec<GhCheck>,
+    #[serde(rename = "reviewRequests", default)]
+    review_requests: Vec<GhReviewRequest>,
+    #[serde(default)]
+    reviews: Vec<GhReview>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GhReviewRequest {
+    #[serde(default)]
+    login: Option<String>,
+    #[serde(rename = "requestedReviewer", default)]
+    requested_reviewer: Option<GhAuthor>,
+}
+
+impl GhReviewRequest {
+    fn reviewer_login(&self) -> Option<&str> {
+        self.login.as_deref().filter(|s| !s.is_empty()).or_else(|| {
+            self.requested_reviewer
+                .as_ref()
+                .and_then(|a| a.login.as_deref())
+                .filter(|s| !s.is_empty())
+        })
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GhReview {
+    #[serde(default)]
+    author: Option<GhAuthor>,
+    #[serde(default)]
+    state: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GhAuthor {
+    #[serde(default)]
+    login: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -377,6 +493,32 @@ pub fn classify_state(state: &str) -> PrState {
     }
 }
 
+pub fn is_copilot_login(login: &str) -> bool {
+    let l = login.to_ascii_lowercase();
+    let l = l.strip_suffix("[bot]").unwrap_or(l.as_str());
+    l == "github-copilot" || l == "copilot" || l == "copilot-pull-request-reviewer"
+}
+
+pub(crate) fn classify_copilot(requests: &[GhReviewRequest], reviews: &[GhReview]) -> Copilot {
+    let requested = requests
+        .iter()
+        .filter_map(GhReviewRequest::reviewer_login)
+        .any(is_copilot_login);
+    let mut last_state: Option<&str> = None;
+    for r in reviews {
+        let login = r.author.as_ref().and_then(|a| a.login.as_deref());
+        if login.is_some_and(is_copilot_login) {
+            last_state = r.state.as_deref();
+        }
+    }
+    match last_state.map(|s| s.to_ascii_uppercase()) {
+        Some(s) if s == "CHANGES_REQUESTED" => Copilot::ChangesRequested,
+        Some(_) => Copilot::Reviewed,
+        None if requested => Copilot::Requested,
+        None => Copilot::None,
+    }
+}
+
 pub fn snapshot_from_view(view: &str, threads: u32) -> Result<Snapshot, String> {
     let parsed: GhPrView =
         serde_json::from_str(view).map_err(|e| format!("gh pr view json: {e}"))?;
@@ -387,6 +529,7 @@ pub fn snapshot_from_view(view: &str, threads: u32) -> Result<Snapshot, String> 
         ci_failed,
         review: classify_review(parsed.review_decision.as_deref()),
         threads,
+        copilot: classify_copilot(&parsed.review_requests, &parsed.reviews),
     })
 }
 
@@ -444,7 +587,7 @@ pub fn fetch_snapshot(target: &Target) -> Result<Snapshot, String> {
         "--repo",
         &format!("{}/{}", target.owner, target.repo),
         "--json",
-        "state,reviewDecision,statusCheckRollup",
+        "state,reviewDecision,statusCheckRollup,reviewRequests,reviews",
     ])?;
     let gql = gh_stdout(&[
         "api",
@@ -480,6 +623,27 @@ fn gh_stdout(args: &[&str]) -> Result<String, String> {
 
 pub fn sleep_interval(d: Duration) {
     std::thread::sleep(d);
+}
+
+/// Request the Copilot bot as a reviewer. Idempotent enough: GitHub errors if
+/// already requested; callers treat that as success.
+pub fn request_copilot(target: &Target) -> Result<(), String> {
+    let path = format!(
+        "repos/{}/{}/pulls/{}/requested_reviewers",
+        target.owner, target.repo, target.number
+    );
+    match gh_stdout(&[
+        "api",
+        "-X",
+        "POST",
+        &path,
+        "-f",
+        "reviewers[]=github-copilot",
+    ]) {
+        Ok(_) => Ok(()),
+        Err(e) if e.to_ascii_lowercase().contains("already") => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 #[cfg(test)]
@@ -543,6 +707,7 @@ mod tests {
             ci_failed: None,
             review: Review::Required,
             threads: 0,
+            copilot: Copilot::None,
         };
         let next = Snapshot {
             review: Review::ChangesRequested,
@@ -562,6 +727,7 @@ mod tests {
             ci_failed: None,
             review: Review::ChangesRequested,
             threads: 2,
+            copilot: Copilot::None,
         };
         assert!(snap.events_since(&snap).is_empty());
     }
@@ -574,6 +740,7 @@ mod tests {
             ci_failed: None,
             review: Review::ChangesRequested,
             threads: 1,
+            copilot: Copilot::None,
         };
         let events = vec!["REVIEW CHANGES_REQUESTED".to_string()];
         assert_eq!(snap.until_hit(Until::Action, &events), Some(0));
@@ -588,6 +755,7 @@ mod tests {
             ci_failed: Some("cli".into()),
             review: Review::None,
             threads: 0,
+            copilot: Copilot::None,
         };
         let events = vec!["CI RED cli".to_string()];
         assert_eq!(snap.until_hit(Until::Action, &events), Some(1));
@@ -616,9 +784,25 @@ mod tests {
         assert_eq!(unresolved_thread_count(json).unwrap(), 2);
     }
 
+    fn snap(copilot: Copilot) -> Snapshot {
+        Snapshot {
+            state: PrState::Open,
+            ci: Ci::Pending,
+            ci_failed: None,
+            review: Review::None,
+            threads: 0,
+            copilot,
+        }
+    }
+
+    fn na(events: &[&str], spec: &str, copilot: Copilot) -> Vec<String> {
+        let ev: Vec<String> = events.iter().map(|s| (*s).to_string()).collect();
+        next_actions(&ev, spec, &snap(copilot))
+    }
+
     #[test]
     fn next_actions_for_changes_requested_includes_thread_loop() {
-        let next = next_actions(&["REVIEW CHANGES_REQUESTED".into()]);
+        let next = na(&["REVIEW CHANGES_REQUESTED"], "o/r#1", Copilot::None);
         assert_eq!(next.len(), 1);
         assert!(next[0].starts_with("NEXT REVIEW CHANGES_REQUESTED "));
         assert!(next[0].contains("Addressed in <sha>"));
@@ -629,14 +813,18 @@ mod tests {
 
     #[test]
     fn next_actions_threads_omitted_when_changes_requested() {
-        let next = next_actions(&["REVIEW CHANGES_REQUESTED".into(), "THREADS 3".into()]);
+        let next = na(
+            &["REVIEW CHANGES_REQUESTED", "THREADS 3"],
+            "o/r#1",
+            Copilot::None,
+        );
         assert_eq!(next.len(), 1);
         assert!(next[0].starts_with("NEXT REVIEW CHANGES_REQUESTED "));
     }
 
     #[test]
     fn next_actions_threads_nonzero_without_verdict() {
-        let next = next_actions(&["THREADS 2".into()]);
+        let next = na(&["THREADS 2"], "o/r#1", Copilot::None);
         assert_eq!(next.len(), 1);
         assert!(next[0].starts_with("NEXT THREADS "));
         assert!(next[0].contains("unresolved"));
@@ -644,12 +832,12 @@ mod tests {
 
     #[test]
     fn next_actions_threads_zero_is_silent() {
-        assert!(next_actions(&["THREADS 0".into()]).is_empty());
+        assert!(na(&["THREADS 0"], "o/r#1", Copilot::None).is_empty());
     }
 
     #[test]
     fn next_actions_ci_red_and_merged() {
-        let next = next_actions(&["CI RED cli".into(), "MERGED".into()]);
+        let next = na(&["CI RED cli", "MERGED"], "o/r#1", Copilot::None);
         assert_eq!(next.len(), 2);
         assert!(next[0].starts_with("NEXT CI RED "));
         assert!(next[0].contains("failed check"));
@@ -659,8 +847,148 @@ mod tests {
 
     #[test]
     fn next_actions_pending_and_open_are_silent() {
-        assert!(
-            next_actions(&["CI PENDING".into(), "OPEN".into(), "REVIEW NONE".into()]).is_empty()
+        assert!(na(
+            &["CI PENDING", "OPEN", "REVIEW NONE"],
+            "o/r#1",
+            Copilot::None
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn copilot_login_matches_bot_names() {
+        assert!(is_copilot_login("github-copilot"));
+        assert!(is_copilot_login("Copilot"));
+        assert!(is_copilot_login("copilot-pull-request-reviewer"));
+        assert!(!is_copilot_login("github-actions"));
+        assert!(!is_copilot_login("robert-chiniquy"));
+    }
+
+    #[test]
+    fn classify_copilot_requested_then_reviewed() {
+        let req = [GhReviewRequest {
+            login: Some("github-copilot".into()),
+            requested_reviewer: None,
+        }];
+        assert_eq!(classify_copilot(&req, &[]), Copilot::Requested);
+        let reviews = [GhReview {
+            author: Some(GhAuthor {
+                login: Some("copilot-pull-request-reviewer".into()),
+            }),
+            state: Some("COMMENTED".into()),
+        }];
+        assert_eq!(classify_copilot(&req, &reviews), Copilot::Reviewed);
+        let changes = [GhReview {
+            author: Some(GhAuthor {
+                login: Some("github-copilot".into()),
+            }),
+            state: Some("CHANGES_REQUESTED".into()),
+        }];
+        assert_eq!(classify_copilot(&req, &changes), Copilot::ChangesRequested);
+    }
+
+    #[test]
+    fn classify_copilot_nested_requested_reviewer() {
+        let req = [GhReviewRequest {
+            login: None,
+            requested_reviewer: Some(GhAuthor {
+                login: Some("github-copilot[bot]".into()),
+            }),
+        }];
+        assert_eq!(classify_copilot(&req, &[]), Copilot::Requested);
+    }
+
+    #[test]
+    fn next_actions_copilot_none_blocks_human() {
+        let next = na(
+            &["COPILOT NONE", "REVIEW REQUIRED"],
+            "ductone/multipass#627",
+            Copilot::None,
         );
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT COPILOT NONE "));
+        assert!(next[0].contains("pr-watch request-copilot ductone/multipass#627"));
+        assert!(next[0].contains("do not request a human"));
+    }
+
+    #[test]
+    fn next_actions_copilot_requested_waits() {
+        let next = na(&["COPILOT REQUESTED"], "o/r#1", Copilot::Requested);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].contains("do not request a human"));
+        assert!(next[0].contains("wait for Copilot"));
+    }
+
+    #[test]
+    fn next_actions_review_required_alone_requests_copilot() {
+        let next = na(&["REVIEW REQUIRED"], "o/r#1", Copilot::None);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT REVIEW REQUIRED "));
+        assert!(next[0].contains("pr-watch request-copilot o/r#1"));
+        assert!(next[0].contains("do not request a human"));
+    }
+
+    #[test]
+    fn next_actions_review_required_after_copilot_allows_human() {
+        let next = na(&["REVIEW REQUIRED"], "o/r#1", Copilot::Reviewed);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].contains("human review may be requested"));
+    }
+
+    #[test]
+    fn ensure_copilot_gate_appends_once() {
+        let now = snap(Copilot::None);
+        let mut lines = vec!["CI GREEN".into()];
+        ensure_copilot_gate(&mut lines, &now);
+        ensure_copilot_gate(&mut lines, &now);
+        assert_eq!(
+            lines,
+            vec!["CI GREEN".to_string(), "COPILOT NONE".to_string()]
+        );
+        let reviewed = snap(Copilot::Reviewed);
+        let mut already = vec!["CI GREEN".into()];
+        ensure_copilot_gate(&mut already, &reviewed);
+        assert_eq!(already, vec!["CI GREEN".to_string()]);
+    }
+
+    #[test]
+    fn until_action_exits_on_copilot_none_and_reviewed() {
+        let none = snap(Copilot::None);
+        assert_eq!(
+            none.until_hit(Until::Action, &["COPILOT NONE".into()]),
+            Some(0)
+        );
+        assert_eq!(
+            none.until_hit(Until::Action, &["COPILOT REVIEWED".into()]),
+            Some(0)
+        );
+        assert_eq!(
+            none.until_hit(Until::Action, &["COPILOT CHANGES_REQUESTED".into()]),
+            Some(0)
+        );
+        assert_eq!(
+            none.until_hit(Until::Action, &["COPILOT REQUESTED".into()]),
+            None
+        );
+    }
+
+    #[test]
+    fn snapshot_from_view_reads_copilot_request() {
+        let json = r#"{
+            "state":"OPEN",
+            "reviewDecision":"REVIEW_REQUIRED",
+            "statusCheckRollup":[],
+            "reviewRequests":[{"login":"github-copilot"}],
+            "reviews":[]
+        }"#;
+        let snap = snapshot_from_view(json, 0).unwrap();
+        assert_eq!(snap.copilot, Copilot::Requested);
+        assert_eq!(snap.review, Review::Required);
+    }
+
+    #[test]
+    fn copilot_bot_suffix_is_copilot() {
+        assert!(is_copilot_login("github-copilot[bot]"));
+        assert!(!is_copilot_login("not-a-copilot-user"));
     }
 }
