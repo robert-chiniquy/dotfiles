@@ -8,7 +8,7 @@ use pr_watch::store::{
     canonical_cwd, catch_up_lines, looks_like_stamp, now_unix, parse_since_stamp, record_event,
     state_dir, Store,
 };
-use pr_watch::{fetch_snapshot, parse_target, sleep_interval, Until};
+use pr_watch::{fetch_snapshot, next_actions, parse_target, sleep_interval, Until};
 
 const USAGE: &str = "\
 usage: pr-watch prime
@@ -18,7 +18,7 @@ usage: pr-watch prime
                 owner/repo#N | https://github.com/owner/repo/pull/N | N
 
 Prints one line per change (CI GREEN, CI RED <check>, REVIEW CHANGES_REQUESTED,
-REVIEW APPROVED, THREADS N, MERGED, CLOSED).
+REVIEW APPROVED, THREADS N, MERGED, CLOSED), then NEXT lines for each kind.
 
 --since [TIME]   catch-up vs last read for this cwd+repo+PR (default TIME is
                  that last-read). First look prints the current snapshot.
@@ -55,6 +55,10 @@ MUST NOT start a shell background job (cmd &, nohup, $!).
 
 Events: CI GREEN | CI RED <check> | REVIEW CHANGES_REQUESTED | REVIEW APPROVED
         | REVIEW REQUIRED | THREADS N | MERGED | CLOSED
+
+Each event is followed by NEXT <KIND> <steps>. Follow those steps. Example:
+REVIEW CHANGES_REQUESTED -> read threads; fix if reasonable else ask; after
+each pushed fix reply Addressed in <sha> and resolve; then pr-watch --until action.
 ";
 
 struct Args {
@@ -178,6 +182,14 @@ fn emit(lines: &[String]) -> io::Result<()> {
     out.flush()
 }
 
+fn emit_with_next(lines: &[String]) -> io::Result<()> {
+    if lines.is_empty() {
+        return Ok(());
+    }
+    emit(lines)?;
+    emit(&next_actions(lines))
+}
+
 fn persist(store: &Store) -> Result<(), String> {
     store.save(&state_dir())
 }
@@ -238,7 +250,7 @@ fn main() -> ExitCode {
     } else {
         Vec::new()
     };
-    if !first_lines.is_empty() && emit(&first_lines).is_err() {
+    if emit_with_next(&first_lines).is_err() {
         return ExitCode::from(1);
     }
     record_event(
@@ -266,8 +278,7 @@ fn main() -> ExitCode {
     loop {
         if let Some(max) = args.max_wait {
             if started.elapsed() >= max {
-                let _ = writeln!(io::stdout(), "FAILED timeout");
-                let _ = io::stdout().flush();
+                let _ = emit_with_next(&["FAILED timeout".into()]);
                 return ExitCode::from(1);
             }
         }
@@ -280,7 +291,7 @@ fn main() -> ExitCode {
             }
         };
         let events = next.events_since(&prev);
-        if !events.is_empty() && emit(&events).is_err() {
+        if emit_with_next(&events).is_err() {
             return ExitCode::from(1);
         }
         record_event(
@@ -360,6 +371,7 @@ mod cli_tests {
     fn prime_names_since_and_changes_requested() {
         assert!(PRIME.contains("--since"));
         assert!(PRIME.contains("CHANGES_REQUESTED"));
+        assert!(PRIME.contains("NEXT"));
         assert!(PRIME.contains("~/.config/pr-watch/"));
     }
 

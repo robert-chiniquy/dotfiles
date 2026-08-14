@@ -214,6 +214,92 @@ impl Snapshot {
     }
 }
 
+/// One `NEXT <KIND> ...` line per distinct event kind in `events`.
+/// THREADS is omitted when CHANGES_REQUESTED already covers the thread loop.
+pub fn next_actions(events: &[String]) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut seen = Vec::new();
+    let has_changes_requested = events.iter().any(|e| e == "REVIEW CHANGES_REQUESTED");
+    for e in events {
+        let kind = event_kind(e);
+        if seen.iter().any(|k| k == &kind) {
+            continue;
+        }
+        seen.push(kind);
+        if kind == "THREADS" && has_changes_requested {
+            continue;
+        }
+        if let Some(body) = next_action_body(e) {
+            out.push(format!("NEXT {kind} {body}"));
+        }
+    }
+    out
+}
+
+fn event_kind(event: &str) -> &'static str {
+    if event.starts_with("CI RED") {
+        "CI RED"
+    } else if event.starts_with("THREADS ") {
+        "THREADS"
+    } else if event == "FAILED timeout" {
+        "FAILED"
+    } else {
+        match event {
+            "CI PENDING" => "CI PENDING",
+            "CI GREEN" => "CI GREEN",
+            "REVIEW NONE" => "REVIEW NONE",
+            "REVIEW REQUIRED" => "REVIEW REQUIRED",
+            "REVIEW APPROVED" => "REVIEW APPROVED",
+            "REVIEW CHANGES_REQUESTED" => "REVIEW CHANGES_REQUESTED",
+            "OPEN" => "OPEN",
+            "MERGED" => "MERGED",
+            "CLOSED" => "CLOSED",
+            _ => "EVENT",
+        }
+    }
+}
+
+fn next_action_body(event: &str) -> Option<&'static str> {
+    if event.starts_with("CI RED") {
+        return Some(
+            "read the failed check log; fix this PR's cause (do not ask to look); push; reply only if a thread named the failure; pr-watch --until action",
+        );
+    }
+    if let Some(rest) = event.strip_prefix("THREADS ") {
+        if rest == "0" {
+            return None;
+        }
+        return Some(
+            "list unresolved review threads; for each: fix if reasonable else ask the user; after a pushed fix reply Addressed in <sha> and resolve; then pr-watch --until action",
+        );
+    }
+    match event {
+        "REVIEW CHANGES_REQUESTED" => Some(
+            "read every unresolved thread; fix if reasonable else ask the user; after each pushed fix reply Addressed in <sha> and resolve the thread; when all such threads are done, pr-watch --until action",
+        ),
+        "CI GREEN" => Some(
+            "if threads remain, address them before any undraft/merge; do not merge a draft; do not merge unless the user authorized this PR; pr-watch --since after the next push",
+        ),
+        "REVIEW APPROVED" => Some(
+            "if CI is not green, pr-watch --until action; if threads remain, address them; undraft is a separate decision; do not merge unless authorized",
+        ),
+        "REVIEW REQUIRED" => Some(
+            "wait for review; do not nag; if CI is still running, pr-watch --until action",
+        ),
+        "MERGED" => Some(
+            "if this was your branch and origin/main now contains the tip, prune the local worktree and the local+remote branch; do not remind about pushes",
+        ),
+        "CLOSED" => Some(
+            "treat as abandoned until the user says otherwise; do not reopen or recreate the branch",
+        ),
+        "FAILED timeout" => Some(
+            "check gh auth and network; pr-watch --since to catch anything that landed during the wait",
+        ),
+        "CI PENDING" | "REVIEW NONE" | "OPEN" => None,
+        _ => None,
+    }
+}
+
 #[derive(Debug, serde::Deserialize)]
 struct GhPrView {
     state: String,
@@ -528,5 +614,53 @@ mod tests {
             ]}}}}
         }"#;
         assert_eq!(unresolved_thread_count(json).unwrap(), 2);
+    }
+
+    #[test]
+    fn next_actions_for_changes_requested_includes_thread_loop() {
+        let next = next_actions(&["REVIEW CHANGES_REQUESTED".into()]);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT REVIEW CHANGES_REQUESTED "));
+        assert!(next[0].contains("Addressed in <sha>"));
+        assert!(next[0].contains("resolve the thread"));
+        assert!(next[0].contains("pr-watch --until action"));
+        assert!(next[0].contains("ask the user"));
+    }
+
+    #[test]
+    fn next_actions_threads_omitted_when_changes_requested() {
+        let next = next_actions(&["REVIEW CHANGES_REQUESTED".into(), "THREADS 3".into()]);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT REVIEW CHANGES_REQUESTED "));
+    }
+
+    #[test]
+    fn next_actions_threads_nonzero_without_verdict() {
+        let next = next_actions(&["THREADS 2".into()]);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT THREADS "));
+        assert!(next[0].contains("unresolved"));
+    }
+
+    #[test]
+    fn next_actions_threads_zero_is_silent() {
+        assert!(next_actions(&["THREADS 0".into()]).is_empty());
+    }
+
+    #[test]
+    fn next_actions_ci_red_and_merged() {
+        let next = next_actions(&["CI RED cli".into(), "MERGED".into()]);
+        assert_eq!(next.len(), 2);
+        assert!(next[0].starts_with("NEXT CI RED "));
+        assert!(next[0].contains("failed check"));
+        assert!(next[1].starts_with("NEXT MERGED "));
+        assert!(next[1].contains("prune"));
+    }
+
+    #[test]
+    fn next_actions_pending_and_open_are_silent() {
+        assert!(
+            next_actions(&["CI PENDING".into(), "OPEN".into(), "REVIEW NONE".into()]).is_empty()
+        );
     }
 }
