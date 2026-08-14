@@ -16,6 +16,7 @@ Custom binaries and tools installed outside of package managers.
 | uncommit | Shell script | Undo last commit(s) keeping changes staged |
 | unpushed | Shell script | Scan repos for uncommitted/unpushed work |
 | wt | Shell script | Git worktree helper (list/add/remove) |
+| pr-watch | `cargo install --path pr-watch --root ~/` | Blocking one-line-per-event GitHub PR watcher |
 | vaporwave-overlay | Custom build | Desktop visual overlay |
 | vaporwave-restart | Shell script | Restart overlay |
 | vaporwave-stop | Shell script | Stop overlay |
