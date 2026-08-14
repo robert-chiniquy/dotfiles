@@ -8,6 +8,10 @@ description = "Blocking one-line-per-event GitHub PR watcher for agents"
 name = "pr-watch"
 path = "src/main.rs"
 
+[[bin]]
+name = "sleep-report"
+path = "src/sleep_main.rs"
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

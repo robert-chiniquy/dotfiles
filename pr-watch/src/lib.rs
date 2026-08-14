@@ -2,6 +2,8 @@
 //!
 //! Agents wrap this with the harness monitor, or exec it and wait for exit.
 
+pub mod policy;
+pub mod sleep;
 pub mod store;
 
 use std::fmt;
@@ -246,24 +248,54 @@ impl Snapshot {
 
 /// Standing Copilot gate: emit COPILOT NONE even when that is not a
 /// transition, so `--since` and watch start still force a request.
-pub fn ensure_copilot_gate(lines: &mut Vec<String>, now: &Snapshot) {
+/// No-op when this repo has been recorded as Copilot-not-required.
+pub fn ensure_copilot_gate(lines: &mut Vec<String>, now: &Snapshot, required: bool) {
+    if !required {
+        lines.retain(|l| !l.starts_with("COPILOT ") || l == "COPILOT SKIP");
+        if !lines.iter().any(|l| l == "COPILOT SKIP") {
+            lines.push("COPILOT SKIP".into());
+        }
+        return;
+    }
     if now.copilot == Copilot::None && !lines.iter().any(|l| l == "COPILOT NONE") {
         lines.push("COPILOT NONE".into());
     }
+}
+
+/// Parse `owner/repo` (optional `#N` or github URL).
+pub fn parse_repo_spec(spec: &str) -> Result<(String, String), String> {
+    if let Some(rest) = spec.strip_prefix("https://github.com/") {
+        let rest = rest.trim_end_matches('/');
+        let parts: Vec<&str> = rest.split('/').collect();
+        if parts.len() >= 2 {
+            return split_owner_repo(&format!("{}/{}", parts[0], parts[1]));
+        }
+        return Err(format!("want owner/repo (got {spec:?})"));
+    }
+    let left = spec.split_once('#').map(|(l, _)| l).unwrap_or(spec);
+    split_owner_repo(left)
 }
 
 /// One `NEXT <KIND> ...` line per distinct event kind in `events`.
 /// THREADS is omitted when a changes-requested event already covers the loop.
 /// REVIEW REQUIRED is omitted when a Copilot event in this batch already
 /// tells the agent to request or wait.
-pub fn next_actions(events: &[String], spec: &str, now: &Snapshot) -> Vec<String> {
+pub fn next_actions(
+    events: &[String],
+    spec: &str,
+    now: &Snapshot,
+    copilot_required: bool,
+) -> Vec<String> {
     let mut out = Vec::new();
     let mut seen = Vec::new();
     let has_changes_requested = events
         .iter()
         .any(|e| e == "REVIEW CHANGES_REQUESTED" || e == "COPILOT CHANGES_REQUESTED");
-    let copilot_event = events.iter().any(|e| e.starts_with("COPILOT "));
-    let copilot_blocks_human = matches!(now.copilot, Copilot::None | Copilot::Requested);
+    let copilot_event = events
+        .iter()
+        .any(|e| e.starts_with("COPILOT ") && e != "COPILOT SKIP");
+    let copilot_blocks_human =
+        copilot_required && matches!(now.copilot, Copilot::None | Copilot::Requested);
     for e in events {
         let kind = event_kind(e);
         if seen.iter().any(|k| k == &kind) {
@@ -276,7 +308,7 @@ pub fn next_actions(events: &[String], spec: &str, now: &Snapshot) -> Vec<String
         if kind == "REVIEW REQUIRED" && copilot_blocks_human && copilot_event {
             continue;
         }
-        if let Some(body) = next_action_body(e, spec, now) {
+        if let Some(body) = next_action_body(e, spec, now, copilot_required) {
             out.push(format!("NEXT {kind} {body}"));
         }
     }
@@ -290,6 +322,8 @@ fn event_kind(event: &str) -> &'static str {
         "THREADS"
     } else if event == "FAILED timeout" {
         "FAILED"
+    } else if event.starts_with("SLEEP ") {
+        "SLEEP"
     } else {
         match event {
             "CI PENDING" => "CI PENDING",
@@ -302,6 +336,7 @@ fn event_kind(event: &str) -> &'static str {
             "COPILOT REQUESTED" => "COPILOT REQUESTED",
             "COPILOT REVIEWED" => "COPILOT REVIEWED",
             "COPILOT CHANGES_REQUESTED" => "COPILOT CHANGES_REQUESTED",
+            "COPILOT SKIP" => "COPILOT SKIP",
             "OPEN" => "OPEN",
             "MERGED" => "MERGED",
             "CLOSED" => "CLOSED",
@@ -310,10 +345,21 @@ fn event_kind(event: &str) -> &'static str {
     }
 }
 
-fn next_action_body(event: &str, spec: &str, now: &Snapshot) -> Option<String> {
+fn next_action_body(
+    event: &str,
+    spec: &str,
+    now: &Snapshot,
+    copilot_required: bool,
+) -> Option<String> {
     if event.starts_with("CI RED") {
         return Some(
             "read the failed check log; fix this PR's cause (do not ask to look); push; reply only if a thread named the failure; pr-watch --until action"
+                .into(),
+        );
+    }
+    if event.starts_with("SLEEP ") {
+        return Some(
+            "host slept during this wait; re-read current state (already fetching); do not treat the gap as a hang"
                 .into(),
         );
     }
@@ -328,28 +374,53 @@ fn next_action_body(event: &str, spec: &str, now: &Snapshot) -> Option<String> {
     }
     let body = match event {
         "REVIEW CHANGES_REQUESTED" | "COPILOT CHANGES_REQUESTED" => {
-            "read every unresolved thread; fix if reasonable else ask the user; after each pushed fix reply Addressed in <sha> and resolve the thread; when all such threads are done, pr-watch --until action; do not request a human until COPILOT REVIEWED"
+            if copilot_required {
+                "read every unresolved thread; fix if reasonable else ask the user; after each pushed fix reply Addressed in <sha> and resolve the thread; when all such threads are done, pr-watch --until action; do not request a human until COPILOT REVIEWED"
+            } else {
+                "read every unresolved thread; fix if reasonable else ask the user; after each pushed fix reply Addressed in <sha> and resolve the thread; when all such threads are done, pr-watch --until action"
+            }
         }
+        "COPILOT SKIP" => return None,
         "COPILOT NONE" => {
+            if !copilot_required {
+                return None;
+            }
             return Some(format!(
                 "pr-watch request-copilot {spec}; do not request a human review yet; pr-watch --until action"
             ));
         }
         "COPILOT REQUESTED" => {
+            if !copilot_required {
+                return None;
+            }
             "wait for Copilot; do not request a human review yet; pr-watch --until action"
         }
         "COPILOT REVIEWED" => {
             "address any Copilot threads first; a human review may be requested only after those are done"
         }
         "CI GREEN" => {
-            return Some(format!(
-                "if threads remain, address them; if COPILOT NONE, pr-watch request-copilot {spec}; do not request a human until COPILOT REVIEWED; do not merge a draft; do not merge unless authorized; pr-watch --since after the next push"
-            ));
+            return Some(if copilot_required {
+                format!(
+                    "if threads remain, address them; if COPILOT NONE, pr-watch request-copilot {spec}; do not request a human until COPILOT REVIEWED; do not merge a draft; do not merge unless authorized; pr-watch --since after the next push"
+                )
+            } else {
+                "if threads remain, address them; do not merge a draft; do not merge unless authorized; pr-watch --since after the next push".into()
+            });
         }
         "REVIEW APPROVED" => {
-            "if CI is not green, pr-watch --until action; if COPILOT NONE/REQUESTED, do not treat this as human-ready; if threads remain, address them; undraft is a separate decision; do not merge unless authorized"
+            if copilot_required {
+                "if CI is not green, pr-watch --until action; if COPILOT NONE/REQUESTED, do not treat this as human-ready; if threads remain, address them; undraft is a separate decision; do not merge unless authorized"
+            } else {
+                "if CI is not green, pr-watch --until action; if threads remain, address them; undraft is a separate decision; do not merge unless authorized"
+            }
         }
         "REVIEW REQUIRED" => {
+            if !copilot_required {
+                return Some(
+                    "a human review may be requested; do not merge a draft; do not merge unless authorized; pr-watch --until action"
+                        .into(),
+                );
+            }
             return Some(match now.copilot {
                 Copilot::None => format!(
                     "pr-watch request-copilot {spec}; do not request a human review yet; pr-watch --until action"
@@ -796,8 +867,12 @@ mod tests {
     }
 
     fn na(events: &[&str], spec: &str, copilot: Copilot) -> Vec<String> {
+        na_req(events, spec, copilot, true)
+    }
+
+    fn na_req(events: &[&str], spec: &str, copilot: Copilot, required: bool) -> Vec<String> {
         let ev: Vec<String> = events.iter().map(|s| (*s).to_string()).collect();
-        next_actions(&ev, spec, &snap(copilot))
+        next_actions(&ev, spec, &snap(copilot), required)
     }
 
     #[test]
@@ -939,15 +1014,15 @@ mod tests {
     fn ensure_copilot_gate_appends_once() {
         let now = snap(Copilot::None);
         let mut lines = vec!["CI GREEN".into()];
-        ensure_copilot_gate(&mut lines, &now);
-        ensure_copilot_gate(&mut lines, &now);
+        ensure_copilot_gate(&mut lines, &now, true);
+        ensure_copilot_gate(&mut lines, &now, true);
         assert_eq!(
             lines,
             vec!["CI GREEN".to_string(), "COPILOT NONE".to_string()]
         );
         let reviewed = snap(Copilot::Reviewed);
         let mut already = vec!["CI GREEN".into()];
-        ensure_copilot_gate(&mut already, &reviewed);
+        ensure_copilot_gate(&mut already, &reviewed, true);
         assert_eq!(already, vec!["CI GREEN".to_string()]);
     }
 
@@ -990,5 +1065,36 @@ mod tests {
     fn copilot_bot_suffix_is_copilot() {
         assert!(is_copilot_login("github-copilot[bot]"));
         assert!(!is_copilot_login("not-a-copilot-user"));
+    }
+
+    #[test]
+    fn next_actions_skip_allows_human() {
+        let next = na_req(&["REVIEW REQUIRED"], "o/r#1", Copilot::None, false);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].contains("human review may be requested"));
+        assert!(!next[0].contains("request-copilot"));
+    }
+
+    #[test]
+    fn ensure_copilot_gate_skip_replaces_none() {
+        let now = snap(Copilot::None);
+        let mut lines = vec!["CI GREEN".into(), "COPILOT NONE".into()];
+        ensure_copilot_gate(&mut lines, &now, false);
+        assert!(lines.iter().any(|l| l == "COPILOT SKIP"));
+        assert!(!lines.iter().any(|l| l == "COPILOT NONE"));
+    }
+
+    #[test]
+    fn parse_repo_spec_strips_pr() {
+        let (o, r) = parse_repo_spec("ductone/c1#23321").unwrap();
+        assert_eq!((o, r), ("ductone".into(), "c1".into()));
+    }
+
+    #[test]
+    fn next_actions_sleep() {
+        let next = na(&["SLEEP 12m 4s"], "o/r#1", Copilot::None);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT SLEEP "));
+        assert!(next[0].contains("host slept"));
     }
 }

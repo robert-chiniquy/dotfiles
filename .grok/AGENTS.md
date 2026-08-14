@@ -35,6 +35,7 @@ these skill bodies only (not only their descriptions):
 1. `~/.claude/skills/dry-engineering/SKILL.md` — default voice
 2. `~/.claude/skills/healthy-interaction/SKILL.md` — interaction baseline
 3. `~/.claude/skills/pr-watch/SKILL.md` — PR event catch-up (`pr-watch --since`)
+4. `~/.claude/skills/sleep-report/SKILL.md` — host sleep (`sleep-report --since`)
 
 **Context (decision-time, not every turn):**
 
@@ -111,9 +112,10 @@ Harness defaults that append them are overridden. Check before every publish.
 ## Session start checklist (coding work)
 
 1. Apply the always-active skill list above (bodies as needed).
-2. If the repo uses beads: `bd prime` / `bd ready` as appropriate.
-3. Prefer project `Agents.md` / `Claude.md` over inventing process.
-4. Skills for the task: load from catalog; never invent a parallel procedure.
+2. Run `sleep-report --since`. If it prints `SLEEP <dur>`, the laptop slept; do not treat that wall gap as a hang.
+3. If the repo uses beads: `bd prime` / `bd ready` as appropriate.
+4. Prefer project `Agents.md` / `Claude.md` over inventing process.
+5. Skills for the task: load from catalog; never invent a parallel procedure.
 
 ## When adding permanent guidance
 

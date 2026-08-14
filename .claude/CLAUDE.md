@@ -21,6 +21,7 @@
 - **Ideas, not phrasings, for material the user will deliver** - When drafting talks, talk outlines, presentation notes, scripts, or any content the user will express in their own voice, give line items that state the idea to convey at each moment. Do not supply sample sentences, dialect, or vernacular - the user decides how to say it. (This does not apply to material the user asked to be written as finished prose, e.g. PR descriptions, docs, messages.)
 - Write all code to files (even temporary scripts) for tracking
 - Ask clarifying questions when scope, approach, or requirements are ambiguous
+- **Do not assume a new request contradicts an earlier decision** - Distinct purposes can keep both decisions. If a request looks like it reverses a prior verdict, ask whether there is a contradiction. Do not treat the new request as an implicit reversal, and do not refuse or rewrite the request to fit the old verdict. Assuming a contradiction wastes a turn.
 - Never add project-specific or repo-specific notes to this global config; those belong in each project's `.claude/CLAUDE.md`
 - **General language in global rules** - Global config and skills are consumed by a wide audience. Use general terms ("ticketing system", "wiki", "CI") not product names ("Linear", "Notion", "GitHub Actions"). Product-specific details belong in project-level CLAUDE.md files.
 - **When user provides "always" guidance** - Immediately add it to this global config to ensure it persists forever across all sessions
@@ -195,6 +196,7 @@ For READMEs, design docs, and any markdown file with 5+ sections:
   - `skills/dry-engineering/SKILL.md` — default voice
   - `skills/healthy-interaction/SKILL.md` — interaction baseline
   - `skills/pr-watch/SKILL.md` — PR event catch-up (`pr-watch --since`, never `--once` as the second look)
+  - `skills/sleep-report/SKILL.md` — host sleep (`sleep-report --since` at the start of every turn)
 - **Context (load at decision time, not every turn)**:
   - `open-work-recap` — end of a coding/status turn (short checklist)
   - `project-process` — non-trivial design/plan/RFC work

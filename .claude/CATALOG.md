@@ -20,6 +20,7 @@ skill bodies**, not only this index.
 | dry-engineering | Default voice: code review style, commit messages, explanations |
 | healthy-interaction | Baseline interaction dispositions (no sycophancy, no therapy mode) |
 | pr-watch | PR event catch-up: `pr-watch --since` after any prior look |
+| sleep-report | Host sleep: `sleep-report --since` at the start of every turn |
 
 ## Context-Activated
 

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/bin/sleep-report --hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

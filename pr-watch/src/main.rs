@@ -2,20 +2,24 @@
 
 use std::io::{self, Write};
 use std::process::ExitCode;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
+use pr_watch::policy::Policy;
+use pr_watch::sleep::{sleep_event_line, sleep_overrun};
 use pr_watch::store::{
     canonical_cwd, catch_up_lines, looks_like_stamp, now_unix, parse_since_stamp, record_event,
     state_dir, Store,
 };
 use pr_watch::{
-    ensure_copilot_gate, fetch_snapshot, next_actions, parse_target, request_copilot,
-    sleep_interval, Snapshot, Until,
+    ensure_copilot_gate, fetch_snapshot, next_actions, parse_repo_spec, parse_target,
+    request_copilot, sleep_interval, Snapshot, Until,
 };
 
 const USAGE: &str = "\
 usage: pr-watch prime
        pr-watch request-copilot [--repo owner/repo] owner/repo#N | N
+       pr-watch skip-copilot owner/repo
+       pr-watch unskip-copilot owner/repo
        pr-watch [--repo owner/repo] [--cwd DIR] [--interval SECS]
                 [--until action|merged|never] [--once] [--since [TIME]]
                 [--emit-snapshot] [--max-wait SECS]
@@ -23,7 +27,7 @@ usage: pr-watch prime
 
 Prints one line per change (CI GREEN, CI RED <check>, REVIEW CHANGES_REQUESTED,
 REVIEW APPROVED, THREADS N, COPILOT NONE|REQUESTED|REVIEWED|CHANGES_REQUESTED,
-MERGED, CLOSED), then NEXT lines for each kind.
+SLEEP <dur>, MERGED, CLOSED), then NEXT lines for each kind.
 
 --since [TIME]   catch-up vs last read for this cwd+repo+PR (default TIME is
                  that last-read). First look prints the current snapshot.
@@ -36,8 +40,9 @@ MERGED, CLOSED), then NEXT lines for each kind.
 
 request-copilot  POST github-copilot as a reviewer. Do this before asking a
                  human. Do not invent a different reviewer login.
+skip-copilot     record that Copilot review is not required for this repo.
 
-State: ~/.config/pr-watch/cursors.json (override PR_WATCH_STATE_DIR).
+State: ~/.config/pr-watch/ (override PR_WATCH_STATE_DIR).
 ";
 
 const PRIME: &str = "\
@@ -78,6 +83,14 @@ asking a human for a review. If COPILOT NONE:
 Do not request a human while COPILOT is NONE or REQUESTED. Address
 COPILOT CHANGES_REQUESTED like any other changes-requested. Login is
 github-copilot (not copilot-pull-request-reviewer).
+
+If this repo has been concluded Copilot-not-required:
+
+    pr-watch skip-copilot owner/repo
+
+That writes ~/.config/pr-watch/policy.json. COPILOT SKIP replaces the gate.
+Do not skip unless that conclusion is recorded. Host sleep: SLEEP <dur>
+from a blocking poll, or `sleep-report --since` at the start of each turn.
 ";
 
 struct Args {
@@ -99,6 +112,8 @@ enum ParseOutcome {
     Help,
     Prime,
     RequestCopilot { spec: String, repo: Option<String> },
+    SkipCopilot { spec: String },
+    UnskipCopilot { spec: String },
 }
 
 fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
@@ -114,6 +129,8 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
     let mut max_wait = None;
     let mut positional = Vec::new();
     let mut request_copilot_cmd = false;
+    let mut skip_copilot_cmd = false;
+    let mut unskip_copilot_cmd = false;
     let mut i = 1;
     while i < argv.len() {
         match argv[i].as_str() {
@@ -123,6 +140,12 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
             }
             "request-copilot" if positional.is_empty() && !request_copilot_cmd => {
                 request_copilot_cmd = true;
+            }
+            "skip-copilot" if positional.is_empty() && !request_copilot_cmd => {
+                skip_copilot_cmd = true;
+            }
+            "unskip-copilot" if positional.is_empty() && !request_copilot_cmd => {
+                unskip_copilot_cmd = true;
             }
             "--once" => once = true,
             "--emit-snapshot" => emit_snapshot = true,
@@ -188,6 +211,12 @@ fn parse_args(argv: &[String]) -> Result<ParseOutcome, String> {
     if request_copilot_cmd {
         return Ok(ParseOutcome::RequestCopilot { spec, repo });
     }
+    if skip_copilot_cmd {
+        return Ok(ParseOutcome::SkipCopilot { spec });
+    }
+    if unskip_copilot_cmd {
+        return Ok(ParseOutcome::UnskipCopilot { spec });
+    }
     Ok(ParseOutcome::Args(Args {
         spec,
         repo,
@@ -211,12 +240,52 @@ fn emit(lines: &[String]) -> io::Result<()> {
     out.flush()
 }
 
-fn emit_with_next(lines: &[String], spec: &str, now: &Snapshot) -> io::Result<()> {
+fn emit_with_next(
+    lines: &[String],
+    spec: &str,
+    now: &Snapshot,
+    copilot_required: bool,
+) -> io::Result<()> {
     if lines.is_empty() {
         return Ok(());
     }
     emit(lines)?;
-    emit(&next_actions(lines, spec, now))
+    emit(&next_actions(lines, spec, now, copilot_required))
+}
+
+fn run_skip_copilot(spec: &str, skip: bool) -> ExitCode {
+    let (owner, repo) = match parse_repo_spec(spec) {
+        Ok(v) => v,
+        Err(e) => {
+            let _ = writeln!(io::stderr(), "{e}");
+            return ExitCode::from(2);
+        }
+    };
+    let dir = state_dir();
+    let mut policy = match Policy::load(&dir) {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = writeln!(io::stderr(), "{e}");
+            return ExitCode::from(1);
+        }
+    };
+    if skip {
+        policy.skip_copilot(&owner, &repo);
+    } else {
+        policy.unskip_copilot(&owner, &repo);
+    }
+    if let Err(e) = policy.save(&dir) {
+        let _ = writeln!(io::stderr(), "{e}");
+        return ExitCode::from(1);
+    }
+    let key = format!("{owner}/{repo}");
+    let line = if skip {
+        format!("COPILOT SKIP {key}")
+    } else {
+        format!("COPILOT REQUIRED {key}")
+    };
+    let _ = writeln!(io::stdout(), "{line}");
+    ExitCode::SUCCESS
 }
 
 fn persist(store: &Store) -> Result<(), String> {
@@ -245,7 +314,7 @@ fn run_request_copilot(spec: &str, repo: Option<&str>) -> ExitCode {
         threads: 0,
         copilot: pr_watch::Copilot::Requested,
     };
-    if emit_with_next(&lines, &spec, &now).is_err() {
+    if emit_with_next(&lines, &spec, &now, true).is_err() {
         return ExitCode::from(1);
     }
     ExitCode::SUCCESS
@@ -265,6 +334,12 @@ fn main() -> ExitCode {
         }
         Ok(ParseOutcome::RequestCopilot { spec, repo }) => {
             return run_request_copilot(&spec, repo.as_deref());
+        }
+        Ok(ParseOutcome::SkipCopilot { spec }) => {
+            return run_skip_copilot(&spec, true);
+        }
+        Ok(ParseOutcome::UnskipCopilot { spec }) => {
+            return run_skip_copilot(&spec, false);
         }
         Err(e) => {
             let _ = writeln!(io::stderr(), "{e}");
@@ -304,6 +379,14 @@ fn main() -> ExitCode {
 
     let oneshot = args.once || (args.since && !args.until_set);
     let spec = target.to_string();
+    let policy = match Policy::load(&state_dir()) {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = writeln!(io::stderr(), "{e}");
+            return ExitCode::from(1);
+        }
+    };
+    let copilot_required = policy.copilot_required(&target.owner, &target.repo);
     let mut first_lines = if args.since {
         catch_up_lines(&store, &cwd, &target, &first, now_unix(), args.since_time)
     } else if args.once || args.emit_snapshot {
@@ -311,8 +394,8 @@ fn main() -> ExitCode {
     } else {
         Vec::new()
     };
-    ensure_copilot_gate(&mut first_lines, &first);
-    if emit_with_next(&first_lines, &spec, &first).is_err() {
+    ensure_copilot_gate(&mut first_lines, &first, copilot_required);
+    if emit_with_next(&first_lines, &spec, &first, copilot_required).is_err() {
         return ExitCode::from(1);
     }
     record_event(
@@ -340,11 +423,21 @@ fn main() -> ExitCode {
     loop {
         if let Some(max) = args.max_wait {
             if started.elapsed() >= max {
-                let _ = emit_with_next(&["FAILED timeout".into()], &spec, &prev);
+                let _ = emit_with_next(&["FAILED timeout".into()], &spec, &prev, copilot_required);
                 return ExitCode::from(1);
             }
         }
+        let mono0 = Instant::now();
+        let wall0 = SystemTime::now();
         sleep_interval(args.interval);
+        let wall = SystemTime::now().duration_since(wall0).unwrap_or_default();
+        let mono = mono0.elapsed();
+        if let Some(d) = sleep_overrun(args.interval, wall, mono) {
+            let line = sleep_event_line(d);
+            if emit_with_next(&[line], &spec, &prev, copilot_required).is_err() {
+                return ExitCode::from(1);
+            }
+        }
         let next = match fetch_snapshot(&target) {
             Ok(s) => s,
             Err(e) => {
@@ -352,8 +445,11 @@ fn main() -> ExitCode {
                 continue;
             }
         };
-        let events = next.events_since(&prev);
-        if emit_with_next(&events, &spec, &next).is_err() {
+        let mut events = next.events_since(&prev);
+        if !copilot_required {
+            events.retain(|l| !l.starts_with("COPILOT "));
+        }
+        if emit_with_next(&events, &spec, &next, copilot_required).is_err() {
             return ExitCode::from(1);
         }
         record_event(
@@ -438,6 +534,21 @@ mod cli_tests {
         assert!(PRIME.contains("request-copilot"));
         assert!(PRIME.contains("COPILOT REVIEWED"));
         assert!(PRIME.contains("github-copilot"));
+        assert!(PRIME.contains("skip-copilot"));
+        assert!(PRIME.contains("sleep-report"));
+    }
+
+    #[test]
+    fn parse_skip_copilot() {
+        let argv = vec![
+            "pr-watch".into(),
+            "skip-copilot".into(),
+            "ductone/docs".into(),
+        ];
+        let ParseOutcome::SkipCopilot { spec } = parse_args(&argv).unwrap() else {
+            panic!("expected skip-copilot");
+        };
+        assert_eq!(spec, "ductone/docs");
     }
 
     #[test]
