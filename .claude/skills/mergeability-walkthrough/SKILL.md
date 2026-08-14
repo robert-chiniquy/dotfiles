@@ -29,9 +29,13 @@ decision walk after a set is in hand.
 - Presenting a stale observation or an assumption as a verified current fact.
 - Asking the human about work that was optionality-safe to just do first
   (rebase, thread replies, information gathering).
-- Per-axis "Risk: none" lines where one grouped no-risk line would do.
-- Condensing a card or hiding a PR's details behind a summary — a card may
-  use the whole screen.
+- Mentioning a non-issue (stacks when the PR is not in a stack, proto when
+  the diff does not touch wire, keys when no key material, a merge queue
+  when the repo has none, "no risk: …" rollups). Omit it.
+- A generic checklist card that does not make *this* PR's change and the
+  merge risk of *that* change visible.
+- Condensing the substance of this PR's change, or hiding it behind a
+  summary — a card may use the whole screen for what is live.
 - Self-waiving a failing check via attribution reasoning instead of
   presenting the evidence and letting the human decide.
 - Merging a draft, or folding ready-for-review approval into a merge action.
@@ -66,11 +70,10 @@ decision walk after a set is in hand.
    checks, unresolved thread count, base/head SHAs. If the world moved since
    the last card, say so and adapt.
 
-0.5 **Standing grants first** — list the authorizations that already cover
-   cards (e.g. tests-only auto-merge on green, lint-surface self-merge, and
-   whatever the user has granted). A fully covered card becomes an
-   inform-only line naming the grant — no question. Partially covered: ask
-   only the uncovered part.
+0.5 **Standing grants first** — if any authorization already covers a card
+   (e.g. tests-only auto-merge on green), name it. A fully covered card is
+   inform-only. Partially covered: ask only the uncovered part. Omit this
+   line when no grant applies.
 
 0.7 **Bring each PR to readiness before its card.** The only reason NOT to
    have already done a thing — rebase onto the moved base, reply to and
@@ -95,9 +98,13 @@ decision walk after a set is in hand.
      Not `#N` alone, not a title-only header, not a markdown link that hides
      the URL. Same rule if one card names more than one PR: every PR gets
      its own bare URL.
-   - **Never condense a card.** Full detail inline, nothing summarized away
-     or hidden behind expansion — a card may use the entire screen for one
-     decision.
+   - **This PR, not a template.** Lead with what this diff does and what
+     merging *this* change can break. Hard gates and risk axes are a private
+     checklist; print an axis only when it is live for this PR. Do not name
+     stacks, proto, keys, queues, or grants that do not apply.
+   - **Never condense a live issue.** Full detail inline for the change and
+     its merge risks — a card may use the entire screen for that. Empty
+     categories are not substance; omit them.
    - If the user declines the tool, says "pass again", "just report", or "status
      then decide": render **all cards in one prose pass** (same axes/gates),
      then a single multi-action line they can confirm (merge X; restack Y;
@@ -122,34 +129,38 @@ decision walk after a set is in hand.
      | Org approval check only (required review/team gate, not code feedback) | Process gate; not a code-fix task |
      | Human "request changes" review | Hold or fix; no silent LGTM |
 
-   - **Stack ancestor** — for a child PR, `merge-base --is-ancestor <base-branch-tip> <child-tip>` must hold (or base is already trunk after parent merged). Else offer **restack**, not merge.
+   - **Stack ancestor** — only when this PR is a stack child:
+     `merge-base --is-ancestor <base-branch-tip> <child-tip>` must hold
+     (or base is already trunk after parent merged). Else offer **restack**,
+     not merge. Do not mention stacks on an independent PR.
    - **Draft lifecycle** — a draft stays draft until the user approves
      ready-for-review; a ready PR stays ready until merged. RFR approval is
      its own card decision, never an implicit step inside a merge action.
 
 4. **Each card must include**
    - **The PR URL** — first line, bare `https://github.com/owner/repo/pull/N`
-   - **Epistemic status on every claim** — a verified current fact (fetched
-     for this card), an old observation not refreshed (say when it was
-     true), or an assumption (say so). Never let one read as another.
-   - What it does (one sentence)
-   - State — draft, reviewDecision, CI summary, conflicts, **unresolved thread
-     count**, feedback kind (table above)
-   - Shared surface — none / monorepo-only / published SDK or library pin
-   - **Prod API backcompat** when the PR calls or requires server behavior —
-     vs **deployed** production SHA when known (below), not only `origin/main`
-   - Wire/proto compat when the PR touches schemas or generated stubs
-   - Client on-disk / durable local state when relevant
-   - Secret or device key material when relevant (unlock of older clients?)
-   - Stack position — base PR, children, restack needed?
-   - Recommendation — first option `(Recommended)` with why
+   - **What this PR changes** — specific enough that the human can see the
+     merge blast radius (which API, file family, or invariant moves). Not a
+     restatement of the title alone.
+   - **Merge risk of that change** — only the live ones (examples: deployed
+     API vs this RPC, proto field reuse, on-disk format, key material, a
+     stack child whose parent is not on trunk). Check the axes below
+     privately; print an axis only when it applies to this diff.
+   - **State that constrains the decision** — draft, CI on *this* SHA,
+     unresolved inline threads, feedback kind if it blocks or changes the
+     options. Skip fields that do not change the options.
+   - **Epistemic status on every claim** — verified this fetch, old
+     observation (say when), or assumption. Never let one read as another.
+   - Recommendation — first option `(Recommended)` with why, tied to this
+     PR's change and gates
 
-5. **Options** (reshape per PR)
+5. **Options** (reshape per PR; omit ones that cannot apply)
    - Merge now / merge-async / enqueue — only if §3 hard gates pass
-   - Merge with **policy override** (bot CHANGES_REQUESTED, threads clear)
-   - Restack onto base tip / onto trunk after base merge
-   - Hold for CI / threads / undraft / fix X
-   - Skip / later / close  
+   - Merge with **policy override** — only if bot CHANGES_REQUESTED and
+     threads are clear
+   - Restack — only if this PR is behind its base or is a stack child
+   - Hold for CI / threads / undraft / fix X — only if that is the live block
+   - Skip / later / close
    Never invent a fake "Other" (the tool adds it).
 
 6. **After each answer** — record the decision and show the next card. Act
@@ -273,29 +284,24 @@ client code that decodes new fields/RPCs.
 | **Generated stubs** | Match generator output; no hand-edited wire structs vs source schema |
 | **Verdict** | One of the four outcomes above, with SHA or **unchecked** |
 
-## Risk axes (always fill)
+## Risk axes (check privately; print only if live)
 
-| Axis | Ask |
+| Axis | Ask (print only when this PR hits it) |
 |------|-----|
-| **Shared library / SDK** | Monorepo-only vs published pin? One pin across clients? External package repo? |
+| **Shared library / SDK** | Monorepo-only vs published pin? One pin across clients? |
 | **Prod API** | New RPC? Required vs optional? vs **deployed** SHA? |
 | **Wire / proto** | Additive vs breaking; deployed verdict |
 | **Client on-disk** | State dir, journals, migrations, identity blobs? |
 | **Key / device material** | Key roots, enclave/TPM, long-lived tokens? Old devices unlock? |
-| **Process** | Draft? CI? Threads? Feedback **kind**? Stack ancestor? Queue? No internal tracker IDs in published text |
+| **Process** | Only the gates that change options: draft, red/pending CI, open threads, blocking feedback, stack child, queue |
 
-Project skills may add domain axes; keep these generic axes filled even then.
-
-Axes with nothing to weigh are grouped on ONE line — "No risk: deployment,
-config skew, wire, on-disk, keys" — so the human skims only live risks. An
-axis gets its own line only when there is something to decide about it.
-(Grouping absence is not condensing detail; the never-condense rule protects
-substance, not empty categories.)
+Do not print "no risk" / "N/A" / "not a stack" / "no proto change". Absence is
+silence. Project skills may add domain axes under the same omit-if-quiet rule.
 
 ## Before finishing
 
 - [ ] Status re-fetched for the PR about to act?
-- [ ] Hard gates (CI/threads/ancestor) reported honestly?
-- [ ] Every card/question contains the PR's full copyable GitHub URL?
+- [ ] Hard gates that actually apply reported honestly?
+- [ ] Every card starts with the PR's full copyable GitHub URL?
+- [ ] Card is about this PR's change and live merge risks; non-issues omitted?
 - [ ] Acted only on user-authorized PRs?
-- [ ] Stack order bottom-up respected?
