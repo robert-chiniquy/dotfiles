@@ -2,6 +2,8 @@
 //!
 //! Agents wrap this with the harness monitor, or exec it and wait for exit.
 
+pub mod store;
+
 use std::fmt;
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -95,14 +97,14 @@ fn split_owner_repo(s: &str) -> Result<(String, String), String> {
     Ok((owner.to_string(), repo.to_string()))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Ci {
     Pending,
     Green,
     Red,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Review {
     None,
     Required,
@@ -110,14 +112,14 @@ pub enum Review {
     ChangesRequested,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PrState {
     Open,
     Merged,
     Closed,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Snapshot {
     pub state: PrState,
     pub ci: Ci,

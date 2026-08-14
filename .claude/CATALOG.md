@@ -19,6 +19,7 @@ skill bodies**, not only this index.
 |-------|-------------|
 | dry-engineering | Default voice: code review style, commit messages, explanations |
 | healthy-interaction | Baseline interaction dispositions (no sycophancy, no therapy mode) |
+| pr-watch | PR event catch-up: `pr-watch --since` after any prior look |
 
 ## Context-Activated
 
@@ -52,6 +53,7 @@ skill bodies**, not only this index.
 | gh-fix-ci | Failing GitHub Actions checks |
 | squire-env-management | Ephemeral remote agents and task pools |
 | c1-squire-dispatch / c1-dev-stack-in-squire | c1-specific squire dispatch |
+| squire-qol | Personalize squire envs (dotfiles/nix), defaults, mux chrome |
 | find-delegation-pebbles | Bounded independent backlog tasks for remote agents |
 | codebase-memory | Structural codebase graph exploration |
 | large-scale-refactor | Multi-file / long-running refactors |

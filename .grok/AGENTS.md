@@ -34,6 +34,7 @@ these skill bodies only (not only their descriptions):
 
 1. `~/.claude/skills/dry-engineering/SKILL.md` — default voice
 2. `~/.claude/skills/healthy-interaction/SKILL.md` — interaction baseline
+3. `~/.claude/skills/pr-watch/SKILL.md` — PR event catch-up (`pr-watch --since`)
 
 **Context (decision-time, not every turn):**
 
