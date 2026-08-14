@@ -10,10 +10,13 @@ description: >-
 
 # Mergeability walkthrough
 
-Default: one PR at a time; do not merge until the user authorizes **that** PR.
-After a full-pass recap, the user may authorize a **batch** of named actions
-(e.g. merge base + restack children + undraft) in one reply — execute only
-those, in stack order.
+Default: one PR at a time, one decision per card — but **collect** the
+decisions and execute the accumulated actions at the **end of the pass**, in
+stack/dependency order. Every card's options include **"Act now on what
+you've got"**, which executes everything authorized so far immediately and
+then continues the walk. Do not act between cards otherwise. After a
+full-pass recap, the user may also authorize a **batch** of named actions in
+one reply — execute only those.
 
 Complements `pr-pass` (cohort triage / ready list). This skill is the
 decision walk after a set is in hand.
@@ -21,6 +24,19 @@ decision walk after a set is in hand.
 
 ## Common Mistakes
 
+- Acting between cards without an explicit "Act now on what you've got"
+  (collect-then-execute is the default).
+- Presenting a stale observation or an assumption as a verified current fact.
+- Asking the human about work that was optionality-safe to just do first
+  (rebase, thread replies, information gathering).
+- Per-axis "Risk: none" lines where one grouped no-risk line would do.
+- Condensing a card or hiding a PR's details behind a summary — a card may
+  use the whole screen.
+- Self-waiving a failing check via attribution reasoning instead of
+  presenting the evidence and letting the human decide.
+- Merging a draft, or folding ready-for-review approval into a merge action.
+- Manual re-CI choreography when a merge queue already re-tests entries —
+  or treating plain auto-merge as if it were a queue.
 - Batch greenlights without cards (or without a confirmed multi-action recap).
 - "Merge now" with red CI, open **inline** threads, or unanswered human review.
 - Treating bot `CHANGES_REQUESTED` (0 threads) as open human review threads.
@@ -33,6 +49,9 @@ decision walk after a set is in hand.
 - Treating external SDK / library PRs as product delivery by themselves.
 - Enqueueing a merge queue without an option that explicitly authorizes it.
 - Claiming green CI on a pre-restack SHA after force-push.
+- Merging on review state observed earlier in the walk without the
+  last-second sweep for review comments that landed since.
+- A card or question that does not contain the PR's full `https://github.com/owner/repo/pull/N` URL as visible copyable text (title-only, `#N`, or a markdown link whose anchor hides the URL).
 
 ## When to use
 
@@ -47,6 +66,22 @@ decision walk after a set is in hand.
    checks, unresolved thread count, base/head SHAs. If the world moved since
    the last card, say so and adapt.
 
+0.5 **Standing grants first** — list the authorizations that already cover
+   cards (e.g. tests-only auto-merge on green, lint-surface self-merge, and
+   whatever the user has granted). A fully covered card becomes an
+   inform-only line naming the grant — no question. Partially covered: ask
+   only the uncovered part.
+
+0.7 **Bring each PR to readiness before its card.** The only reason NOT to
+   have already done a thing — rebase onto the moved base, reply to and
+   resolve addressed threads, fix what unresolved threads ask, run any
+   purely information-gathering action — is a GOOD reason that requires the
+   human. Everything optionality-safe that improves the readiness or the
+   quality of the human's decision is done first, so the card presents a PR
+   at maximal readiness, not a to-do list. Decision actions (merge, enqueue,
+   close, RFR) still wait for authorization; this step is everything before
+   those.
+
 1. **Order** — Prefer: product-critical first; docs/low-risk next; shared
    libraries carefully; **stacks bottom-up**; experimental / external-SDK last
    or skip. Project skills may override order for domain stacks.
@@ -54,14 +89,28 @@ decision walk after a set is in hand.
 2. **UI**
    - Default: one multiple-choice card (`ask_user_question`) per PR; wait for
      the answer before the next card. Pair with `questioning-the-user`.
+   - **URL on every card.** The question text (and any prose-pass card) MUST
+     include the PR's full URL as literal visible text:
+     `https://github.com/owner/repo/pull/N`. First line of the question.
+     Not `#N` alone, not a title-only header, not a markdown link that hides
+     the URL. Same rule if one card names more than one PR: every PR gets
+     its own bare URL.
+   - **Never condense a card.** Full detail inline, nothing summarized away
+     or hidden behind expansion — a card may use the entire screen for one
+     decision.
    - If the user declines the tool, says "pass again", "just report", or "status
      then decide": render **all cards in one prose pass** (same axes/gates),
      then a single multi-action line they can confirm (merge X; restack Y;
-     undraft Z). Do not stall.
+     undraft Z). Do not stall. Each prose card still starts with the bare URL.
 
 3. **Hard process gates** (report every card; block bare "merge now" unless true)
-   - **CI green** — required checks SUCCESS (or explicit non-blocking/skipped).
-     Re-fetch; no stale snapshots.
+   - **CI green, attributed** — required checks SUCCESS on the current SHA.
+     Re-fetch; no stale snapshots; read the **rollup** (per-check surfaces
+     disagree with it). A failing check is presented WITH attribution
+     evidence, collected for the human: does trunk fail the same check
+     identically? Is it a known advisory or environment-divergent gate
+     (e.g. a deadline-bound test that splits local/CI)? The human decides
+     whether an attributed failure blocks — never self-waive one.
    - **No unresolved inline review threads** — list them. "Merge now" not offered
      if any remain (Hold / fix / explicit user waive).
    - **Feedback taxonomy** (do not conflate):
@@ -74,9 +123,15 @@ decision walk after a set is in hand.
      | Human "request changes" review | Hold or fix; no silent LGTM |
 
    - **Stack ancestor** — for a child PR, `merge-base --is-ancestor <base-branch-tip> <child-tip>` must hold (or base is already trunk after parent merged). Else offer **restack**, not merge.
-   - Draft: undraft is a separate option; do not merge drafts.
+   - **Draft lifecycle** — a draft stays draft until the user approves
+     ready-for-review; a ready PR stays ready until merged. RFR approval is
+     its own card decision, never an implicit step inside a merge action.
 
 4. **Each card must include**
+   - **The PR URL** — first line, bare `https://github.com/owner/repo/pull/N`
+   - **Epistemic status on every claim** — a verified current fact (fetched
+     for this card), an old observation not refreshed (say when it was
+     true), or an assumption (say so). Never let one read as another.
    - What it does (one sentence)
    - State — draft, reviewDecision, CI summary, conflicts, **unresolved thread
      count**, feedback kind (table above)
@@ -97,10 +152,47 @@ decision walk after a set is in hand.
    - Skip / later / close  
    Never invent a fake "Other" (the tool adds it).
 
-6. **After each answer** — Act only what was authorized. Do not merge the next
-   PR unprompted. Then next card (or stop if batch already fully executed).
+6. **After each answer** — record the decision and show the next card. Act
+   only at the end of the pass, on an "Act now on what you've got", or on a
+   directly named action — and never beyond what was authorized.
 
-7. **After the walk** — Compact recap; no re-confirm.
+7. **Executing accumulated merges (no queue)** — sequentially: update each
+   PR onto the moved trunk, wait for full CI green against that exact base,
+   then merge, then the next. N individually-green PRs do not imply their
+   combination is green. A merge queue replaces this choreography (below).
+   Decisions were collected earlier in the pass, so **re-fetch each PR's
+   state again immediately before acting on it** — if the world moved since
+   its card (new commits, new threads, changed checks), surface that instead
+   of executing the stale decision.
+
+8. **After the walk** — Compact recap; no re-confirm.
+
+## Last-second review sweep (before every merge action)
+
+Immediately before ANY merge action — `gh pr merge`, enqueueing into a
+merge queue, or arming auto-merge — re-fetch the PR's reviews, inline
+threads, and issue comments one final time and look for anything that
+requests changes. Review triage done earlier in the walk (or in a prior
+turn) is stale by definition: a human or bot review can land between the
+card and the click. A `CHANGES_REQUESTED` review, a new inline thread, or
+a comment asking for changes found in this sweep pauses that PR's merge
+and surfaces the content to the human; bot nits already triaged as
+non-material do not re-block, but a NEW finding does until dispositioned.
+One `gh pr view <n> --json reviews,reviewRequests` plus a comments fetch
+`--since` the last look is enough. This applies per-PR in a batch: each
+entry gets its own sweep at its own enqueue moment, not one sweep for
+the batch.
+
+## Merge queues
+
+When the target branch has a merge queue: **enqueueing is the merge action**
+(offer it as such), and the queue's own rebase-and-retest of each entry
+against the live target satisfies the re-CI-between-merges rule — so arming
+several entries from one authorized batch is sound where plain auto-merge is
+not. `gh pr merge --auto` may report "merge strategy is set by the merge
+queue"; a plain `gh pr merge` enqueues. Watch entries that LEAVE the queue
+(`mergeStateStatus` DIRTY/BLOCKED after enqueue) — that is a walk event to
+surface, not a silent state.
 
 ## Stacks (GitHub stacked PRs)
 
@@ -194,9 +286,16 @@ client code that decodes new fields/RPCs.
 
 Project skills may add domain axes; keep these generic axes filled even then.
 
+Axes with nothing to weigh are grouped on ONE line — "No risk: deployment,
+config skew, wire, on-disk, keys" — so the human skims only live risks. An
+axis gets its own line only when there is something to decide about it.
+(Grouping absence is not condensing detail; the never-condense rule protects
+substance, not empty categories.)
+
 ## Before finishing
 
 - [ ] Status re-fetched for the PR about to act?
 - [ ] Hard gates (CI/threads/ancestor) reported honestly?
+- [ ] Every card/question contains the PR's full copyable GitHub URL?
 - [ ] Acted only on user-authorized PRs?
 - [ ] Stack order bottom-up respected?
