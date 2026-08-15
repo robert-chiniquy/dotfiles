@@ -3,6 +3,7 @@
 //! Agents wrap this with the harness monitor, or exec it and wait for exit.
 
 pub mod config;
+pub mod network;
 pub mod sleep;
 pub mod store;
 
@@ -324,6 +325,8 @@ fn event_kind(event: &str) -> &'static str {
         "FAILED"
     } else if event.starts_with("SLEEP ") {
         "SLEEP"
+    } else if event == "OUTAGE START" || event.starts_with("OUTAGE ") {
+        "OUTAGE"
     } else {
         match event {
             "CI PENDING" => "CI PENDING",
@@ -360,6 +363,18 @@ fn next_action_body(
     if event.starts_with("SLEEP ") {
         return Some(
             "host slept during this wait; re-read current state (already fetching); do not treat the gap as a hang"
+                .into(),
+        );
+    }
+    if event == "OUTAGE START" {
+        return Some(
+            "GitHub fetch failed on the network; retrying; do not treat the gap as a hang or as CI"
+                .into(),
+        );
+    }
+    if event == "OUTAGE ONGOING" || event.starts_with("OUTAGE ") {
+        return Some(
+            "network was down; re-read current state; do not treat the gap as a hang or as CI"
                 .into(),
         );
     }
@@ -1096,5 +1111,32 @@ mod tests {
         assert_eq!(next.len(), 1);
         assert!(next[0].starts_with("NEXT SLEEP "));
         assert!(next[0].contains("host slept"));
+    }
+
+    #[test]
+    fn next_actions_outage_completed() {
+        let next = na(&["OUTAGE 3m"], "o/r#1", Copilot::None);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT OUTAGE "));
+        assert!(next[0].contains("network was down"));
+        assert!(next[0].contains("not treat the gap as a hang"));
+    }
+
+    #[test]
+    fn next_actions_outage_start() {
+        let next = na(&["OUTAGE START"], "o/r#1", Copilot::None);
+        assert_eq!(next.len(), 1);
+        assert!(next[0].starts_with("NEXT OUTAGE "));
+        assert!(next[0].contains("retrying"));
+    }
+
+    #[test]
+    fn until_action_does_not_exit_on_outage() {
+        let snap = snap(Copilot::None);
+        assert_eq!(
+            snap.until_hit(Until::Action, &["OUTAGE START".into()]),
+            None
+        );
+        assert_eq!(snap.until_hit(Until::Action, &["OUTAGE 1m".into()]), None);
     }
 }

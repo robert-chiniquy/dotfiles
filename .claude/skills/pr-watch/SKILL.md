@@ -16,6 +16,7 @@ description: >
 4. **Ignoring `NEXT` lines** — they are the procedure for that event. MUST follow them (fix Changes Requested threads, then watch CI again).
 5. **Asking a human before Copilot** — MUST `pr-watch request-copilot owner/repo#N` when COPILOT NONE, then wait for COPILOT REVIEWED. MUST NOT request a human review while COPILOT is NONE or REQUESTED. MUST NOT invent a reviewer login (it is `github-copilot`). Exception: resolved mode `skip` in `~/.config/pr-watch/config.yaml` (global `copilot:` or `cwd.<dir>.copilot`) emits `COPILOT SKIP` and does not require a Copilot review.
 6. **Ignoring `SLEEP <dur>`** — the host slept; do not treat that gap as a hang.
+7. **Ignoring `OUTAGE START` / `OUTAGE <dur>` / `OUTAGE ONGOING`** — GitHub fetches failed on the network. MUST NOT treat that as a hang or as CI. MUST NOT print OUTAGE durations to the user.
 
 `pr-watch prime` prints the contract.
 

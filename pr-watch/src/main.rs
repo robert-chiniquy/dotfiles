@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant, SystemTime};
 
 use pr_watch::config::{Config, CopilotMode};
+use pr_watch::network::{is_network_error, outage_event_line, OutageState};
 use pr_watch::sleep::{sleep_event_line, sleep_overrun};
 use pr_watch::store::{
     canonical_cwd, catch_up_lines, looks_like_stamp, now_unix, parse_since_stamp, record_event,
@@ -12,7 +13,7 @@ use pr_watch::store::{
 };
 use pr_watch::{
     ensure_copilot_gate, fetch_snapshot, next_actions, parse_target, request_copilot,
-    sleep_interval, Snapshot, Until,
+    sleep_interval, Snapshot, Target, Until,
 };
 
 const USAGE: &str = "\
@@ -28,7 +29,8 @@ usage: pr-watch prime
 
 Prints one line per change (CI GREEN, CI RED <check>, REVIEW CHANGES_REQUESTED,
 REVIEW APPROVED, THREADS N, COPILOT NONE|REQUESTED|REVIEWED|CHANGES_REQUESTED,
-SLEEP <dur>, MERGED, CLOSED), then NEXT lines for each kind.
+SLEEP <dur>, OUTAGE START, OUTAGE <dur>, MERGED, CLOSED), then NEXT lines
+for each kind.
 
 --since [TIME]   catch-up vs last read for this cwd+repo+PR (default TIME is
                  that last-read). First look prints the current snapshot.
@@ -73,6 +75,7 @@ MUST NOT start a shell background job (cmd &, nohup, $!).
 Events: CI GREEN | CI RED <check> | REVIEW CHANGES_REQUESTED | REVIEW APPROVED
         | REVIEW REQUIRED | THREADS N | COPILOT NONE | COPILOT REQUESTED
         | COPILOT REVIEWED | COPILOT CHANGES_REQUESTED | MERGED | CLOSED
+        | SLEEP <dur> | OUTAGE START | OUTAGE <dur> | OUTAGE ONGOING
 
 Each event is followed by NEXT <KIND> <steps>. Follow those steps. Example:
 REVIEW CHANGES_REQUESTED -> read threads; fix if reasonable else ask; after
@@ -99,6 +102,10 @@ directory. COPILOT SKIP replaces the gate when the resolved mode is skip.
 
 Do not skip unless that conclusion is recorded. Host sleep: SLEEP <dur>
 from a blocking poll, or `sleep-report --since` at the start of each turn.
+Network: OUTAGE START while GitHub fetches fail on the network, then
+OUTAGE <dur> when they succeed again. --since replays a completed outage
+that ended after the last look. Do not treat OUTAGE as a hang or as CI.
+Do not print OUTAGE durations to the user.
 ";
 
 struct Args {
@@ -369,6 +376,94 @@ fn persist(store: &Store) -> Result<(), String> {
     store.save(&state_dir())
 }
 
+fn persist_outage(outage: &OutageState) {
+    if let Err(e) = outage.save(&state_dir()) {
+        let _ = writeln!(io::stderr(), "{e}");
+    }
+}
+
+fn outage_recovered_line(outage: &mut OutageState, now: i64) -> Vec<String> {
+    match outage.recovered(now) {
+        Some(d) => {
+            persist_outage(outage);
+            vec![outage_event_line(d)]
+        }
+        None => Vec::new(),
+    }
+}
+
+/// Replay a completed outage that ended after this PR's last look.
+fn outage_since_line(
+    outage: &OutageState,
+    store: &Store,
+    cwd: &str,
+    target: &Target,
+) -> Vec<String> {
+    let repo = format!("{}/{}", target.owner, target.repo);
+    match store.get(cwd, &repo, target.number) {
+        Some(prev) => outage
+            .completed_after(prev.last_event_at)
+            .map(|d| vec![outage_event_line(d)])
+            .unwrap_or_default(),
+        None => Vec::new(),
+    }
+}
+
+fn fetch_with_outage(
+    target: &Target,
+    outage: &mut OutageState,
+    retry: bool,
+    interval: Duration,
+    started: Instant,
+    max_wait: Option<Duration>,
+    spec: &str,
+    copilot_required: bool,
+    prev: &Snapshot,
+) -> Result<Snapshot, ExitCode> {
+    loop {
+        if let Some(max) = max_wait {
+            if started.elapsed() >= max {
+                let _ = emit_with_next(&["FAILED timeout".into()], spec, prev, copilot_required);
+                return Err(ExitCode::from(1));
+            }
+        }
+        match fetch_snapshot(target) {
+            Ok(s) => return Ok(s),
+            Err(e) if is_network_error(&e) => {
+                if outage.mark_down(now_unix()) {
+                    persist_outage(outage);
+                    if !retry {
+                        let _ = emit_with_next(
+                            &["OUTAGE ONGOING".into()],
+                            spec,
+                            prev,
+                            copilot_required,
+                        );
+                        return Err(ExitCode::from(1));
+                    }
+                    let _ = emit_with_next(&["OUTAGE START".into()], spec, prev, copilot_required);
+                } else if !retry {
+                    let _ =
+                        emit_with_next(&["OUTAGE ONGOING".into()], spec, prev, copilot_required);
+                    return Err(ExitCode::from(1));
+                }
+                let mono0 = Instant::now();
+                let wall0 = SystemTime::now();
+                sleep_interval(interval);
+                let wall = SystemTime::now().duration_since(wall0).unwrap_or_default();
+                let mono = mono0.elapsed();
+                if let Some(d) = sleep_overrun(interval, wall, mono) {
+                    let _ = emit_with_next(&[sleep_event_line(d)], spec, prev, copilot_required);
+                }
+            }
+            Err(e) => {
+                let _ = writeln!(io::stderr(), "{e}");
+                return Err(ExitCode::from(1));
+            }
+        }
+    }
+}
+
 fn run_request_copilot(spec: &str, repo: Option<&str>) -> ExitCode {
     let target = match parse_target(spec, repo) {
         Ok(t) => t,
@@ -446,14 +541,6 @@ fn main() -> ExitCode {
     };
 
     let started = Instant::now();
-    let first = match fetch_snapshot(&target) {
-        Ok(s) => s,
-        Err(e) => {
-            let _ = writeln!(io::stderr(), "{e}");
-            return ExitCode::from(1);
-        }
-    };
-
     let oneshot = args.once || (args.since && !args.until_set);
     let spec = target.to_string();
     let cfg = match Config::load(&state_dir()) {
@@ -464,13 +551,47 @@ fn main() -> ExitCode {
         }
     };
     let copilot_required = cfg.copilot_required(&cwd);
-    let mut first_lines = if args.since {
+    let mut outage = match OutageState::load(&state_dir()) {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = writeln!(io::stderr(), "{e}");
+            return ExitCode::from(1);
+        }
+    };
+    let pending = Snapshot {
+        state: pr_watch::PrState::Open,
+        ci: pr_watch::Ci::Pending,
+        ci_failed: None,
+        review: pr_watch::Review::None,
+        threads: 0,
+        copilot: pr_watch::Copilot::None,
+    };
+    let first = match fetch_with_outage(
+        &target,
+        &mut outage,
+        !oneshot,
+        args.interval,
+        started,
+        args.max_wait,
+        &spec,
+        copilot_required,
+        &pending,
+    ) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let mut first_lines = outage_recovered_line(&mut outage, now_unix());
+    if first_lines.is_empty() && args.since {
+        first_lines = outage_since_line(&outage, &store, &cwd, &target);
+    }
+    let rest = if args.since {
         catch_up_lines(&store, &cwd, &target, &first, now_unix(), args.since_time)
     } else if args.once || args.emit_snapshot {
         first.snapshot_lines()
     } else {
         Vec::new()
     };
+    first_lines.extend(rest);
     ensure_copilot_gate(&mut first_lines, &first, copilot_required);
     if emit_with_next(&first_lines, &spec, &first, copilot_required).is_err() {
         return ExitCode::from(1);
@@ -517,12 +638,21 @@ fn main() -> ExitCode {
         }
         let next = match fetch_snapshot(&target) {
             Ok(s) => s,
+            Err(e) if is_network_error(&e) => {
+                if outage.mark_down(now_unix()) {
+                    persist_outage(&outage);
+                    let _ =
+                        emit_with_next(&["OUTAGE START".into()], &spec, &prev, copilot_required);
+                }
+                continue;
+            }
             Err(e) => {
                 let _ = writeln!(io::stderr(), "{e}");
                 continue;
             }
         };
-        let mut events = next.events_since(&prev);
+        let mut events = outage_recovered_line(&mut outage, now_unix());
+        events.extend(next.events_since(&prev));
         if !copilot_required {
             events.retain(|l| !l.starts_with("COPILOT "));
         }
@@ -614,6 +744,7 @@ mod cli_tests {
         assert!(PRIME.contains("skip-copilot"));
         assert!(PRIME.contains("config.yaml"));
         assert!(PRIME.contains("sleep-report"));
+        assert!(PRIME.contains("OUTAGE"));
     }
 
     #[test]
