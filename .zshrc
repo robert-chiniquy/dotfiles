@@ -1736,3 +1736,7 @@ _c1_worktree_envrc_link() {
 }
 chpwd_functions+=(_c1_worktree_envrc_link)
 _c1_worktree_envrc_link 2>/dev/null
+
+# >>> iterm-restore >>>
+command -v iterm-restore >/dev/null 2>&1 && iterm-restore check
+# <<< iterm-restore <<<

@@ -10,6 +10,13 @@
 //!   iterm-restore --list | -l    # print an inventory table, write nothing
 //!   iterm-restore --new-window   # open one fresh window, one tab per session
 //!   iterm-restore -o PATH        # write the emitted script to PATH
+//!   iterm-restore snapshot       # inventory now, save a restore script + meta to a state dir
+//!   iterm-restore check          # fast, no-osascript: print a hint if the last snapshot
+//!                                 # isn't fully reopened yet (meant to run from a shell hook)
+//!   iterm-restore restore        # run the script saved by the last `snapshot`
+//!   iterm-restore install        # install the launchd snapshot timer + shell hook
+//!   iterm-restore install --interval SECS  # override the default 900s timer
+//!   iterm-restore uninstall      # remove the launchd timer + shell hook
 //!
 //! Per-tab resolution (inference is the workhorse; the live path is a
 //! best-effort bonus):
@@ -124,32 +131,60 @@ enum Mode {
     List,
     InPlace,
     NewWindow,
+    Snapshot,
+    Check,
+    Restore,
+    Install,
+    Uninstall,
 }
 
 struct Args {
     mode: Mode,
     out: Option<String>,
+    force: bool,
+    interval: Option<u64>,
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
     let mut mode = Mode::InPlace;
     let mut out = None;
+    let mut force = false;
+    let mut interval = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
             "--list" | "-l" => mode = Mode::List,
             "--in-place" => mode = Mode::InPlace,
             "--new-window" => mode = Mode::NewWindow,
+            "snapshot" => mode = Mode::Snapshot,
+            "check" => mode = Mode::Check,
+            "restore" => mode = Mode::Restore,
+            "install" => mode = Mode::Install,
+            "uninstall" => mode = Mode::Uninstall,
+            "--force" => force = true,
             "-o" => {
                 i += 1;
                 let path = args.get(i).ok_or("-o requires a path")?;
                 out = Some(path.clone());
             }
+            "--interval" => {
+                i += 1;
+                let raw = args.get(i).ok_or("--interval requires a value")?;
+                interval = Some(
+                    raw.parse::<u64>()
+                        .map_err(|_| format!("--interval: invalid seconds: {raw}"))?,
+                );
+            }
             other => return Err(format!("unrecognized argument: {other}")),
         }
         i += 1;
     }
-    Ok(Args { mode, out })
+    Ok(Args {
+        mode,
+        out,
+        force,
+        interval,
+    })
 }
 
 // ---------------------------------------------------------------------
@@ -1095,6 +1130,420 @@ fn write_script(path: &str, content: &str) -> std::io::Result<()> {
 }
 
 // ---------------------------------------------------------------------
+// snapshot / check / restore: a canonical on-disk restore script + meta
+// file, plus a cheap detector meant to run from a shell hook on every
+// new shell.
+// ---------------------------------------------------------------------
+
+fn state_dir() -> PathBuf {
+    home_dir().join(".local/state/iterm-restore")
+}
+
+fn snapshot_script_path() -> PathBuf {
+    state_dir().join("restore.sh")
+}
+
+fn snapshot_meta_path() -> PathBuf {
+    state_dir().join("meta")
+}
+
+fn write_snapshot(script: &str, count: usize) {
+    let dir = state_dir();
+    if let Err(e) = fs::create_dir_all(&dir) {
+        eprintln!("iterm-restore: failed to create {}: {e}", dir.display());
+        exit(1);
+    }
+
+    let script_path = snapshot_script_path();
+    let script_path_str = script_path.to_string_lossy().into_owned();
+    if let Err(e) = write_script(&script_path_str, script) {
+        eprintln!("iterm-restore: failed to write {}: {e}", script_path.display());
+        exit(1);
+    }
+
+    let epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let meta_path = snapshot_meta_path();
+    if let Err(e) = fs::write(&meta_path, format!("count={count}\nepoch={epoch}\n")) {
+        eprintln!("iterm-restore: failed to write {}: {e}", meta_path.display());
+        exit(1);
+    }
+
+    println!("wrote snapshot: {} ({count} sessions)", script_path.display());
+}
+
+/// Parse `count=<N>` out of the meta file written by `snapshot`. Tolerates a
+/// missing or garbled file (returns None) since `check` must never error out.
+fn parse_snapshot_count(meta_content: &str) -> Option<usize> {
+    meta_content
+        .lines()
+        .find_map(|line| line.strip_prefix("count="))
+        .and_then(|value| value.trim().parse::<usize>().ok())
+}
+
+fn read_snapshot_count() -> Option<usize> {
+    fs::read_to_string(snapshot_meta_path())
+        .ok()
+        .and_then(|content| parse_snapshot_count(&content))
+}
+
+fn snapshot_exists() -> bool {
+    snapshot_meta_path().is_file()
+}
+
+/// Seconds since iTerm2 started, via `pgrep` + `ps -o etimes=` (no
+/// osascript: this feeds `check`, which must be fast). None if iTerm2 isn't
+/// running.
+fn iterm_uptime_secs() -> Option<u64> {
+    let pgrep_out = Command::new("pgrep").args(["-x", "iTerm2"]).output().ok()?;
+    let pid = String::from_utf8(pgrep_out.stdout)
+        .ok()?
+        .lines()
+        .next()?
+        .trim()
+        .to_string();
+    if pid.is_empty() {
+        return None;
+    }
+    let ps_out = Command::new("ps")
+        .args(["-o", "etimes=", "-p", &pid])
+        .output()
+        .ok()?;
+    String::from_utf8(ps_out.stdout).ok()?.trim().parse().ok()
+}
+
+/// Count of running processes whose basename is exactly claude, codex, or
+/// grok, via a single `ps -Ao comm=` (no osascript).
+fn current_agent_count() -> usize {
+    let Ok(output) = Command::new("ps").args(["-Ao", "comm="]).output() else {
+        return 0;
+    };
+    let Ok(text) = String::from_utf8(output.stdout) else {
+        return 0;
+    };
+    text.lines()
+        .filter(|line| {
+            let name = Path::new(line.trim())
+                .file_name()
+                .and_then(|f| f.to_str())
+                .unwrap_or("");
+            matches!(name, "claude" | "codex" | "grok")
+        })
+        .count()
+}
+
+/// Pure decision: should `check` print a restore hint, and if so for how
+/// many missing sessions? None means stay silent.
+///
+/// - iTerm not running, or running for >= 30 min (1800s): None. The 30-min
+///   window covers both a machine reboot and an iTerm crash/restart, since
+///   either restarts iTerm.
+/// - No snapshot, or a snapshot of 1 or fewer sessions: None (nothing
+///   meaningful to restore).
+/// - Current agent count already at or above the snapshot count: None (the
+///   snapshot is already loaded).
+/// - Otherwise: Some(missing count). Intentionally no once-per-boot
+///   suppression — the hint is meant to repeat on every qualifying shell.
+fn should_hint(
+    iterm_uptime_secs: Option<u64>,
+    snapshot_count: Option<usize>,
+    current_agent_count: usize,
+) -> Option<usize> {
+    let uptime = iterm_uptime_secs?;
+    if uptime >= 1800 {
+        return None;
+    }
+    let snapshot_count = snapshot_count?;
+    if snapshot_count <= 1 {
+        return None;
+    }
+    if current_agent_count >= snapshot_count {
+        return None;
+    }
+    Some(snapshot_count - current_agent_count)
+}
+
+/// Pure decision: should `snapshot` actually overwrite the saved restore
+/// script + meta? Guards against a periodic snapshot timer firing inside the
+/// post-restart window (see `should_hint`) and clobbering the good
+/// pre-restart snapshot with a transient near-empty one — `check` would
+/// still be offering a restore of the very state `snapshot` is about to
+/// discard.
+///
+/// - `force` -> true, unconditionally.
+/// - No existing snapshot -> true (bootstrap: nothing to protect yet, and
+///   withholding the first snapshot for 30 min would leave a fresh machine
+///   with nothing to restore if it reboots inside that window).
+/// - `iterm_uptime_secs` is None (iTerm not running) -> false.
+/// - Otherwise -> true once iTerm has been up for >= 1800s (30 min),
+///   matching `should_hint`'s window.
+fn should_write_snapshot(iterm_uptime_secs: Option<u64>, force: bool, snapshot_exists: bool) -> bool {
+    if force {
+        return true;
+    }
+    if !snapshot_exists {
+        return true;
+    }
+    match iterm_uptime_secs {
+        Some(uptime) => uptime >= 1800,
+        None => false,
+    }
+}
+
+fn run_check() {
+    let missing = should_hint(iterm_uptime_secs(), read_snapshot_count(), current_agent_count());
+    if let Some(missing) = missing {
+        println!(
+            "{missing} agent session(s) from your last snapshot aren't open. Run 'iterm-restore restore' to reopen them"
+        );
+    }
+}
+
+fn run_restore() {
+    let path = snapshot_script_path();
+    if !path.is_file() {
+        println!("no snapshot found; run 'iterm-restore snapshot' first");
+        return;
+    }
+    match Command::new("sh").arg(&path).status() {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            eprintln!("iterm-restore: restore script exited with {status}");
+            exit(status.code().unwrap_or(1));
+        }
+        Err(e) => {
+            eprintln!("iterm-restore: failed to run {}: {e}", path.display());
+            exit(1);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------
+// install / uninstall support: pure plist rendering and hook-block
+// text editing. The impure wiring (file writes, launchctl calls) lives
+// further below.
+// ---------------------------------------------------------------------
+
+const LAUNCHD_LABEL: &str = "dev.rch.iterm-restore-snapshot";
+const DEFAULT_SNAPSHOT_INTERVAL_SECS: u64 = 900;
+const HOOK_BEGIN: &str = "# >>> iterm-restore >>>";
+const HOOK_LINE: &str = "command -v iterm-restore >/dev/null 2>&1 && iterm-restore check";
+const HOOK_END: &str = "# <<< iterm-restore <<<";
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+/// A LaunchAgent plist that runs `<binary_path> snapshot` every
+/// `interval_secs`. RunAtLoad is always false: a snapshot fired at load time
+/// is exactly the transient near-empty state `should_write_snapshot`'s
+/// uptime guard exists to reject, so there's no point asking launchd to try.
+fn launchd_plist(binary_path: &str, label: &str, interval_secs: u64, log_path: &str) -> String {
+    let label = xml_escape(label);
+    let binary_path = xml_escape(binary_path);
+    let log_path = xml_escape(log_path);
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+         <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+         <plist version=\"1.0\">\n\
+         <dict>\n\
+         \x20   <key>Label</key>\n\
+         \x20   <string>{label}</string>\n\
+         \x20   <key>ProgramArguments</key>\n\
+         \x20   <array>\n\
+         \x20       <string>{binary_path}</string>\n\
+         \x20       <string>snapshot</string>\n\
+         \x20   </array>\n\
+         \x20   <key>StartInterval</key>\n\
+         \x20   <integer>{interval_secs}</integer>\n\
+         \x20   <key>RunAtLoad</key>\n\
+         \x20   <false/>\n\
+         \x20   <key>StandardOutPath</key>\n\
+         \x20   <string>{log_path}</string>\n\
+         \x20   <key>StandardErrorPath</key>\n\
+         \x20   <string>{log_path}</string>\n\
+         </dict>\n\
+         </plist>\n"
+    )
+}
+
+fn hook_block() -> String {
+    format!("{HOOK_BEGIN}\n{HOOK_LINE}\n{HOOK_END}")
+}
+
+/// Append the iterm-restore shell-hook block to a .zshrc's content.
+/// Idempotent: returns None (no change) if the block is already present, so
+/// installing is safe to run repeatedly. Append-only — never rewrites
+/// existing lines.
+fn ensure_hook_block(zshrc: &str) -> Option<String> {
+    if zshrc.contains(HOOK_BEGIN) {
+        return None;
+    }
+    Some(format!("{zshrc}\n{}\n", hook_block()))
+}
+
+/// Remove the iterm-restore shell-hook block, plus the blank-line separator
+/// `ensure_hook_block` inserts before it, from a .zshrc's content. None if
+/// the block isn't present.
+fn remove_hook_block(zshrc: &str) -> Option<String> {
+    let begin_at = zshrc.find(HOOK_BEGIN)?;
+    let end_marker_at = zshrc[begin_at..].find(HOOK_END)?;
+    let mut end = begin_at + end_marker_at + HOOK_END.len();
+    if zshrc[end..].starts_with('\n') {
+        end += 1;
+    }
+    let mut start = begin_at;
+    if start > 0 && zshrc.as_bytes()[start - 1] == b'\n' {
+        start -= 1;
+    }
+    Some(format!("{}{}", &zshrc[..start], &zshrc[end..]))
+}
+
+fn plist_path() -> PathBuf {
+    home_dir()
+        .join("Library/LaunchAgents")
+        .join(format!("{LAUNCHD_LABEL}.plist"))
+}
+
+fn snapshot_log_path() -> PathBuf {
+    home_dir().join("Library/Logs/iterm-restore.log")
+}
+
+fn zshrc_path() -> PathBuf {
+    home_dir().join(".zshrc")
+}
+
+fn epoch_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+fn zshrc_backup_path(zshrc: &Path) -> PathBuf {
+    zshrc.with_file_name(format!(".zshrc.bak-{}", epoch_now()))
+}
+
+fn canonical_path_of(p: PathBuf) -> Option<PathBuf> {
+    p.canonicalize().ok()
+}
+
+fn save_agent_definition(binary_path: &Path, interval_secs: u64) -> PathBuf {
+    let target = plist_path();
+    if let Some(dir) = target.parent() {
+        if let Err(e) = fs::create_dir_all(dir) {
+            eprintln!("iterm-restore: failed to create {}: {e}", dir.display());
+            exit(1);
+        }
+    }
+    let contents = launchd_plist(
+        &binary_path.to_string_lossy(),
+        LAUNCHD_LABEL,
+        interval_secs,
+        &snapshot_log_path().to_string_lossy(),
+    );
+    if let Err(e) = fs::write(&target, contents) {
+        eprintln!("iterm-restore: failed to write {}: {e}", target.display());
+        exit(1);
+    }
+    target
+}
+
+fn reload_launchd_entry(target: &Path) {
+    // May not be loaded yet, or may already be unloaded — ignore failure.
+    let _ = Command::new("launchctl").arg("unload").arg(target).output();
+    if let Err(e) = Command::new("launchctl")
+        .arg("load")
+        .arg("-w")
+        .arg(target)
+        .output()
+    {
+        eprintln!("iterm-restore: failed to run launchctl load: {e}");
+        exit(1);
+    }
+}
+
+fn remove_launchd_entry(target: &Path) {
+    let _ = Command::new("launchctl").arg("unload").arg(target).output();
+    if target.is_file() {
+        match fs::remove_file(target) {
+            Ok(()) => println!("removed {}", target.display()),
+            Err(e) => eprintln!("iterm-restore: failed to remove {}: {e}", target.display()),
+        }
+    } else {
+        println!("no launchd agent installed");
+    }
+}
+
+fn run_uninstall() {
+    remove_launchd_entry(&plist_path());
+
+    let zshrc = zshrc_path();
+    let Ok(content) = fs::read_to_string(&zshrc) else {
+        println!("no ~/.zshrc found; skipping shell hook removal");
+        return;
+    };
+    match remove_hook_block(&content) {
+        Some(updated) => {
+            let backup = zshrc_backup_path(&zshrc);
+            if let Err(e) = fs::copy(&zshrc, &backup) {
+                eprintln!("iterm-restore: failed to back up {}: {e}", zshrc.display());
+                exit(1);
+            }
+            if let Err(e) = fs::write(&zshrc, updated) {
+                eprintln!("iterm-restore: failed to write {}: {e}", zshrc.display());
+                exit(1);
+            }
+            println!("removed shell hook (backup: {})", backup.display());
+        }
+        None => println!("shell hook not present"),
+    }
+}
+
+fn run_install(interval_secs: u64) {
+    let binary_path = env::current_exe()
+        .ok()
+        .and_then(canonical_path_of)
+        .unwrap_or_else(|| {
+            eprintln!("iterm-restore: failed to resolve own binary path");
+            exit(1);
+        });
+    let target = save_agent_definition(&binary_path, interval_secs);
+    reload_launchd_entry(&target);
+    println!(
+        "wrote {} (snapshot every {interval_secs}s)",
+        target.display()
+    );
+
+    let zshrc = zshrc_path();
+    let Ok(content) = fs::read_to_string(&zshrc) else {
+        println!("no ~/.zshrc found; skipping shell hook install");
+        return;
+    };
+    match ensure_hook_block(&content) {
+        Some(updated) => {
+            let backup = zshrc_backup_path(&zshrc);
+            if let Err(e) = fs::copy(&zshrc, &backup) {
+                eprintln!("iterm-restore: failed to back up {}: {e}", zshrc.display());
+                exit(1);
+            }
+            if let Err(e) = fs::write(&zshrc, updated) {
+                eprintln!("iterm-restore: failed to write {}: {e}", zshrc.display());
+                exit(1);
+            }
+            println!("added shell hook (backup: {})", backup.display());
+        }
+        None => println!("shell hook already present"),
+    }
+}
+
+// ---------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------
 
@@ -1107,6 +1556,26 @@ fn main() {
             exit(2);
         }
     };
+
+    match args.mode {
+        Mode::Check => {
+            run_check();
+            return;
+        }
+        Mode::Restore => {
+            run_restore();
+            return;
+        }
+        Mode::Install => {
+            run_install(args.interval.unwrap_or(DEFAULT_SNAPSHOT_INTERVAL_SECS));
+            return;
+        }
+        Mode::Uninstall => {
+            run_uninstall();
+            return;
+        }
+        _ => {}
+    }
 
     if Command::new("which")
         .arg("osascript")
@@ -1149,6 +1618,19 @@ fn main() {
             }
             println!("wrote restore script: {path}");
             println!("review it, then run: {path}");
+        }
+        Mode::Snapshot => {
+            if should_write_snapshot(iterm_uptime_secs(), args.force, snapshot_exists()) {
+                let script = build_new_window_script(&resolutions);
+                write_snapshot(&script, resolutions.len());
+            } else {
+                println!(
+                    "iTerm started recently; keeping the previous snapshot (use --force to override)"
+                );
+            }
+        }
+        Mode::Check | Mode::Restore | Mode::Install | Mode::Uninstall => {
+            unreachable!("handled above before osascript check")
         }
     }
 }
@@ -1556,5 +2038,202 @@ mod tests {
 
         assert!(parse_args(&["-o".to_string()]).is_err());
         assert!(parse_args(&["--bogus".to_string()]).is_err());
+    }
+
+    #[test]
+    fn parse_args_recognizes_snapshot_check_restore_subcommands() {
+        assert_eq!(
+            parse_args(&["snapshot".to_string()]).unwrap().mode,
+            Mode::Snapshot
+        );
+        assert_eq!(
+            parse_args(&["check".to_string()]).unwrap().mode,
+            Mode::Check
+        );
+        assert_eq!(
+            parse_args(&["restore".to_string()]).unwrap().mode,
+            Mode::Restore
+        );
+    }
+
+    // should_hint: iTerm not running (None uptime) -> stay silent regardless
+    // of how far behind the snapshot is.
+    #[test]
+    fn should_hint_is_none_when_iterm_not_running() {
+        assert_eq!(should_hint(None, Some(3), 0), None);
+    }
+
+    // should_hint: iTerm has been up for >= 30 minutes -> not a fresh
+    // reboot/crash window, stay silent.
+    #[test]
+    fn should_hint_is_none_when_iterm_uptime_at_or_past_30_minutes() {
+        assert_eq!(should_hint(Some(1800), Some(3), 0), None);
+        assert_eq!(should_hint(Some(9_999), Some(3), 0), None);
+    }
+
+    // should_hint: still inside the 30-minute window -> eligible to hint.
+    #[test]
+    fn should_hint_considers_uptime_just_under_30_minutes_eligible() {
+        assert_eq!(should_hint(Some(1799), Some(3), 1), Some(2));
+    }
+
+    // should_hint: no snapshot on record -> nothing to compare against.
+    #[test]
+    fn should_hint_is_none_when_no_snapshot_recorded() {
+        assert_eq!(should_hint(Some(60), None, 0), None);
+    }
+
+    // should_hint: a snapshot of 0 or 1 sessions isn't meaningful to restore.
+    #[test]
+    fn should_hint_is_none_when_snapshot_count_at_or_below_one() {
+        assert_eq!(should_hint(Some(60), Some(0), 0), None);
+        assert_eq!(should_hint(Some(60), Some(1), 0), None);
+    }
+
+    // should_hint: current agent count already meets or exceeds the
+    // snapshot -> already (re)loaded, stay silent.
+    #[test]
+    fn should_hint_is_none_when_current_agent_count_meets_or_exceeds_snapshot() {
+        assert_eq!(should_hint(Some(60), Some(3), 3), None);
+        assert_eq!(should_hint(Some(60), Some(3), 5), None);
+    }
+
+    // should_hint: under-loaded, inside the window -> hint with the exact
+    // missing count.
+    #[test]
+    fn should_hint_reports_missing_count_when_under_loaded_in_window() {
+        assert_eq!(should_hint(Some(60), Some(5), 2), Some(3));
+        assert_eq!(should_hint(Some(60), Some(5), 0), Some(5));
+    }
+
+    // should_write_snapshot: --force always wins, regardless of uptime (an
+    // existing snapshot is present in these cases, so force is the only
+    // thing overriding the guard).
+    #[test]
+    fn should_write_snapshot_force_short_circuits_regardless_of_uptime() {
+        assert!(should_write_snapshot(None, true, true));
+        assert!(should_write_snapshot(Some(0), true, true));
+        assert!(should_write_snapshot(Some(1799), true, true));
+    }
+
+    // should_write_snapshot: iTerm not running -> refuse (nothing sane to
+    // snapshot, force wasn't given, and a snapshot already exists to
+    // protect).
+    #[test]
+    fn should_write_snapshot_refuses_when_iterm_not_running() {
+        assert!(!should_write_snapshot(None, false, true));
+    }
+
+    // should_write_snapshot: inside the post-restart window with an existing
+    // snapshot -> refuse, so a periodic timer can't clobber the pre-restart
+    // snapshot `check` is still offering to restore.
+    #[test]
+    fn should_write_snapshot_refuses_inside_post_restart_window() {
+        assert!(!should_write_snapshot(Some(0), false, true));
+        assert!(!should_write_snapshot(Some(1799), false, true));
+    }
+
+    // should_write_snapshot: past the window -> write proceeds normally.
+    #[test]
+    fn should_write_snapshot_proceeds_past_the_window() {
+        assert!(should_write_snapshot(Some(1800), false, true));
+        assert!(should_write_snapshot(Some(9_999), false, true));
+    }
+
+    // should_write_snapshot: bootstrap -- no existing snapshot means nothing
+    // to protect, so the write proceeds even inside the post-restart window.
+    #[test]
+    fn should_write_snapshot_bootstraps_inside_window_when_no_snapshot_exists() {
+        assert!(should_write_snapshot(Some(0), false, false));
+        assert!(should_write_snapshot(Some(1799), false, false));
+    }
+
+    // should_write_snapshot: bootstrap also overrides the iTerm-not-running
+    // refusal -- a fresh machine with no iTerm uptime reading yet should
+    // still get a first snapshot once one becomes possible.
+    #[test]
+    fn should_write_snapshot_bootstraps_when_iterm_uptime_unknown() {
+        assert!(should_write_snapshot(None, false, false));
+    }
+
+    // meta-file parse: extracts `count=` and tolerates extra lines / a
+    // missing or garbled file.
+    #[test]
+    fn parse_snapshot_count_extracts_count_line() {
+        assert_eq!(
+            parse_snapshot_count("count=4\nepoch=1755000000\n"),
+            Some(4)
+        );
+        assert_eq!(parse_snapshot_count("epoch=1755000000\n"), None);
+        assert_eq!(parse_snapshot_count(""), None);
+        assert_eq!(parse_snapshot_count("count=not-a-number\n"), None);
+        assert_eq!(parse_snapshot_count("garbled garbage\x00\n"), None);
+    }
+
+    // launchd_plist: renders the fields install/uninstall depend on.
+    #[test]
+    fn launchd_plist_contains_expected_fields() {
+        let plist = launchd_plist(
+            "/usr/local/bin/iterm-restore",
+            "dev.rch.iterm-restore-snapshot",
+            900,
+            "/tmp/iterm-restore.log",
+        );
+        assert!(plist.contains("<string>dev.rch.iterm-restore-snapshot</string>"));
+        assert!(plist.contains("<string>/usr/local/bin/iterm-restore</string>"));
+        assert!(plist.contains("<string>snapshot</string>"));
+        assert!(plist.contains("<integer>900</integer>"));
+        assert!(plist.contains("<false/>"));
+        assert!(plist.contains("<string>/tmp/iterm-restore.log</string>"));
+    }
+
+    // ensure_hook_block: appends when absent.
+    #[test]
+    fn ensure_hook_block_adds_when_absent() {
+        let original = "export FOO=bar\n";
+        let updated = ensure_hook_block(original).unwrap();
+        assert!(updated.starts_with(original));
+        assert!(updated.contains(HOOK_BEGIN));
+        assert!(updated.contains(HOOK_LINE));
+        assert!(updated.contains(HOOK_END));
+    }
+
+    // ensure_hook_block: idempotent -- None when the sentinel is already
+    // present, so installing is safe to run repeatedly.
+    #[test]
+    fn ensure_hook_block_is_none_when_already_present() {
+        let original = "export FOO=bar\n";
+        let updated = ensure_hook_block(original).unwrap();
+        assert_eq!(ensure_hook_block(&updated), None);
+    }
+
+    // remove_hook_block: strips the block (and its delimiters) when present.
+    #[test]
+    fn remove_hook_block_removes_when_present() {
+        let with_block = "export FOO=bar\n\n# >>> iterm-restore >>>\ncommand -v iterm-restore >/dev/null 2>&1 && iterm-restore check\n# <<< iterm-restore <<<\n";
+        let removed = remove_hook_block(with_block).unwrap();
+        assert!(!removed.contains(HOOK_BEGIN));
+        assert!(!removed.contains(HOOK_LINE));
+        assert!(!removed.contains(HOOK_END));
+    }
+
+    // remove_hook_block: None when the sentinel isn't present.
+    #[test]
+    fn remove_hook_block_is_none_when_absent() {
+        assert_eq!(remove_hook_block("export FOO=bar\n"), None);
+    }
+
+    // ensure then remove round-trips to the (trimmed-equal) original, across
+    // a trailing-newline, no-trailing-newline, and empty-file .zshrc.
+    #[test]
+    fn ensure_then_remove_round_trips_to_original() {
+        for original in ["export FOO=bar\n", "export FOO=bar", ""] {
+            let added = ensure_hook_block(original).unwrap();
+            let removed = remove_hook_block(&added).unwrap();
+            assert_eq!(
+                removed.trim_end_matches('\n'),
+                original.trim_end_matches('\n')
+            );
+        }
     }
 }
