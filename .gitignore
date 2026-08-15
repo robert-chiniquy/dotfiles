@@ -64,9 +64,13 @@ scripts/squire-metrics.jsonl
 # Compiled tool binaries (installed via brew/go install, not for git)
 bin/golangci-lint
 bin/gotestsum
+bin/pr-watch
 
 # Demo / scratch docs
 DEMO_CODEX_LIMITED.md
 
 # Symlink to sqfan project's local skill source — dev-machine convenience
 .claude/skills/sqfan
+
+# nushell shell history (local only, never commit)
+.config/nushell/history.sqlite3*
