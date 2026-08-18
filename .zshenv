@@ -54,3 +54,16 @@ export GOCACHE="$HOME/Library/Caches/go-build"
 # when multiple agents compile/lint simultaneously. Per-invocation override:
 # GOMAXPROCS=12 <cmd>.
 export GOMAXPROCS=6
+
+# Rust compile cache (sccache): concurrency-safe shared cache so parallel
+# worktree builds dedup compilation instead of each minting a full target dir.
+# Size-capped (unlike cargo's unbounded target). Absolute path so contexts
+# without brew on PATH still resolve it. Incremental left on for local speed;
+# sccache caches the fresh/release/worktree builds where it wins.
+export RUSTC_WRAPPER="/opt/homebrew/bin/sccache"
+export SCCACHE_DIR="$HOME/.cache/sccache"
+export SCCACHE_CACHE_SIZE="40G"
+
+# Go -trimpath: strips absolute paths from build output so identical code in
+# different worktrees yields identical build-cache keys (cross-worktree reuse).
+export GOFLAGS="-trimpath"
