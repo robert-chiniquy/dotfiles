@@ -1,0 +1,15 @@
+[package]
+name = "worktree-triage"
+version = "0.1.0"
+edition = "2021"
+description = "Report on and safely reclaim disk space from git worktrees under a repo root. No dependencies."
+
+[[bin]]
+name = "worktree-triage"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
