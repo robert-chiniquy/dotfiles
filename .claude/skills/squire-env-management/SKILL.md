@@ -28,12 +28,13 @@ surface moves; when a flag matters, verify with `--help` before scripting it.
 - **Assuming `-p` attaches** — `squire new -p` now exits immediately
   (fire-and-forget by default); `--attach` to watch. Older docs said the
   opposite.
-- **Using `git clone` URL for repos not in the GitHub App** — use bundle +
-  scp. Symptom: `could not read Username for 'https://github.com/...'`.
-- **Assuming `gh` is authenticated in-env** — installed but NOT logged in.
-  Either pre-stage data via scp before dispatch (cheapest for bounded tasks
-  like review), or mint a short-lived token via the envmgr `git_token` MCP
-  tool and export `GH_TOKEN` (expires ~30 min; only covers App repos).
+- **Using `git clone` URL for repos not in the GitHub App** — credential
+  helper fails (`could not read Username for 'https://github.com/...'`).
+  Install the App on the repo. Squire clones from origin. Do not git-bundle
+  inject or extract.
+- **Assuming `gh` is not logged in** — the env `gh` wrapper and git
+  credential helper use the credential socket. `git push` and `gh pr create`
+  are the return path. PRs are stamped as opened from Squire.
 - **Short model aliases** — `-m opus` resolves to a retired pin and 400s
   (`unknown or disabled model "anthropic/claude-opus-4-8"`, seen 2026-08-07).
   Pass a full ID; the 400's `detail` lists what the gateway accepts.
@@ -105,8 +106,8 @@ squire attach <task-id> -p "follow-up message"   # nudge a running task
 
 - **Long briefs go through `--prompt-file`, never shell arguments.** Briefs
   contain backticks and `$(...)`; passing them as `-p` strings invites shell
-  mangling. Write the brief with the Write tool, then `--prompt-file` it (or
-  `-` for stdin).
+  mangling. Write the brief under `plans/<topic>/` next to the RFC/plan,
+  then `--prompt-file` it (or `-` for stdin).
 - `squire attach <task-id>` resolves task IDs across all visible envs — no
   selected env needed. Multiple args or `--mux` opens one pane per active
   task in tmux/zellij.
@@ -161,14 +162,14 @@ ensure`, `dev-util ensure-tenant`, and `dev-util mint-test-client` from
 inside the env. Long-lived services started over `squire ssh` must be
 detached with `setsid -f` or they die with the SSH session.
 
-## Multi-Repo Dispatches (Latchkey)
+## Multi-Repo Dispatches
 
-Most Latchkey work spans repos. Enumerate the plausible set up front and
-bundle ALL of them into the env; do not let the agent discover a missing
+Most of that work spans repos. Enumerate the plausible set up front and
+put ALL of them in the env; do not let the agent discover a missing
 dependency at compile time.
 
-Repos you bundle in go under a source root you pick — `/data/squire/src/` is
-the convention below. A repo the IMAGE ships is wherever the image put it
+Repos go under a source root you pick — `/data/squire/src/` is the
+convention below. A repo the IMAGE ships is wherever the image put it
 (c1 was at `/data/src/c1` on 2026-08-07), so resolve those per Non-Default
 Repo Pattern rather than reading a path off this table.
 
@@ -182,12 +183,12 @@ Repo Pattern rather than reading a path off this table.
 | `c1` | The C1 monorepo (image-provided; resolve the path). |
 
 "Add a CLI command" almost always touches the SDK and may touch the proto.
-When bundling: bundle speculatively (bundles are small), clone each to its
-canonical path on the right branch, patch Rust consumers' `Cargo.toml` with
-`[patch]` blocks pointing at sibling trees for the env build ONLY (the agent
-must NOT commit that patch table — see Common Mistakes), name the sibling
-repos explicitly in the brief, and require per-repo branch + SHA-range
-reporting in the status note so extraction can bundle each repo back.
+Include extra repos speculatively. Clone each to its canonical path on the
+right branch if the GitHub App covers it. Patch Rust consumers' `Cargo.toml`
+with `[patch]` blocks pointing at sibling trees for the env build ONLY (the
+agent must NOT commit that patch table — see Common Mistakes). Name the
+sibling repos in the brief. Require per-repo branch + SHA-range in the
+status note; return path is `gh pr create` per repo.
 
 ## Non-Default Repo Pattern
 
@@ -205,19 +206,9 @@ squire ssh <id> -- 'find / -maxdepth 4 -type d -name <repo> -not -path "*/node_m
 Then name the resolved absolute path in the brief. Filter the `find` hits:
 `*/cache/*` and `*/gocache/*` are build caches, not working trees.
 
-c1 also clones directly if genuinely absent (credential helper covers it).
-Other repos ship via git bundle:
-
-```bash
-git -C ~/repo/other-repo bundle create /tmp/repo.bundle branch-name
-scp /tmp/repo.bundle <env-name>.squire:/tmp/repo.bundle
-squire ssh <id> -- "git clone /tmp/repo.bundle /data/squire/src/other-repo"
-squire ssh <id> -- "git -C /data/squire/src/other-repo checkout branch-name"
-```
-
-Do NOT `git clone git@github.com:...` for repos the squire GitHub App does
-not cover — the credential helper fails with `could not read Username`. The
-fix is installing the App on the repo (org admin), not fighting the helper.
+If the checkout is genuinely absent and the GitHub App covers the repo,
+clone over HTTPS (credential helper). If the App does not cover it, stop:
+install the App. Do not git-bundle inject.
 
 ## Monitoring Agent Progress
 
@@ -261,10 +252,10 @@ stalled (no changes, no recent activity).
 
 Delegation split (keeps main context lean):
 - **Cheap read-only subagent (mechanical reads):** batch polling across N
-  envs (task list + git log + git status), bundle extraction, env setup.
+  envs (task list + git log + git status), env setup.
   Brief MUST say do NOT modify any files.
 - **Main model (judgment):** stall detection (nudge vs wait vs cut off),
-  cherry-pick/conflict resolution, brief authoring, task selection.
+  PR tracking, brief authoring, task selection.
   Pattern: cheap subagent collects facts; main model decides.
 
 ## Dispatch Backlog and Autonomous Queue
@@ -285,7 +276,7 @@ Rules:
    one queued is the sweet spot.
 2. `bd update <id> --claim` AT dispatch time — `bd list --status=in_progress`
    must reflect reality.
-3. Dispatch the next QUEUED item when a running env commits+pushes.
+3. Dispatch the next QUEUED item when a running env opens a PR (or pushes).
 4. BLOCKED items wait for their dependency's push; then promote to QUEUED.
 5. HUMAN items stop the queue — report the decision and wait; later items
    may depend on it.
@@ -299,8 +290,8 @@ bd lifecycle: `bd create` → open; `--claim` at dispatch → in_progress;
 ### Drain mode
 
 Enter on: user asks to pause/wind down; a rate-limit error; heavy repeated
-compaction. Announce it. In drain: keep polling, merge what commits, dispatch
-NOTHING new, nudge stalled envs once, cut off any env that doesn't commit
+compaction. Announce it. In drain: keep polling, track PRs that land, dispatch
+NOTHING new, nudge stalled envs once, cut off any env that doesn't push a PR
 within one tick of its nudge (note the bead, leave it open, move on). Exit on
 user resume. Update the loop prompt when entering — the drain prompt must not
 encourage dispatch.
@@ -323,21 +314,15 @@ squire new api-perf -p "Profile and optimize the sync endpoint" -m anthropic/cla
 Each is isolated. `squire env` lists; `squire attach --mux` opens one pane
 per active task across all running envs.
 
-## Extracting Work from Envs
+## Return path
 
-Envs without GitHub App access for the repo can't push. Extract via bundle
-(cheap read-only subagent OK):
+Finished work is an in-env `git push` and `gh pr create` (credential socket
+and `gh` wrapper). Track that PR. Review with `squire diff out`. Optional
+local landing without GitHub: `squire git remote add`. Do not git-bundle
+harvest.
 
-```bash
-squire ssh <id> -- "git -C /data/squire/src/repo bundle create /tmp/work.bundle <base-sha>..HEAD"
-scp <env-name>.squire:/tmp/work.bundle /tmp/<env-name>-work.bundle
-git -C /path/to/repo fetch /tmp/<env-name>-work.bundle
-git -C /path/to/repo branch <review-branch> FETCH_HEAD
-```
-
-Post-merge checklist: close the bd issue with the merge SHA; mark any
-TODO.md item done; push the branch; refresh the env's bundle before its next
-task. Overlapping-file merges across envs will need conflict resolution.
+If push fails with `could not read Username`, the GitHub App is not
+installed on that repo. Install the App. That is not a bundle protocol.
 
 ## Quality Gates
 
@@ -382,15 +367,15 @@ PEACE before ABC; clean data before analysis.
 
 ## Completion Metrics
 
-One JSONL line per completed dispatch at extraction time:
+One JSONL line per completed dispatch at PR-open or branch-push time:
 `~/repo/dotfiles/scripts/squire-metrics.sh record <env-id>` (pulls
 `started_at` from `squire env info`); `squire-metrics.sh tally [--last N]`
 aggregates. Fields: env id/name, started/completed timestamps, duration,
-branch, base SHA, commit count, files/LOC. Record on branch-push completion
-or bundle extraction; do NOT record stalled/cut-off/failed envs. For
-dispatches extending an existing branch, pass `--base <head-before-dispatch>`
-or the LOC counts absorb prior work. Refine the task-family wall-clock
-estimates once N >= 5 per family.
+branch, base SHA, commit count, files/LOC. Record on PR open or push;
+do NOT record stalled/cut-off/failed envs. For dispatches extending an
+existing branch, pass `--base <head-before-dispatch>` or the LOC counts
+absorb prior work. Refine the task-family wall-clock estimates once N >= 5
+per family.
 
 ## Fallback: driving OpenCode directly
 
