@@ -33,6 +33,7 @@ Generic roster — pick per what the code touches:
 |----------|-------|--------------|
 | bugs-reviewer | Logic bugs, edge cases, error handling, concurrency | Always — baseline |
 | overcorrection-reviewer | Needless complexity, premature exclusions, ungrounded cost/value estimates, disproportionate fixes | Always; apply `$overcorrection-review` |
+| retcon-reviewer | Author/clock/trailer leaks; missing work-local retcon derivatives | Share/publish, docs with dates, LEARNINGS, RFCs that leave the machine, or repo has `.claude/retcon.md`. Load `$retcon-review` |
 | security-reviewer | Injection, path traversal, credentials, DoS | External input, file I/O, exec, network, auth |
 | perf-reviewer | Allocations, leaks, timeouts, limit calibration | I/O, subprocesses, large data, concurrency |
 | test-reviewer | Coverage gaps, test quality, isolation, flakiness | Changeset includes or should include tests |

@@ -75,6 +75,7 @@ skill bodies**, not only this index.
 | scramble | Parallel local tactical push |
 | comment-discipline | Comments describe code, not process |
 | retcon | Before share: keep code, learnings, commit messages; strip author and clocks |
+| retcon-review | Reviewer persona: provenance leaks and missing work-local retcon derivatives |
 | skill-brevity | Authoring/editing skills: keep only necessary lines |
 | property-based-testing | PBT across languages |
 | using-vit | ATProto caps / beacons |

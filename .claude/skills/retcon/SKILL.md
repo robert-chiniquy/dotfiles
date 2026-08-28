@@ -17,6 +17,11 @@ time from git metadata **and** file contents. Git still needs a name/email;
 use a supplied synthetic identity, never the machine's `user.name` /
 `user.email`.
 
+Each work set carries its own **retcon derivatives** (extra leak
+surfaces that work invented). The review persona is `$retcon-review`;
+it belongs on the code-review and RFC judge rosters when the artifact
+will leave the machine. An RFC **may** include a retcon element.
+
 ## Common Mistakes
 
 1. **Rewriting a branch already on a remote and calling it unpublished.**
@@ -55,6 +60,27 @@ use a supplied synthetic identity, never the machine's `user.name` /
 12. **Publishing bead/tracker ids or local paths.** `/Users/…`, hostnames,
     tracker ids, and "Generated with …" in files are identity. Strip if
     the dest will leave the machine.
+13. **Global leak list only.** Derivatives for *this* work (dated
+    formats, extra names, `.cast` headers, scorecard clocks, path
+    prefixes) live with the work. A scrub that ignores them still leaks.
+
+## Derivatives
+
+Load and apply, additive to this skill:
+
+- `<repo>/.claude/retcon.md` or `RETCON.md`
+- `plans/<topic>/retcon.md`
+- RFC `## Retcon`
+
+If sharing and none exist, write one (including "this work adds none").
+MUST NOT treat the global list as complete.
+
+## RFC
+
+When an RFC's artifact will be shared or published, the RFC includes a
+retcon element: in-scope or not, derivatives this work adds, share path
+(new object graph / new remote). Local-only research omits it. The
+`new-rfc` **retcon** judge lens is `$retcon-review`.
 
 ## Procedure
 
@@ -123,3 +149,4 @@ old SHAs, that host is not retconed; open a new repo or accept the leak.
 - [ ] Messages have no trailers and no clocks
 - [ ] Tree has no bylines, home paths, LEARNINGS clocks, EXIF
 - [ ] No signatures, notes, `refs/original`, or reflog
+- [ ] Work-local derivatives loaded (or written) and applied

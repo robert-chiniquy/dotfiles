@@ -57,6 +57,12 @@ open. The final artifact is the approved RFC.
 - **Auto-advancing past the owner gate.** The skill's contract is that
   the owner approves the plan. Any auto-dispatch to impl violates
   that contract.
+- **Fat dispatch.** An RFC that ships as one HIGH_END blob when it has
+  independent leaves wastes tokens. Name work units in
+  `plans/<topic>/units.yaml` and measure with `squine lint` (occult
+  `units.lint`). HIGH_END that is fully specified decomposes; MEDIUM or
+  CHEAPEST executes the leaves. `A7=3` stays HIGH_END. Skill prose is not
+  the checker; the occult verdict is.
 
 ## Phase graph
 
@@ -114,14 +120,18 @@ independent perspectives. Default set (override at start):
 | **security** | Authz gaps, tenant isolation holes, secret exposure, trust-boundary violations, fail-open defaults, confused-deputy paths. |
 | **risk** | Backward compatibility, migration hazards, rollout order, blast radius, what breaks if this ships wrong. |
 | **overcorrection** | Needless complexity, premature exclusions, disproportionate mitigations, and choices resting on unverified estimates of difficulty, cost, risk, or value. Load and apply `$overcorrection-review`. |
+| **retcon** | Provenance: will this artifact leave the machine with author/clocks/trailers intact? Work-local derivatives missing? Load `$retcon-review`. Not in the default 5; add when the RFC is for a share/publish. |
 
 For frontend-heavy RFCs, swap `scale` for **UX-integrity** (a11y, state
 coupling, hydration, render perf). For infra-heavy RFCs, swap `security`
 for **operability** (observability, on-call surface, failure modes).
+When the deliverable will be shared or published, **add `retcon`** (do not
+swap it for overcorrection).
 
 ## Non-negotiable RFC elements
 
-Every produced plan MUST include, in order:
+Every produced plan MUST include items 1–8, in order. Item 9 only when
+the artifact will be shared or published.
 
 1. **Header frontmatter** with `harness: claude`, `model: <current>`,
    and status (`ROUND 1 for adversarial review (YYYY-MM-DD)` on first
@@ -162,6 +172,30 @@ Every produced plan MUST include, in order:
    separate tracking; the RFC is the executable plan for what ships
    under this document.
 
+8. **Work-unit table** — independently dispatchable leaves:
+
+   ```
+   | id | goal | isolation | verifier | tier | collides-with |
+   ```
+
+   `isolation` is `local` | `sibling-task` | `new-env`. Empty
+   `collides-with` plus `sibling-task` or `new-env` may run in parallel
+   on one env. `tier` is HIGH_END (`anthropic/claude-opus-5`), MEDIUM
+   (`anthropic/claude-sonnet-4-6`), or CHEAPEST
+   (`anthropic/claude-haiku-4-5`). A fully specified HIGH_END unit
+   (clear acceptance + deterministic verifier, `A7<3`) MUST list MEDIUM
+   or CHEAPEST leaves instead of one fat dispatch. Tests are the
+   `verifier` column in this RFC. Which cheap harness runs them is
+   `route` at dispatch, not a later planning pass. Write
+   `plans/<topic>/units.yaml` and run `squine lint` until verdicts are
+   `ok`.
+
+9. **Retcon** (only if the RFC's artifact will be shared or published).
+   Load `$retcon`. State: in-scope or not; derivatives this work adds
+   (`plans/<slug>/retcon.md`); share path (new object graph / new remote).
+   Omit for local-only research. Grounding dates in the RFC itself are
+   clocks: the retcon of a published RFC restamps or drops them.
+
 ## Orchestration protocol
 
 1. **Gather the work ref.** Ask the owner if unclear:
@@ -170,6 +204,8 @@ Every produced plan MUST include, in order:
    - Are there prior canonical RFCs this succeeds? (For the status
      table.)
    - Any lens swaps from the default judge set?
+   - Will the deliverable be shared or published? If yes, add the
+     **retcon** lens and RFC element 9.
 
 2. **Bootstrap the phase dir.** Create `plans/<slug>/00-plan.md` with
    the phase graph + owner + slug. This is the durable anchor.
@@ -246,6 +282,7 @@ Standing rules:
   most important finding available to you, and source-only review cannot see it.
 - Scope strictly to the artifact plus its cited grounding files.
 - For the overcorrection lens, load and apply `$overcorrection-review`.
+- For the retcon lens, load and apply `$retcon-review`.
 - For each finding: file:line, what you see, why it matters, a concrete
   fix, severity (critical/high/medium/low). Severity is provisional —
   the synth step arbitrates.
@@ -264,3 +301,4 @@ them to stdout — the synth step reads the file.
 - [ ] Blocking findings revised (not papered)?
 - [ ] Owner approval gate held (no auto-impl)?
 - [ ] Grounding SHAs still valid?
+- [ ] If sharing: retcon element 9 and retcon judge present?

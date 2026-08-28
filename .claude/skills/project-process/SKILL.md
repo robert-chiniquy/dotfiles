@@ -17,6 +17,7 @@ Prefer working code and verified plans over ceremony.
 3. **Creating GLOSSARY.md or DATA_SOURCES.md** — forbidden; terms in prose; provenance in README `## Sources`.
 4. **Committing local meta in shared repos** — LEARNINGS/PLAN/FAILURES stay local-only unless the user says otherwise.
 5. **Auto-starting implementation from an RFC skill** — RFC ends at owner approval.
+6. **Squire brief as a shell `-p` or a stray path** — long briefs go in `plans/<topic>/` next to the RFC/plan, then `squire task create --prompt-file`.
 
 ## Artifacts (when useful)
 
@@ -27,6 +28,7 @@ Prefer working code and verified plans over ceremony.
 | `FAILURES.md` | Approach proved impossible |
 | `DESIGN_<topic>.md` | Stage 1 |
 | `PLAN_<OBJECTIVE>.md` | Stage 2 |
+| `plans/<topic>/` | Plan, RFC, and squire `--prompt-file` brief together |
 | `.claude/CLAUDE.md` | Project-local rules only |
 
 ## Pipeline (one path)
@@ -40,7 +42,7 @@ DESIGN_<topic>.md  →  PLAN_<OBJECTIVE>.md  →  RFC (new-rfc)
 |-------|---------|------------------------------|-----------|
 | 1 Design | `DESIGN_*.md` | default: `design`; large/architecture: `systematic-feature-design` only | Implementer can plan without re-discovering the problem |
 | 2 Plan | `PLAN_*.md` | `rigorous-critique` (manual `/critique` is the same job) | Steps executable without re-arguing design |
-| 3 RFC | approved RFC | `new-rfc` only | Owner approved; **MUST NOT** auto-impl |
+| 3 RFC | approved RFC | `new-rfc` only | Owner approved; **MUST NOT** auto-impl. May include a retcon element (`$retcon`, `$retcon-review`) when the artifact will be shared. |
 
 **MUST:** each stage consumes the prior artifact when it exists.  
 **MUST NOT:** open stage 3 without feeding design+plan (or a combined doc that includes both).
@@ -54,9 +56,10 @@ DESIGN_<topic>.md  →  PLAN_<OBJECTIVE>.md  →  RFC (new-rfc)
 
 ## Hard gates
 
-- **MUST** write plans to `PLAN_<OBJECTIVE>.md` (not only chat).
+- **MUST** write plans to `PLAN_<OBJECTIVE>.md` (not only chat). Large work: `plans/<topic>/` holds the plan, the RFC, and the squire prompt file together.
 - **MUST** run critique before treating a plan as ready for implementation or RFC.
 - **MUST NOT** treat "out of scope" as forbidden forever without a revisit path (see overcorrection-review when cutting).
+- **MUST** put independently dispatchable leaves in the RFC as a work-unit table (`id`, `isolation`, `verifier`, `tier`, `collides-with`) and `plans/<topic>/units.yaml` measured by `squine lint`. Parallel means empty `collides-with`. Tests are the `verifier` column; CHEAPEST/MEDIUM assignment is route at dispatch.
 
 ## Before finishing (pipeline work)
 
