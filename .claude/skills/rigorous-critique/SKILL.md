@@ -22,6 +22,7 @@ ready. Consumes `PLAN_*.md` (and design if present). `/critique` = this job.
 - [ ] Each finding: lens, problem, risk, concrete fix?
 - [ ] Plan updated or explicitly rejected?
 - [ ] Overcorrection lens applied to proposed cuts?
+- [ ] Presented PLAN opened with `code <absolute-path>`?
 
 Four lenses:
 1. **Unnecessary Complexity** -- What can we delete without losing value?

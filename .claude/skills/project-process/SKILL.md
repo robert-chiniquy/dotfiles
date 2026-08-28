@@ -18,6 +18,7 @@ Prefer working code and verified plans over ceremony.
 4. **Committing local meta in shared repos** — LEARNINGS/PLAN/FAILURES stay local-only unless the user says otherwise.
 5. **Auto-starting implementation from an RFC skill** — RFC ends at owner approval.
 6. **Squire brief as a shell `-p` or a stray path** — long briefs go in `plans/<topic>/` next to the RFC/plan, then `squire task create --prompt-file`.
+7. **Chat path without `code`.** Presenting a DESIGN, PLAN, RFC, or guide without `code <absolute-path>` in the same turn. Path in chat is not enough.
 
 ## Artifacts (when useful)
 
@@ -68,6 +69,7 @@ DESIGN_<topic>.md  →  PLAN_<OBJECTIVE>.md  →  RFC (new-rfc)
 - [ ] No forbidden meta files (GLOSSARY/DATA_SOURCES)?
 - [ ] Local meta not staged for commit in a shared repo?
 - [ ] Next stage (or implementation) is explicit?
+- [ ] Presented DESIGN/PLAN/RFC/guide opened with `code <absolute-path>`?
 
 Optional depth: `references/` (artifacts, priorities, organization).  
 Judgment on demand: `engineering-guidelines`.

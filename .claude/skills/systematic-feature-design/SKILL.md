@@ -23,6 +23,7 @@ description: |
 - [ ] `DESIGN_*.md` exists and is consumable by PLAN?
 - [ ] Level 0 before Level 2?
 - [ ] Existing RFCs/plans searched before inventing?
+- [ ] `code <absolute-path>` on the DESIGN in this turn?
 
 11-step methodology (research → … → document). Critique steps here inform the
 design; stage 2 still runs `rigorous-critique` on the plan.

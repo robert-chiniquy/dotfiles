@@ -25,6 +25,7 @@ for stage 2. **MUST NOT** invent a second design methodology alongside this.
 - [ ] Chosen direction explicit?
 - [ ] Open questions listed?
 - [ ] Ready for `PLAN_*.md` + rigorous-critique?
+- [ ] `code <absolute-path>` on the DESIGN in this turn?
 
 Not every step below applies; skip what doesn't add value.
 
