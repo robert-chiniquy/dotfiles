@@ -44,7 +44,11 @@ surface moves; when a flag matters, verify with `--help` before scripting it.
   a self-started 4096 server lacks the API key.
 - **Editing payload JSON in-env with `jq`** — passes shape checks, fails at
   model invocation. Write locally, scp in.
-- **The `question` tool** — see above; ban it in every brief.
+- **Blocking `question` on fire-and-forget** — OpenCode question is
+  Squire-answerable (`POST .../interactive-input/{requestID}/answer`)
+  only if a boss is listening (attach, web/desktop, or a poller).
+  Claude `AskUserQuestion` is display_only. No listener = stall.
+  Prefer `squire.message.send`; else default and document.
 - **Stopped envs** — envs auto-stop on idle; `squire env start <name>`
   wakes them (disk state and commits preserved; the OpenCode port changes).
   Add "if env stopped, report and stop polling it" to loop prompts.
@@ -371,7 +375,10 @@ One JSONL line per completed dispatch at PR-open or branch-push time:
 `~/repo/dotfiles/scripts/squire-metrics.sh record <env-id>` (pulls
 `started_at` from `squire env info`); `squire-metrics.sh tally [--last N]`
 aggregates. Fields: env id/name, started/completed timestamps, duration,
-branch, base SHA, commit count, files/LOC. Record on PR open or push;
+branch, base SHA, commit count, files/LOC. Record harness, model,
+isolation, verifier, and PR/CI outcome on the same line when known.
+That JSONL is the feed for a laptop observation (squine cell later).
+Record on PR open or push;
 do NOT record stalled/cut-off/failed envs. For dispatches extending an
 existing branch, pass `--base <head-before-dispatch>` or the LOC counts
 absorb prior work. Refine the task-family wall-clock estimates once N >= 5
@@ -407,15 +414,18 @@ Protocol: `POST /session` (returns `{"id":"ses_..."}`), wait 2s,
   (`ProviderAuthError`); extract `ANTHROPIC_API_KEY` from the existing
   process's `/proc/<pid>/environ` and relaunch with it.
 
-### The `question` tool deadlocks the agent
+### Asking the boss
 
-There is no programmatic answer API. Every dispatch brief includes: "HARD
-RULE: do not use the `question` tool under any circumstance. Pick the most
-reasonable default, document the choice in your status note, continue."
-Recovery for an already-stalled session: the OpenCode UI proxy at
-`https://opencode--<env-id>.us-west-2.squire.ductone.com/` renders the
-pending question — answer it there when the session holds work worth saving;
-otherwise abandon and re-dispatch with the rule embedded.
+OpenCode native question is `answerable` on Squire interactive-input when
+a client is watching. Claude `AskUserQuestion` is `display_only`. Headless
+fire-and-forget has no listener: a blocking question stalls.
+
+Prefer `squire.message.send` to the parent (non-blocking). Use native
+question only with a boss in the loop (attach, web/desktop, or a poller
+on `interactive_input`). Fire-and-forget briefs: pick a default, write it
+in the status note, continue. Recovery for an already-stalled OpenCode
+session: answer via the interactive-input RPC or the OpenCode UI proxy at
+`https://opencode--<env-id>.us-west-2.squire.ductone.com/`.
 
 ## Envmgr MCP Tools (localhost:9877, in-env)
 
@@ -429,6 +439,6 @@ for CLI callers.
 
 - [ ] Brief via `--prompt-file` (not shell-arg) if long?
 - [ ] Model pinned / whitelisted?
-- [ ] `question` tool banned in brief?
+- [ ] Fire-and-forget brief has no blocking question?
 - [ ] Gates defined and green before claiming done?
 - [ ] No committed env-only `[patch]` tables?
