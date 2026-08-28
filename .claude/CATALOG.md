@@ -40,6 +40,7 @@ skill bodies**, not only this index.
 | documentation | Writing or reviewing docs |
 | design | Stage 1 default depth (`/design`); see project-process |
 | systematic-feature-design | Stage 1 **only** when large/architecture (not a second pipeline) |
+| designing-occult-application | Userspace Occult app: theory, middle functor, G, last hop |
 | rigorous-critique | Stage 2 **only** critique path (canonical) |
 | critique | `/critique` alias for rigorous-critique job |
 | new-rfc | Stage 3 **only** RFC path |
