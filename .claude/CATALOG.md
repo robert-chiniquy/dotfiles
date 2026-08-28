@@ -20,7 +20,7 @@ skill bodies**, not only this index.
 | dry-engineering | Default voice: code review style, commit messages, explanations |
 | healthy-interaction | Baseline interaction dispositions (no sycophancy, no therapy mode) |
 | pr-watch | PR event catch-up: `pr-watch --since` after any prior look |
-| sleep-report | Host sleep: `sleep-report --since` at the start of every turn |
+| sleep-report | Host sleep: `sleep-report --since` at turn start; do not print `SLEEP` to the user |
 
 ## Context-Activated
 
@@ -34,6 +34,7 @@ skill bodies**, not only this index.
 | technical-writing | Blog posts, articles, long-form external content |
 | technical-writing-voice | Long-form external voice (articles, talks) |
 | structural-constraints | Architecture decisions, type system design |
+| subprocess-lifecycle | Spawning a child process: ownership mode, parent-death, signals, reaping |
 | terraform / terraform-skill | .tf files, HCL, infrastructure pipelines |
 | protogen | .proto files, gRPC, codegen |
 | documentation | Writing or reviewing docs |
@@ -73,6 +74,7 @@ skill bodies**, not only this index.
 | peace-agent-interview | Elicit uncontaminated account after bad subagent run |
 | scramble | Parallel local tactical push |
 | comment-discipline | Comments describe code, not process |
+| retcon | Before share: keep code, learnings, commit messages; strip author and clocks |
 | skill-brevity | Authoring/editing skills: keep only necessary lines |
 | property-based-testing | PBT across languages |
 | using-vit | ATProto caps / beacons |
