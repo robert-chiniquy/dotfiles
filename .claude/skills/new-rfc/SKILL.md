@@ -63,9 +63,10 @@ open. The final artifact is the approved RFC.
   `units.lint`). HIGH_END that is fully specified decomposes; MEDIUM or
   CHEAPEST executes the leaves. `A7=3` stays HIGH_END. Skill prose is not
   the checker; the occult verdict is.
-- **Presenting without `code`.** Owner approval and every handoff of
-  investigation, plan, or RFC markdown MUST `code <absolute-path>` in
-  the same turn. Path in chat is not enough.
+- **Presenting without opening the artifact.** Owner approval and every
+  handoff of investigation, plan, RFC, or other single document MUST
+  `code <absolute-path>` (VS Code) or `open <absolute-path>` (OS default)
+  in the same turn. Path in chat is not enough.
 
 ## Phase graph
 
@@ -246,7 +247,8 @@ the artifact will be shared or published.
    - Path to the plan file
    - Judge verdict summary (one bullet per lens: blocking / notes / clean)
    - Any unresolved-but-non-blocking items
-   Run `code <absolute-path>` on the RFC markdown in the same turn.
+   Run `code <absolute-path>` on the RFC markdown in the same turn
+  (`open` if VS Code is the wrong viewer).
    Then **stop**. Do NOT dispatch impl. Do NOT open a PR. The skill's
    deliverable is the approved plan file.
 
@@ -306,4 +308,4 @@ them to stdout — the synth step reads the file.
 - [ ] Owner approval gate held (no auto-impl)?
 - [ ] Grounding SHAs still valid?
 - [ ] If sharing: retcon element 9 and retcon judge present?
-- [ ] Presented investigation/plan/RFC opened with `code <absolute-path>`?
+- [ ] Presented investigation/plan/RFC opened with `code <absolute-path>` (or `open` if VS Code is the wrong viewer)?
