@@ -1,0 +1,15 @@
+[package]
+name = "render-last"
+version = "0.1.0"
+edition = "2021"
+description = "Render block LaTeX math from an agent's last assistant message as inline iTerm2 images. No dependencies."
+
+[[bin]]
+name = "render-last"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
