@@ -181,42 +181,12 @@ _git_dirty_count=0
 _git_dirty_files=""
 _git_chpwd() {
   _git_dir=$(git rev-parse --git-dir 2>/dev/null) || { _git_dir=""; _git_branch=""; _git_dirty_count=0; _git_dirty_files=""; return; }
-  local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
-
-  # Background fetch (throttled to every 10 min)
-  local fetch_marker="$git_root/.git/FETCH_HEAD"
-  if _file_older_than "$fetch_marker" 600; then
-    (git fetch --quiet --prune &) 2>/dev/null
-  fi
 
   # Gather info in one shot — cached for reuse
   _git_branch=$(git branch --show-current 2>/dev/null)
-  local commit_age=$(git log -1 --format=%cr 2>/dev/null)
-  local ahead=0 behind=0
-  if git rev-parse --abbrev-ref @{upstream} &>/dev/null; then
-    ahead=$(git rev-list --count @{upstream}..HEAD 2>/dev/null)
-    behind=$(git rev-list --count HEAD..@{upstream} 2>/dev/null)
-  fi
   _git_dirty_files=$(git status -s 2>/dev/null)
   _git_dirty_count=$(echo "$_git_dirty_files" | grep -c . 2>/dev/null)
   [[ -z "$_git_dirty_files" ]] && _git_dirty_count=0
-
-  # Branch age (only for non-main branches)
-  local branch_age=""
-  if [[ -n "$_git_branch" && "$_git_branch" != "main" && "$_git_branch" != "master" ]]; then
-    local base=$(git merge-base main HEAD 2>/dev/null || git merge-base master HEAD 2>/dev/null)
-    [[ -n "$base" ]] && branch_age=$(git log -1 --format=%cr "$base" 2>/dev/null)
-  fi
-
-  # Single terse output line
-  local parts=()
-  [[ -n "$commit_age" ]] && parts+=("last commit $commit_age")
-  (( _git_dirty_count > 0 )) && parts+=("${_git_dirty_count} dirty")
-  (( ahead > 0 )) && parts+=("${ahead}↑")
-  (( behind > 0 )) && parts+=("${behind}↓")
-  [[ -n "$branch_age" ]] && parts+=("branch $branch_age")
-
-  (( ${#parts} > 0 )) && print -P "%F{243}${(j:, :)parts}%f"
 }
 chpwd_functions+=(_git_chpwd)
 
@@ -234,28 +204,6 @@ _git_dirty_refresh() {
 }
 precmd_functions+=(_git_dirty_refresh)
 
-# === Claude project files display on directory entry ===
-_show_project_files() {
-  local project_files=(
-    DATA_SOURCES.md LEARNINGS.md HUMAN_TODOS.md
-    FAILURES.md DEMO.md REMAINING_TODOS.md PROJECT.md GLOSSARY.md
-  )
-  local found=()
-
-  for f in "${project_files[@]}"; do
-    [[ -f "$f" ]] && found+=("${f%.md}")
-  done
-  for f in PLAN_*.md(N); do
-    [[ -f "$f" ]] && found+=("${f%.md}")
-  done
-
-  (( ${#found} == 0 )) && return
-
-  # Single line, just names
-  print -P "%F{201}project:%f %F{51}${(j: :)found}%f"
-}
-chpwd_functions+=(_show_project_files)
-
 # === Persist last working directory (for new tabs/sessions) ===
 # New interactive shells start in the last directory you used.
 __LAST_DIR_FILE="$HOME/.zsh_last_dir"
@@ -263,11 +211,6 @@ if [[ -o interactive && "$PWD" == "$HOME" && -r "$__LAST_DIR_FILE" ]]; then
   __last_dir="$(<"$__LAST_DIR_FILE")"
   [[ -d "$__last_dir" ]] && builtin cd -- "$__last_dir"
   unset __last_dir
-fi
-
-# Force horizontal banner output on macOS
-if command -v gbanner >/dev/null 2>&1; then
-  alias banner='gbanner'
 fi
 
 # === Shell Options ===
@@ -421,10 +364,6 @@ fi
 if command -v nvim &>/dev/null; then
   alias vim='nvim'
   alias vi='nvim'
-fi
-
-# ripgrep with colors
-if command -v rg &>/dev/null; then
 fi
 
 # direnv
@@ -822,11 +761,6 @@ _md_browser_widget() {
 bindkey -e
 
 zle -N _md_browser_widget
-# Bind to double-tap Esc - KEYTIMEOUT=10 (0.1s) requires fast double-tap
-KEYTIMEOUT=10
-bindkey -M emacs '\e\e' _md_browser_widget
-bindkey -M viins '\e\e' _md_browser_widget
-bindkey -M vicmd '\e\e' _md_browser_widget
 
 # Alt+M: start mdwatch in current directory
 _mdwatch_widget() {
@@ -842,6 +776,8 @@ bindkey '\em' _mdwatch_widget
 [[ -d /opt/homebrew/share/zsh/site-functions ]] && FPATH="/opt/homebrew/share/zsh/site-functions:${FPATH}"
 [[ -d /usr/local/share/zsh/site-functions ]] && FPATH="/usr/local/share/zsh/site-functions:${FPATH}"
 
+fpath=(~/.grok/completions/zsh $fpath)
+
 autoload -Uz compinit
 # Use cached completions if dump is fresh (<24h), rebuild if stale
 if [[ -n ~/.zcompdump(#qN.mh-24) ]]; then
@@ -850,7 +786,7 @@ else
   compinit
 fi
 
-zstyle ':completion:*' completer _expand _complete _ignored _approximate _files
+zstyle ':completion:*' completer _complete _ignored _approximate _files
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}' 'r:|=*' 'l:|=* r:|=*'
 
@@ -995,8 +931,6 @@ fi
 
 
 # === Passive tool improvements (no workflow changes) ===
-export STARSHIP_LOG="error"  # Silence starship warnings
-
 # Colored compiler output
 export GCC_COLORS='error=01;38;5;201:warning=01;38;5;221:note=01;38;5;51:caret=01;38;5;51:locus=01:quote=01'
 
@@ -1006,8 +940,9 @@ export JQ_COLORS='1;35:0;35:0;36:0;36:0;33:1;35:1;35'
 # Less colors for man pages (already set via LESS_TERMCAP but this ensures colored output)
 export MANPAGER="less -R --use-color"
 
-# Make parallel builds by default (use all cores)
-export MAKEFLAGS="-j$(/usr/sbin/sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+# Parallel builds, capped to match GOMAXPROCS so concurrent toolchains
+# do not oversubscribe the box.
+export MAKEFLAGS="-j6"
 
 # fd defaults (ignore common junk)
 export FD_OPTIONS="--hidden --follow --exclude .git --exclude node_modules --exclude vendor"
@@ -1061,21 +996,10 @@ cal() {
 }
 
 # === Performance tuning ===
-# KEYTIMEOUT set earlier (10 = 100ms for double-tap Esc)
-
 # Compile zcompdump for faster loading
-[[ ~/.zcompdump.zwc -ot ~/.zcompdump ]] && zcompile ~/.zcompdump 2>/dev/null
+[[ ! -f ~/.zcompdump.zwc || ~/.zcompdump.zwc -ot ~/.zcompdump ]] && zcompile ~/.zcompdump 2>/dev/null
 
-# Lazy-load heavy completions
-zstyle ':completion:*' use-cache true
 zstyle ':completion:*' rehash true  # Auto-detect new executables
-
-# === Enhanced output ===
-# More informative time command output
-TIMEFMT=$'\n%J\n  user: %U  sys: %S  total: %*E\n  cpu: %P  mem: %MKB'
-
-# Show command timing for long commands (>5s)
-REPORTTIME=5
 
 # === Git speedups ===
 # Disable git prompt for huge repos (faster prompt)
@@ -1167,7 +1091,6 @@ _check_dangerous() {
     *'git reset --hard'*) warn="reset --hard" ;;
     *'git clean -f'*) warn="git clean -f" ;;
     *'chmod -R 777'*) warn="chmod 777" ;;
-    *'> /'*) warn="overwrite root file" ;;
     *'dd if='*) warn="dd" ;;
   esac
   if [[ -n "$warn" ]]; then
@@ -1177,67 +1100,6 @@ _check_dangerous() {
     [[ "$reply" != [yY] ]] && return 1
   fi
   return 0
-}
-
-# === Phase detector - what mode are you in? ===
-typeset -ga __recent_cmds=()
-_detect_phase() {
-  local cmd="${1%% *}"  # First word
-  __recent_cmds+=("$cmd")
-  (( ${#__recent_cmds} > 10 )) && __recent_cmds=("${__recent_cmds[@]: -10}")
-
-  # Count patterns in recent commands
-  local writing=0 testing=0 debugging=0 building=0 exploring=0
-  for c in "${__recent_cmds[@]}"; do
-    case "$c" in
-      vim|nvim|code|nano|emacs|edit) ((writing++)) ;;
-      test|pytest|jest|mocha|cargo|go) ((testing++)) ;;
-      echo|print|log|gdb|lldb|debug) ((debugging++)) ;;
-      make|build|compile|npm|yarn|cargo) ((building++)) ;;
-      ls|cd|find|grep|cat|less|head|tail) ((exploring++)) ;;
-    esac
-  done
-
-  # Determine dominant phase
-  local max=$writing phase="writing"
-  (( testing > max )) && max=$testing phase="testing"
-  (( debugging > max )) && max=$debugging phase="debugging"
-  (( building > max )) && max=$building phase="building"
-  (( exploring > max )) && max=$exploring phase="exploring"
-
-  (( max >= 3 )) && export __current_phase="$phase" || export __current_phase=""
-}
-
-# === Blast radius warning ===
-_blast_radius() {
-  local cmd="$1"
-  local warning=""
-  local count=0
-
-  case "$cmd" in
-    rm\ -rf*|rm\ -fr*)
-      # Extract path and count potential victims
-      local path="${cmd#rm -rf }"
-      path="${path#rm -fr }"
-      [[ -d "$path" ]] && count=$(find "$path" -type f 2>/dev/null | wc -l | tr -d ' ')
-      (( count > 10 )) && warning="$count files"
-      ;;
-    git\ checkout\ .|git\ restore\ .)
-      count=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-      (( count > 0 )) && warning="$count files"
-      ;;
-    git\ clean*)
-      count=$(git clean -n -d 2>/dev/null | wc -l | tr -d ' ')
-      (( count > 0 )) && warning="$count files"
-      ;;
-    chmod\ -R*|chown\ -R*)
-      local path="${cmd##* }"
-      [[ -d "$path" ]] && count=$(find "$path" -type f 2>/dev/null | wc -l | tr -d ' ')
-      (( count > 20 )) && warning="$count files"
-      ;;
-  esac
-
-  [[ -n "$warning" ]] && print -P "%F{221}~ $warning%f"
 }
 
 # === Welcome back (friendly idle detection) ===
@@ -1259,224 +1121,18 @@ _welcome_back() {
   fi
 }
 
-# === Win celebration (detect test/build success) ===
-_check_win() {
-  local exit_code=$1
-  local cmd="$2"
-  (( exit_code != 0 )) && return
-
-  case "$cmd" in
-    *test*|*pytest*|*jest*|*mocha*|*cargo\ test*|*go\ test*|*npm\ test*|*make\ test*)
-      print -P "%F{51}tests passed%f"
-      ;;
-    *build*|*make\ build*|*cargo\ build*|*go\ build*|*npm\ run\ build*)
-      print -P "%F{51}build succeeded%f"
-      ;;
-    *compile*|*make\ all*)
-      print -P "%F{51}compiled%f"
-      ;;
-  esac
-}
-
-# === Weekly momentum (days coded this week) ===
-_weekly_momentum() {
-  local momentum_file=~/.cache/weekly-momentum
-  local today=$(strftime %Y-%m-%d $EPOCHSECONDS)
-  local dow=$(strftime %u $EPOCHSECONDS)  # 1=Monday, 7=Sunday
-
-  # Read existing data
-  local data=""
-  [[ -f "$momentum_file" ]] && data=$(cat "$momentum_file")
-
-  # Add today if not present
-  if [[ "$data" != *"$today"* ]]; then
-    echo "$today" >> "$momentum_file"
-  fi
-
-  # Count days this week
-  local week_start=$(date -v-$((dow-1))d +%Y-%m-%d 2>/dev/null || date -d "last monday" +%Y-%m-%d 2>/dev/null)
-  local -i count=0
-  if [[ -f "$momentum_file" ]]; then
-    while IFS= read -r line; do
-      [[ ! "$line" < "$week_start" ]] && (( count++ ))
-    done < "$momentum_file"
-  fi
-
-  export __weekly_momentum="$count/7"
-}
-
-# === Focus time (uninterrupted session) ===
-typeset -g __focus_start=${__focus_start:-$EPOCHSECONDS}
-typeset -g __focus_breaks=0
-_track_focus() {
-  local now=$EPOCHSECONDS
-  local idle=$((now - __last_cmd_time))
-
-  # Break detected (>10 min idle resets focus)
-  if (( idle > 600 )); then
-    __focus_start=$now
-    __focus_breaks=0
-  fi
-
-  local focus_mins=$(( (now - __focus_start) / 60 ))
-  if (( focus_mins >= 60 )); then
-    local hours=$(( focus_mins / 60 ))
-    local mins=$(( focus_mins % 60 ))
-    export __focus_time="${hours}h${mins}m focus"
-  elif (( focus_mins >= 30 )); then
-    export __focus_time="${focus_mins}m focus"
-  else
-    export __focus_time=""
-  fi
-}
-
-# === Coding hours tracking ===
-_track_coding_hours() {
-  local today=$(strftime %Y-%m-%d $EPOCHSECONDS)
-  local hours_file=~/.cache/coding-hours-data
-  local display_file=~/.cache/coding-hours-today
-  local now=$EPOCHSECONDS
-
-  # Read last timestamp and date
-  local last_ts=0 last_date=""
-  [[ -f "$hours_file" ]] && read last_date last_ts total_secs < "$hours_file" 2>/dev/null
-
-  # Reset if new day
-  [[ "$last_date" != "$today" ]] && total_secs=0
-
-  # Add time since last command (max 5 min to avoid idle time)
-  if (( last_ts > 0 && now - last_ts < 300 )); then
-    (( total_secs += now - last_ts ))
-  fi
-
-  # Save state
-  echo "$today $now $total_secs" >| "$hours_file"
-
-  # Update display (hours with 1 decimal)
-  local -i tenths=$(( total_secs * 10 / 3600 ))
-  echo "$(( tenths / 10 )).$(( tenths % 10 ))h" >| "$display_file"
-}
-
-# === Momentum tracking ===
-typeset -ga __cmd_times=()
-_momentum_sparkline() {
-  # Track last 20 command timestamps, show sparkline
-  local now=$EPOCHSECONDS
-  __cmd_times+=($now)
-  # Keep only last 20
-  (( ${#__cmd_times} > 20 )) && __cmd_times=("${__cmd_times[@]: -20}")
-  # Calculate intervals and map to sparkline using block chars
-  if (( ${#__cmd_times} >= 5 )); then
-    local spark=""
-    local chars=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
-    for (( i=2; i<=${#__cmd_times}; i++ )); do
-      local gap=$(( ${__cmd_times[$i]} - ${__cmd_times[$((i-1))]} ))
-      # Map gap to char: logarithmic scale (powers of 2)
-      local idx=0
-      (( gap < 1 )) && idx=7
-      (( gap >= 1 && gap < 2 )) && idx=6
-      (( gap >= 2 && gap < 4 )) && idx=5
-      (( gap >= 4 && gap < 8 )) && idx=4
-      (( gap >= 8 && gap < 16 )) && idx=3
-      (( gap >= 16 && gap < 32 )) && idx=2
-      (( gap >= 32 && gap < 64 )) && idx=1
-      (( gap >= 64 )) && idx=0
-      spark+="${chars[$((idx+1))]}"
-    done
-    export __momentum_spark="$spark"
-  fi
-}
-
-# Show momentum on demand
-momentum() {
-  if [[ -n "$__momentum_spark" ]]; then
-    print -P "%F{243}$__momentum_spark%f"
-    local high=$(echo "$__momentum_spark" | tr -cd '█▇▆' | wc -c | tr -d ' ')
-    local total=${#__momentum_spark}
-    if (( total > 0 )); then
-      local pct=$((high * 100 / total))
-      if (( pct > 70 )); then
-        print -P "%F{51}in flow%f"
-      elif (( pct > 40 )); then
-        print -P "%F{221}steady%f"
-      else
-        print -P "%F{243}warming up%f"
-      fi
-    fi
-  else
-    print -P "%F{243}not enough data yet%f"
-  fi
-}
-
-# === Command prediction ===
-# Predict next command based on history patterns
-predict() {
-  local last_cmd="${1:-$(fc -ln -1 | awk '{print $1}')}"
-  # Find most common command that follows last_cmd
-  awk -F';' -v last="$last_cmd" '
-    NR>1 && prev ~ "^"last { count[curr]++ }
-    { prev=$2; curr=$2 }
-    END {
-      max=0; pred=""
-      for (c in count) if (count[c]>max) { max=count[c]; pred=c }
-      if (pred!="") print pred
-    }
-  ' "$HISTFILE" | head -1
-}
-
 # === Command Duration Display ===
 # Show duration when complete, update iTerm2 badge
 preexec() {
-  _blast_radius "$1"
-  _detect_phase "$1"
-  _track_coding_hours
-  _momentum_sparkline
   _command_start_time=$SECONDS
-  __last_cmd="$1"  # Track command for history cleanup
   _last_cmd_name="${1%% *}"  # First word for notification
-}
-
-# Track failed commands for similarity-based history cleanup
-typeset -ga __failed_cmds=()
-
-# Similarity check: same command with minor arg differences
-__cmds_similar() {
-  local succ="$1" fail="$2"
-  
-  # Exact match (retry worked)
-  [[ "$succ" == "$fail" ]] && return 0
-  
-  # Same base command (first word)
-  local succ_cmd="${succ%% *}" fail_cmd="${fail%% *}"
-  [[ "$succ_cmd" != "$fail_cmd" ]] && return 1
-  
-  # Length difference > 30% = not similar
-  local -i len_s=${#succ} len_f=${#fail}
-  local -i max_len=$(( len_s > len_f ? len_s : len_f ))
-  local -i min_len=$(( len_s < len_f ? len_s : len_f ))
-  (( (max_len - min_len) * 100 / max_len > 30 )) && return 1
-  
-  # Compare char by char (simple diff count)
-  local -i diffs=0 i
-  for (( i=0; i<min_len; i++ )); do
-    [[ "${succ:$i:1}" != "${fail:$i:1}" ]] && (( diffs++ ))
-  done
-  (( diffs += max_len - min_len ))
-  
-  # Similar if <20% different
-  (( diffs * 100 / max_len < 20 ))
 }
 
 precmd() {
   local __last_exit=$?
   local -a __pstat=("${pipestatus[@]}")
 
-  # Welcome back + focus tracking
-  _track_focus
   _welcome_back
-
-  # Win celebration for tests/builds
-  [[ -n "$__last_cmd" ]] && _check_win $__last_exit "$__last_cmd"
 
   # Show PIPESTATUS if pipe with any failures
   if (( ${#__pstat} > 1 )); then
@@ -1499,28 +1155,6 @@ precmd() {
     esac
     [[ -n "$meaning" ]] && print -P "%F{243}exit $__last_exit: $meaning%f"
   fi
-
-  # History cleanup: remove similar failed commands when a command succeeds
-  # Deferred to background to avoid blocking the prompt
-  if [[ -n "$__last_cmd" ]]; then
-    if (( __last_exit != 0 )); then
-      __failed_cmds+=("$__last_cmd")
-      (( ${#__failed_cmds} > 10 )) && __failed_cmds=("${__failed_cmds[@]: -10}")
-    elif (( ${#__failed_cmds} > 0 )); then
-      local failed
-      for failed in "${__failed_cmds[@]}"; do
-        if __cmds_similar "$__last_cmd" "$failed"; then
-          local escaped="${failed//\//\\/}"
-          escaped="${escaped//\[/\\[}"
-          escaped="${escaped//\]/\\]}"
-          ( sed -i.bak "/;${escaped}$/d" "$HISTFILE" 2>/dev/null && rm -f "$HISTFILE.bak" ) &!
-        fi
-      done
-      __failed_cmds=()
-    fi
-  fi
-
-  unset __last_cmd
 
   # Show command duration + macOS notification for long commands
   if [[ -n $_command_start_time ]]; then
@@ -1598,10 +1232,6 @@ trash() {
   done
 }
 
-# === Colorize stderr (red) ===
-# Disabled: process substitution causes parse error messages
-# exec 2> >(while IFS= read -r line; do print -P "%F{203}$line%f" >&2; done)
-
 # === History Stats ===
 histstats() {
   print -P "%F{221}History Statistics%f"
@@ -1644,48 +1274,28 @@ function _accept_line_or_diffstat() {
 }
 zle -N accept-line _accept_line_or_diffstat
 
-export PATH="$HOME/.local/bin:$PATH"
-
 # Dynamic wallpaper project
 # ~/Pictures/dynamic-wallpaper/ - AI-generated wallpapers for time-based cycling
 # Use wallpapper CLI to build HEIC from images
 setopt HIST_VERIFY
-WORDCHARS='${WORDCHARS//[\/]}'
-zstyle ':completion:*' use-cache on
+# Default word set minus '/', so Ctrl+W stops at path components.
+WORDCHARS=${WORDCHARS//\//}
 export LESS="-R -F -X -i -J -W"
 
-# Remove command-not-found (127) entries from history after execution.
-# zshaddhistory can't check exit codes (fires before execution), so we
-# use precmd to retroactively delete the last history entry on 127.
-__prune_cmd_not_found() {
-    (( $? == 127 )) || return
-    fc -W
-    sed '$d' "$HISTFILE" >| "$HISTFILE.tmp" && command mv "$HISTFILE.tmp" "$HISTFILE"
-    fc -p "$HISTFILE" "$HISTSIZE" "$SAVEHIST"
-}
-precmd_functions+=(__prune_cmd_not_found)
-
-# Show git diff stat when entering dirty repo
-__git_dirty_reminder() {
-    [[ -d .git ]] && ! git diff --stat --quiet 2>/dev/null && git diff --stat 2>/dev/null | tail -1
-}
-chpwd_functions+=(__git_dirty_reminder)
-
-# Warn before large rm -rf
+# Preview size before a recursive rm. Only flag arguments count as
+# recursive, so a filename containing 'r' does not trigger the du.
 unalias rm 2>/dev/null
 rm() {
-    if [[ "$*" =~ "-rf" ]] || [[ "$*" =~ "-r" ]]; then
-        local target="${@[-1]}"
-        [[ -e "$target" ]] && local size=$(du -sh "$target" 2>/dev/null | cut -f1)
+    local arg target size
+    for arg in "$@"; do
+        [[ "$arg" == -*r* ]] || continue
+        target="${@[-1]}"
+        [[ -e "$target" ]] && size=$(du -sh "$target" 2>/dev/null | cut -f1)
         [[ -n "$size" ]] && print -P "%F{yellow}Removing $size%f"
-    fi
+        break
+    done
     command rm -v "$@"
 }
-
-# Auto-title terminal with current command/directory
-# NOTE: Terminal title is already handled by _set_terminal_title in precmd_functions (line 138)
-# and the main preexec/precmd functions. These duplicate definitions were overriding all
-# the sophisticated prompt functionality. Removed.
 
 # SSH key auto-add on first use
 ssh-add -l &>/dev/null || ssh-add --apple-use-keychain ~/.ssh/id_* 2>/dev/null
@@ -1694,14 +1304,17 @@ ulimit -n 10240
 # agents: refresh /tmp/agent-context (pi/codex/sketchybar consumption)
 [[ -r "$HOME/repo/dotfiles/.agents/zsh-precmd.zsh" ]] && source "$HOME/repo/dotfiles/.agents/zsh-precmd.zsh"
 
+# iTerm tab color: hue from project accent, brightness from commit recency.
+# Sourced after the direnv hook so PROMPT_ACCENT is current on each chpwd.
+export TAB_COLOR_AUTO=1
+[[ -r "$HOME/repo/dotfiles/.config/zsh/tab-color.zsh" ]] && source "$HOME/repo/dotfiles/.config/zsh/tab-color.zsh"
+
 # Added by codebase-memory-mcp install
-export PATH="/Users/rch/.local/bin:$PATH"
 export PATH="/opt/homebrew/sbin:$PATH"
 
 # >>> grok installer >>>
+# fpath entry moved above the primary compinit so the completions load.
 export PATH="$HOME/.grok/bin:$PATH"
-fpath=(~/.grok/completions/zsh $fpath)
-autoload -Uz compinit && compinit -C
 # <<< grok installer <<<
 
 # === scorecard: readiness TUI on a new interactive window ===
