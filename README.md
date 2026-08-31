@@ -1,6 +1,13 @@
 ### local dotfiles
 `git clone https://github.com/robert-chiniquy/dotfiles.git && cd dotfiles && ./install.sh`
 
+On a Chromebook (Crostini container), use `./chromebook-install.sh` instead:
+editors and terminal comfort only (vim, tmux, inputrc, ripgreprc, git aliases
+merged into the existing `~/.gitconfig`). It installs no agent config, no
+shell rc files, and no Homebrew packages; coding agents are not permitted on
+Chromebooks. Both installers move anything real they would displace into
+`~/.dotfiles-backup/<timestamp>/` rather than deleting it.
+
 ## New Machine Setup
 
 Full bootstrap for a fresh Mac, in order:

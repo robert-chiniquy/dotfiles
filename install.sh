@@ -21,6 +21,19 @@ UNLINK_DIR_FLAG=''
 # Ubuntu unlink doesn't take -d
 [ -e /etc/os-release ] && unset UNLINK_DIR_FLAG
 
+is_macos() { [[ "$OSTYPE" == darwin* ]]; }
+
+# Real (non-symlink) directories in the way of a link are moved here, never
+# deleted. The directory is only created if something actually needs saving.
+BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+backup_target() {
+  local dest
+  mkdir -p "$BACKUP_DIR"
+  dest="$BACKUP_DIR/$(basename "$1")"
+  while [ -e "$dest" ]; do dest="$dest.dup"; done
+  mv "$1" "$dest" && warn "Backed up $1 -> $dest"
+}
+
 [ -e .git ] || { echo ":/  Run from dotfiles repo root"; exit 1; }
 
 mkdir -p ~/.config
@@ -40,7 +53,7 @@ unlink_if_exists() {
   if [ -h "$1" ]; then
     unlink $UNLINK_DIR_FLAG "$1" && info "Unlinked $1"
   elif [ -d "$1" ]; then
-    rm -rf "$1" && info "Removed $1"
+    backup_target "$1"
   fi
 }
 
@@ -65,17 +78,20 @@ unlink_if_exists ~/.config/nvim
 unlink_if_exists ~/.config/yazi
 unlink_if_exists ~/.config/atuin
 unlink_if_exists ~/bin
-# Nushell config location on macOS
-unlink_if_exists ~/Library/Application\ Support/nushell
-# Window management
-unlink_if_exists ~/.yabairc
-unlink_if_exists ~/.skhdrc
-unlink_if_exists ~/.config/sketchybar
-unlink_if_exists ~/.config/borders
-unlink_if_exists ~/.config/yabai
-unlink_if_exists ~/.hammerspoon
-# Übersicht widgets (macOS only)
-if [[ "$OSTYPE" == darwin* ]]; then
+# Nushell config location differs per OS
+if is_macos; then
+  unlink_if_exists ~/Library/Application\ Support/nushell
+else
+  unlink_if_exists ~/.config/nushell
+fi
+# Window management + Übersicht widgets (macOS only)
+if is_macos; then
+  unlink_if_exists ~/.yabairc
+  unlink_if_exists ~/.skhdrc
+  unlink_if_exists ~/.config/sketchybar
+  unlink_if_exists ~/.config/borders
+  unlink_if_exists ~/.config/yabai
+  unlink_if_exists ~/.hammerspoon
   unlink_if_exists ~/Library/Application\ Support/Übersicht/widgets
 fi
 success "Cleanup done"
@@ -110,18 +126,21 @@ link_if_missing .config/yazi ~/.config/yazi
 link_if_missing .config/atuin ~/.config/atuin
 link_if_missing .config/erdtree ~/.config/erdtree
 link_if_missing bin ~/bin
-# Nushell config location on macOS
-mkdir -p ~/Library/Application\ Support
-link_if_missing .config/nushell ~/Library/Application\ Support/nushell
-# Window management
-link_if_missing .yabairc ~/.yabairc
-link_if_missing .skhdrc ~/.skhdrc
-link_if_missing .config/sketchybar ~/.config/sketchybar
-link_if_missing .config/borders ~/.config/borders
-link_if_missing .config/yabai ~/.config/yabai
-link_if_missing .hammerspoon ~/.hammerspoon
-# Übersicht widgets (macOS only)
-if [[ "$OSTYPE" == darwin* ]]; then
+# Nushell config location differs per OS
+if is_macos; then
+  mkdir -p ~/Library/Application\ Support
+  link_if_missing .config/nushell ~/Library/Application\ Support/nushell
+else
+  link_if_missing .config/nushell ~/.config/nushell
+fi
+# Window management + Übersicht widgets (macOS only)
+if is_macos; then
+  link_if_missing .yabairc ~/.yabairc
+  link_if_missing .skhdrc ~/.skhdrc
+  link_if_missing .config/sketchybar ~/.config/sketchybar
+  link_if_missing .config/borders ~/.config/borders
+  link_if_missing .config/yabai ~/.config/yabai
+  link_if_missing .hammerspoon ~/.hammerspoon
   mkdir -p ~/Library/Application\ Support/Übersicht
   link_if_missing ubersicht-widgets ~/Library/Application\ Support/Übersicht/widgets
 fi
@@ -143,7 +162,13 @@ fi
 
 # === Post-install ===
 header "Post-Install"
-spin "Updating submodules" git submodule update --init
+# Initialize only submodules declared in .gitmodules (stray gitlinks in the
+# index would otherwise abort the whole install). Not run through spin: gum
+# spin executes binaries, not shell loops.
+info "Updating submodules"
+git config --file .gitmodules --get-regexp '\.path$' | while read -r _ p; do
+  git submodule update --init -- "$p"
+done
 
 if command -v bat &>/dev/null; then
   spin "Rebuilding bat cache" bat cache --build
@@ -152,6 +177,9 @@ fi
 
 # === Done ===
 echo ""
+if [ -d "$BACKUP_DIR" ]; then
+  warn "Pre-existing directories were moved to $BACKUP_DIR"
+fi
 if command -v gum &>/dev/null; then
   gum style \
     --foreground="#5cecff" \
