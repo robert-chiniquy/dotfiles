@@ -67,7 +67,9 @@ _tab_color_for_pwd() {
   local name
   name=$(git rev-parse --show-toplevel 2>/dev/null) || name=$PWD
   name=${name:t}
-  local sum=${$(print -rn -- "$name" | cksum)%% *}
+  local sum
+  sum=$(print -rn -- "$name" | cksum)   # "CHECKSUM BYTECOUNT"
+  sum=${sum%% *}                         # keep the checksum field only
   print -r -- ${_TAB_PALETTE_ORDER[$(( sum % 5 + 1 ))]}
 }
 
