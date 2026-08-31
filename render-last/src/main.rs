@@ -55,17 +55,24 @@ enum Source {
     Stdin,
 }
 
+/// How to color rendered math: rotate through the palette, or pin one color.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ColorMode {
+    Rotate,
+    Fixed(String),
+}
+
 #[derive(Debug, PartialEq)]
 struct Args {
     source: Source,
-    color: String,
+    color: ColorMode,
     dpi: u32,
     list: bool,
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
     let mut source = Source::DefaultTranscript;
-    let mut color = "cyan".to_string();
+    let mut color = ColorMode::Rotate;
     let mut dpi: u32 = 130;
     let mut list = false;
     let mut i = 0;
@@ -85,8 +92,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             "--color" => {
                 i += 1;
                 let value = args.get(i).ok_or("--color requires a value")?;
-                color = value.clone();
+                color = ColorMode::Fixed(value.clone());
             }
+            "--rotate" => color = ColorMode::Rotate,
             "--dpi" => {
                 i += 1;
                 let raw = args.get(i).ok_or("--dpi requires a value")?;
@@ -129,6 +137,39 @@ fn resolve_color(input: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+/// The vaporwave palette in rotation order: pink, cyan, magenta, gold, purple.
+const PALETTE: [&str; 5] = ["ff0099", "5cecff", "ff00f8", "fbb725", "aa00e8"];
+
+/// `n` palette hexes starting at index `start` (wrapping) — one per math
+/// block, so each equation in a message gets the next color.
+fn rotate_colors(start: usize, n: usize) -> Vec<String> {
+    (0..n)
+        .map(|j| PALETTE[(start + j) % PALETTE.len()].to_string())
+        .collect()
+}
+
+fn rotate_state_path() -> PathBuf {
+    home_dir().join(".local/state/render-last/rotate-index")
+}
+
+/// Persisted rotation offset, so successive invocations keep cycling instead
+/// of restarting at pink each time. Absent or garbled reads as 0.
+fn read_rotate_start() -> usize {
+    fs::read_to_string(rotate_state_path())
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .map(|v| v % PALETTE.len())
+        .unwrap_or(0)
+}
+
+fn write_rotate_start(next: usize) {
+    let path = rotate_state_path();
+    if let Some(dir) = path.parent() {
+        let _ = fs::create_dir_all(dir);
+    }
+    let _ = fs::write(&path, (next % PALETTE.len()).to_string());
 }
 
 // ---------------------------------------------------------------------
@@ -562,12 +603,12 @@ fn render_block_in_dir(run_dir: &Path, tex_path: &Path, dpi: u32) -> Result<Stri
     Ok(iterm_inline_image_escape(&png_bytes))
 }
 
-fn render_message(markdown: &str, spans: &[Span], hex6: &str, dpi: u32) -> String {
+fn render_message(markdown: &str, spans: &[Span], colors: &[String], dpi: u32) -> String {
     let mut out = String::with_capacity(markdown.len());
     let mut last = 0;
-    for span in spans {
+    for (idx, span) in spans.iter().enumerate() {
         out.push_str(&markdown[last..span.start]);
-        match render_block(&span.latex, hex6, dpi) {
+        match render_block(&span.latex, &colors[idx], dpi) {
             Ok(escape) => {
                 out.push('\n');
                 out.push_str(&escape);
@@ -599,10 +640,13 @@ fn main() {
         }
     };
 
-    let Some(hex6) = resolve_color(&args.color) else {
-        eprintln!("render-last: unrecognized --color value: {}", args.color);
-        exit(1);
-    };
+    // Validate a pinned color up front; rotation needs no validation.
+    if let ColorMode::Fixed(c) = &args.color {
+        if resolve_color(c).is_none() {
+            eprintln!("render-last: unrecognized --color value: {c}");
+            exit(1);
+        }
+    }
 
     let markdown = match load_markdown(&args.source) {
         Ok(m) => m,
@@ -624,9 +668,18 @@ fn main() {
         return;
     }
 
+    let colors: Vec<String> = match &args.color {
+        ColorMode::Fixed(c) => vec![resolve_color(c).unwrap(); spans.len()],
+        ColorMode::Rotate => {
+            let start = read_rotate_start();
+            write_rotate_start(start + spans.len());
+            rotate_colors(start, spans.len())
+        }
+    };
+
     check_tools_available();
     maybe_print_first_run_hint();
-    print!("{}", render_message(&markdown, &spans, &hex6, args.dpi));
+    print!("{}", render_message(&markdown, &spans, &colors, args.dpi));
 }
 
 // ---------------------------------------------------------------------
@@ -659,6 +712,24 @@ mod tests {
         assert_eq!(resolve_color("notacolor"), None);
         assert_eq!(resolve_color("12345"), None); // too short
         assert_eq!(resolve_color("gggggg"), None); // not hex digits
+    }
+
+    #[test]
+    fn rotate_colors_cycles_the_palette_from_the_start_offset() {
+        assert_eq!(rotate_colors(0, 1), vec!["ff0099".to_string()]); // pink first
+        assert_eq!(
+            rotate_colors(0, 6),
+            ["ff0099", "5cecff", "ff00f8", "fbb725", "aa00e8", "ff0099"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+        );
+        // wraps and starts at the given offset
+        assert_eq!(
+            rotate_colors(4, 2),
+            vec!["aa00e8".to_string(), "ff0099".to_string()]
+        );
+        assert!(rotate_colors(0, 0).is_empty());
     }
 
     // --- find_block_math ---
@@ -891,10 +962,10 @@ mod tests {
     // --- parse_args ---
 
     #[test]
-    fn parse_args_defaults_to_transcript_source_cyan_dpi_130() {
+    fn parse_args_defaults_to_transcript_source_rotate_dpi_130() {
         let args = parse_args(&[]).unwrap();
         assert_eq!(args.source, Source::DefaultTranscript);
-        assert_eq!(args.color, "cyan");
+        assert_eq!(args.color, ColorMode::Rotate);
         assert_eq!(args.dpi, 130);
         assert!(!args.list);
     }
@@ -921,7 +992,7 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(args.source, Source::File("/tmp/x.md".to_string()));
-        assert_eq!(args.color, "gold");
+        assert_eq!(args.color, ColorMode::Fixed("gold".to_string()));
         assert_eq!(args.dpi, 200);
         assert!(args.list);
 
@@ -932,6 +1003,20 @@ mod tests {
     #[test]
     fn parse_args_dry_run_is_an_alias_for_list() {
         assert!(parse_args(&["--dry-run".to_string()]).unwrap().list);
+    }
+
+    #[test]
+    fn parse_args_rotate_flag_and_color_flag_set_color_mode() {
+        assert_eq!(
+            parse_args(&["--rotate".to_string()]).unwrap().color,
+            ColorMode::Rotate
+        );
+        assert_eq!(
+            parse_args(&["--color".to_string(), "pink".to_string()])
+                .unwrap()
+                .color,
+            ColorMode::Fixed("pink".to_string())
+        );
     }
 
     #[test]
