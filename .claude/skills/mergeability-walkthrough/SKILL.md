@@ -24,6 +24,9 @@ decision walk after a set is in hand.
 
 ## Common Mistakes
 
+- Walking in subject-matter order, or opening on the most interesting PR. The
+  one needing a decision you cannot resolve stalls the walk with the easy
+  merges still unasked behind it.
 - Acting between cards without an explicit "Act now on what you've got"
   (collect-then-execute is the default).
 - Presenting a stale observation or an assumption as a verified current fact.
@@ -56,12 +59,13 @@ decision walk after a set is in hand.
 - Merging on review state observed earlier in the walk without the
   last-second sweep for review comments that landed since.
 - A card or question that does not contain the PR's full `https://github.com/owner/repo/pull/N` URL as visible copyable text (title-only, `#N`, or a markdown link whose anchor hides the URL).
+- Treating a rejected `(Recommended)` choice as noise. A non-recommended pick is a data point: note it, hypothesize why, adapt later cards. Do not re-argue the old recommendation.
 
 ## When to use
 
 - Walk PRs, decide mergeability, greenlight merges.
-- After a mergeability list: convert into this walk (highest-value ready first;
-  respect stack bottoms before children).
+- After a mergeability list: convert into this walk, sorted simplest
+  resolution first (step 1); stack bottoms still precede their children.
 
 ## Protocol
 
@@ -85,9 +89,21 @@ decision walk after a set is in hand.
    close, RFR) still wait for authorization; this step is everything before
    those.
 
-1. **Order** — Prefer: product-critical first; docs/low-risk next; shared
-   libraries carefully; **stacks bottom-up**; experimental / external-SDK last
-   or skip. Project skills may override order for domain stacks.
+1. **Order: simplest resolution first.** Sort by the work standing between the
+   PR and merge, not by subject matter: green with no open threads → needs a
+   rebase or a re-run → has threads to address → needs a decision from the
+   human → blocked on another PR or repo. Sort AFTER step 0.7, since bringing
+   a PR to readiness can move it up a tier.
+
+   A walk of N PRs is N turns of the human's attention. Opening with the PR
+   most likely to stall spends it on the one decision that cannot be closed in
+   that turn, and the trivial merges never get asked. Landing the easy ones
+   first also changes what is left, since each merge re-bases the rest.
+
+   Tiebreak within a tier: product-critical first; docs/low-risk next; shared
+   libraries carefully; experimental / external-SDK last or skip. Stacks
+   override the sort: bottom-up regardless of which tier each PR is in.
+   Project skills may override the tiebreak for domain stacks.
 
 2. **UI**
    - Default: one multiple-choice card (`ask_user_question`) per PR; wait for
@@ -166,6 +182,11 @@ decision walk after a set is in hand.
 6. **After each answer** — record the decision and show the next card. Act
    only at the end of the pass, on an "Act now on what you've got", or on a
    directly named action — and never beyond what was authorized.
+   If the pick was not `(Recommended)`, treat that as evidence: write a
+   short note (what they chose vs what you offered, and a hypothesis —
+   wrong gate, they want RFR not merge, different workstream, they
+   waived a risk you treated as blocking). Use it on later cards. Do not
+   re-ask or defend the unused recommendation.
 
 7. **Executing accumulated merges (no queue)** — sequentially: update each
    PR onto the moved trunk, wait for full CI green against that exact base,
