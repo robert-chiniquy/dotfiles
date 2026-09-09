@@ -6,9 +6,9 @@
 //! text output by hand.
 //!
 //! Usage:
-//!   iterm-restore                # default: resume sessions in place (already-open tabs)
+//!   iterm-restore                # default: open one fresh window, one tab per session
 //!   iterm-restore --list | -l    # print an inventory table, write nothing
-//!   iterm-restore --new-window   # open one fresh window, one tab per session
+//!   iterm-restore --in-place     # resume sessions in already-open tabs (matched by tty)
 //!   iterm-restore -o PATH        # write the emitted script to PATH
 //!   iterm-restore snapshot       # inventory now, save a restore script + meta to a state dir
 //!   iterm-restore check          # fast, no-osascript: print a hint if the last snapshot
@@ -146,7 +146,7 @@ struct Args {
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
-    let mut mode = Mode::InPlace;
+    let mut mode = Mode::NewWindow;
     let mut out = None;
     let mut force = false;
     let mut interval = None;
@@ -2068,9 +2068,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_args_defaults_to_in_place_and_parses_output_path() {
+    fn parse_args_defaults_to_new_window_and_parses_output_path() {
         let args = parse_args(&["-o".to_string(), "/tmp/x.sh".to_string()]).unwrap();
-        assert_eq!(args.mode, Mode::InPlace);
+        assert_eq!(args.mode, Mode::NewWindow);
         assert_eq!(args.out.as_deref(), Some("/tmp/x.sh"));
 
         let args = parse_args(&["--list".to_string()]).unwrap();
@@ -2078,6 +2078,18 @@ mod tests {
 
         assert!(parse_args(&["-o".to_string()]).is_err());
         assert!(parse_args(&["--bogus".to_string()]).is_err());
+    }
+
+    #[test]
+    fn parse_args_in_place_flag_opts_into_in_place() {
+        assert_eq!(
+            parse_args(&["--in-place".to_string()]).unwrap().mode,
+            Mode::InPlace
+        );
+        assert_eq!(
+            parse_args(&["--new-window".to_string()]).unwrap().mode,
+            Mode::NewWindow
+        );
     }
 
     #[test]
