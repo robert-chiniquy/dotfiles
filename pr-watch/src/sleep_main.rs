@@ -16,6 +16,7 @@ usage: sleep-report prime
 --since   print SLEEP <dur> if the laptop slept since the last look,
           then update ~/.config/sleep-report/cursor.json. Silent if none.
           First look is silent (records the cursor only).
+          A second look within 10 seconds exits 0 with no sysctl.
 --hook    same check; if SLEEP, print UserPromptSubmit additionalContext JSON
           (for a Grok/Claude hook). Silent if none.
 
@@ -74,8 +75,10 @@ fn main() -> ExitCode {
         Err(e) => {
             // First-run or non-Darwin: record cursor so the next look works.
             if e.contains("sysctl") {
+                let now = now_unix();
                 let _ = SleepCursor {
-                    last_seen: now_unix(),
+                    last_seen: now,
+                    last_run: now,
                 }
                 .save(&state_dir());
             }

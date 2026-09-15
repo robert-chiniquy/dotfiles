@@ -41,6 +41,9 @@ Never suggest these again:
 
 # Applied
 
+## 2026-09-15: sleep-report 10s look cooldown
+`--since` and `--hook` stamp `last_run` on `cursor.json` before sysctl. A second look within 10 seconds exits 0 with no sysctl and without moving `last_seen`. Installed `~/bin/sleep-report` from `dotfiles/pr-watch`.
+
 ## 2026-07-30: One canonical skill tree across harnesses
 ```text
 ~/.claude/skills/ -> canonical source

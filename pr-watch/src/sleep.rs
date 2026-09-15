@@ -7,9 +7,17 @@ use std::time::Duration;
 
 use crate::store::now_unix;
 
+/// Minimum gap between `--since` / `--hook` looks. A second invocation
+/// inside this window exits without sysctl or cursor writes.
+pub const LOOK_MIN_INTERVAL_SECS: i64 = 10;
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SleepCursor {
     pub last_seen: i64,
+    /// Unix seconds of the last `--since` / `--hook` look. Distinct from
+    /// `last_seen` so a skipped rerun does not advance the sleep cursor.
+    #[serde(default)]
+    pub last_run: i64,
 }
 
 pub fn state_dir() -> PathBuf {
@@ -45,9 +53,9 @@ impl SleepCursor {
         fs::write(&tmp, &body).map_err(|e| format!("write {}: {e}", tmp.display()))?;
         let parsed: SleepCursor =
             serde_json::from_str(&body).map_err(|e| format!("reparse cursor: {e}"))?;
-        if parsed.last_seen != self.last_seen {
+        if parsed.last_seen != self.last_seen || parsed.last_run != self.last_run {
             let _ = fs::remove_file(&tmp);
-            return Err("sleep cursor write lost last_seen".into());
+            return Err("sleep cursor write lost last_seen or last_run".into());
         }
         fs::rename(&tmp, &path).map_err(|e| format!("rename {}: {e}", path.display()))
     }
@@ -131,11 +139,24 @@ pub fn read_kern_sleep_wake() -> Result<(i64, i64), String> {
     }
 }
 
+/// True when `now` is strictly less than 10s after `last_run`.
+/// `last_run == 0` means never looked; that is never too soon.
+pub fn look_is_too_soon(last_run: i64, now: i64) -> bool {
+    last_run > 0 && now >= last_run && now - last_run < LOOK_MIN_INTERVAL_SECS
+}
+
 /// Catch-up vs stored last_seen. First look records the cursor and is silent
 /// (does not replay the last sleep from before we started tracking).
+/// A look within 10s of the previous `--since`/`--hook` returns `Ok(None)`
+/// without sysctl and without moving `last_seen`.
 pub fn catch_up_sleep(dir: &Path) -> Result<Option<Duration>, String> {
     let mut cur = SleepCursor::load(dir)?;
     let now = now_unix();
+    if look_is_too_soon(cur.last_run, now) {
+        return Ok(None);
+    }
+    cur.last_run = now;
+    cur.save(dir)?;
     let first = cur.last_seen == 0;
     let (sleep_sec, wake_sec) = read_kern_sleep_wake()?;
     let slept = if first {
@@ -206,6 +227,53 @@ mod tests {
     fn parse_darwin_sysctl_line() {
         let line = "kern.sleeptime: { sec = 1786742817, usec = 700395 } Fri Aug 14 14:26:57 2026";
         assert_eq!(parse_sysctl_sec(line), Some(1_786_742_817));
+    }
+
+    #[test]
+    fn look_is_too_soon_window() {
+        assert!(!look_is_too_soon(0, 1_000));
+        assert!(look_is_too_soon(1_000, 1_000));
+        assert!(look_is_too_soon(1_000, 1_009));
+        assert!(!look_is_too_soon(1_000, 1_010));
+        assert!(!look_is_too_soon(1_000, 999));
+    }
+
+    #[test]
+    fn old_cursor_json_missing_last_run_is_zero() {
+        let dir = std::env::temp_dir().join(format!(
+            "sleep-report-old-cursor-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("cursor.json"), "{\"last_seen\":50}\n").unwrap();
+        let cur = SleepCursor::load(&dir).unwrap();
+        assert_eq!(cur.last_seen, 50);
+        assert_eq!(cur.last_run, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn repeat_look_within_ten_seconds_leaves_cursor() {
+        let dir = std::env::temp_dir().join(format!(
+            "sleep-report-repeat-look-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let now = now_unix();
+        SleepCursor {
+            last_seen: 100,
+            last_run: now,
+        }
+        .save(&dir)
+        .unwrap();
+        let slept = catch_up_sleep(&dir).unwrap();
+        assert!(slept.is_none());
+        let cur = SleepCursor::load(&dir).unwrap();
+        assert_eq!(cur.last_seen, 100);
+        assert_eq!(cur.last_run, now);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
