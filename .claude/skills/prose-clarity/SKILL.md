@@ -28,6 +28,10 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - A product word (`worker`, `extract`, `grant path`) used before the reader has it. TONE 93. Prefer a phrase that carries the job over overexplaining. Nested: word in sentence, sentence in passage, passage in section, section in post. Would an engineer who has only read up to this sentence already have this word?
 - An author/LLM reminder in the post ("GAP was already on the original reference list"; "DFA-regular is a different use of the word"). TONE 94. Put it in NOTES.md.
 - A statement that is untrue as stated ("the book is the computation"). TONE 95.
+- Passive with an unclear actor. TONE 100.
+- A C1 failure in the indicative. TONE 101.
+- The same tool inadequacy restated in three sections. TONE 102.
+- Indicative for a language the listing is not written in. TONE 103.
 - One sentence that asks the reader to hold more than two new loads. TONE 96. "emptiness" without a gloss. TONE 97.
 - Three consecutive sentences of the same template. TONE 99.
 
@@ -58,3 +62,6 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 - No author/LLM reminder in the post
 - No statement that is untrue as stated
 - One sentence, one new load; no unexplained emptiness
+- Passive names the actor
+- C1 failures are counterfactual
+- Tool inadequacy stated once
