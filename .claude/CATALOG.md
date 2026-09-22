@@ -77,6 +77,7 @@ skill bodies**, not only this index.
 | questioning-the-user | Multiple pending decisions → one at a time |
 | terms-pass | Series TERMS.md gloss pass: one file, one term at a time, drafts wait |
 | information-flow | Nested conceptual-progress outline, then reorder the post if the outline is better |
+| prose-clarity | Paragraph reconstruction: fact vs example, sentence order, no 3-5 word identification runs |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |

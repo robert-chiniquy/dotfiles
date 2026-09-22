@@ -5,13 +5,13 @@ description: Proof-read large-scale information flow. A subagent outlines concep
 
 # Information flow
 
-Proof-reading for whether the reader meets each claim in an order that earns the next. Headings are a symptom. The outline is the object.
+Proof-reading for whether the reader meets each claim in an order that earns the next. Headings are a symptom. The outline is the object. Grain is the post (paragraphs as nodes) or a paragraph (sentences as nodes). Same four axes. Paragraph grain is `prose-clarity`.
 
 ## Common Mistakes
 
 - Outlining H2 titles. The outline is conceptual progress: after this beat, the reader has this claim.
 - Parent writing the outline, then reviewing it. MUST spawn a subagent for the outline. Parent only reviews.
-- Reordering sentences inside a beat when the defect is section order.
+- Reordering sentences inside a beat when the defect is section order (post grain). At paragraph grain, sentence order is the job (`prose-clarity`).
 - Splitting an exhibit from the claim it supports.
 - Adding a claim, a name, or a second concept to paper over a hole (TONE 21). Reorder only.
 - Undoing an owner-locked order (exhibit before any reference; Carter diagrams as the first group picture; scene then C1 object then mechanism) unless the user is revisiting that lock.
