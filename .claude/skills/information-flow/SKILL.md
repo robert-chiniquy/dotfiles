@@ -9,7 +9,7 @@ Proof-reading for whether the reader meets each claim in an order that earns the
 
 ## Common Mistakes
 
-- Outlining H2 titles. The outline is conceptual progress: after this beat, the reader has this claim.
+- Outlining H2 titles. The outline is conceptual progress: after this beat, the reader has this claim. When headings exist, they track that walk (`rch-editor` section titles).
 - Parent writing the outline, then reviewing it. MUST spawn a subagent for the outline. Parent only reviews.
 - Reordering sentences inside a beat when the defect is section order (post grain). At paragraph grain, sentence order is the job (`prose-clarity`).
 - Splitting an exhibit from the claim it supports.

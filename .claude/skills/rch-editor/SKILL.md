@@ -34,6 +34,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Overwriting a published gist file from the local unpublished tail. The gist is the latest draft.
 - Polishing an unread tail after the author asked to stop. That cut is the intended end.
 - Citation baggage (series number, press, year) next to a title the reader can click. Keep the year when it is the result.
+- Mixing a concept-name H2 with a claim H2 in the same post. Section titles progress. A numbered sequence keeps one template. Two headings for one node collapse.
 
 ## Whole piece
 
@@ -67,6 +68,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 7. When a decomposition lets you skip enumeration, the remaining parts no longer *need* to be listed. Obligation, not a completed skip.
 8. Closer: security domain, everything. After-states, not avoided failures. Real C1 SaaS codebases, any scale. Not one application. Not an enumeration bound.
 9. Title is a blog claim, not the concept name alone. Vary. MUST NOT title every post `Residuation`, `Classifiers`, `Phantom union`.
+10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
 
 ## Before finishing
 
@@ -74,4 +76,4 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 - One walk; no unearned instrument; no second essay after the landing
 - Classifiers named if membership of program objects appears
 - Closer: security domain is everything; after-states; C1 SaaS codebases at whatever scale
-- Spoken host present; outline not announced; published post matches gist after pull
+- Spoken host present; outline not announced; published post matches gist after pull; section titles progress
