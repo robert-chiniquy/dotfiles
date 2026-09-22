@@ -14,7 +14,9 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Opening on the failure. Who is speaking, what C1 is, and which jobs this post sits in come first. Then the scene.
 - Copying another post's ethos. The greeting and one C1 sentence may repeat. The jobs named after that are only the surfaces this post will analyze.
 - Naming connectors (or grants, wraps, sessions) because a sibling post did. If this post is not about ingest, downloads, or grant-applying jobs, connectors stay off the page.
-- Copying another post's Imagine-if. The scene is the failure mode this topic prevents, not a weekend deadlock unless this post is about lock-order.
+- Copying another post's Imagine-if. The scene is the failure mode this topic prevents, not a weekend deadlock unless this post is about lock-order. MUST NOT open every scene with `Imagine if`.
+- Stamping `Hi! My name is Robert` and the full C1 platform sentence on every post. First person, named, in ethos. The greeting varies. The platform one-liner belongs once in the series, not in every lede.
+- Linking [How complex systems fail](https://how.complexsystems.fail/) in every post. Cite that page at most once in the series. Later posts may say the class is latent without the URL, or skip that sentence when the scene already shows the class.
 - A product or job noun in the scene before ethos has named that job.
 - Parking a later mechanism in the lede. Resume, durability, representation, and cousins live where they are the object under study.
 - Contrasting a language the exhibit is not written in. The listing is the object.
@@ -23,7 +25,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Hiding Classifiers. When program objects become membership in a set, name C1's set model.
 - Past tense for a living theorem or analysis. The year of a result stays past.
 - One model of the source. Many models; several questions of one body. The analysis factors the model a semantics presents, not a unique table of the file.
-- A C1 failure as a present fact. The incident stays Imagine if. Industry-wide latent possibility is fine.
+- A C1 failure as a present fact. The incident stays counterfactual (subjunctive, a case we refuse). The opener of that scene varies.
 - A second essay after the result has landed (other checkers, other writings of the same cut). End at the cousin that already did this categorically, then one closer. If there is no cousin, the landing is the result itself, then the closer.
 - Closing on "the whole product" or on an enumeration bound. Correctness in the security domain is everything. Each outcome is the intended after-state. The method still asks those questions of the real C1 SaaS codebases, at whatever scale.
 - A review that is merely not frozen. The review is of all current state.
@@ -38,7 +40,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 The post is one walk. Score these properties before local cuts. Do not force every post through the same nodes.
 
 1. Ethos is node one: name, C1 in one sentence, then the jobs this post actually sits in. Not a roster of every C1 surface. 24x7 only if those jobs run that way and this post is about that run.
-2. If the scene is an incident: one customer, the failure this topic prevents, latent in services that share that architecture. A class of failure, not a unique disaster, and not a copied freeze of the grant list.
+2. If the scene is an incident: one customer, the failure this topic prevents. Opener varies: a Friday that already unfolded in the subjunctive, the object gone wrong in present tense, `Suppose`, the exhibit first. Not `Imagine if` as the series default.
 3. Why now is this topic's combinations. Shipping and agentic development only if this post is about analysis volume. MUST NOT paste "open-source connectors" into a post that is not about connectors.
 4. Name the traditional method as a category (what it is, what a member is, why it exists), then C1's exhibit in the language the shop actually uses.
 5. A job or mechanism lives in the beat where it is the object under study.
@@ -50,7 +52,7 @@ MUST NOT open on the scene. MUST NOT park a later mechanism in ethos. MUST NOT s
 
 ## Spoken host (standing)
 
-First person, named, greeting (`Hi!`). Informal praise of a tool or book the author actually uses (`cool library/app`, `another cool book`). Hold through a hard turn (`But trust me, this is all going somewhere`). Label an ordinary exhibit ordinary (`Believable.`). Stretch a metaphor as `Think of X as "Y"`. `You` only for a cousin the reader may already know (`You may have also seen`). Parenthetical obsession is allowed (`I'm sorry, I'm obsessed with this topic`). The closer may be spoken (`Awesome right?` energy); its job is still security-domain correctness as everything, not a suffix on an unread tail.
+First person, named, somewhere in ethos. Greeting varies: `Hi!`, `I'm Robert`, job then name, name then job. MUST NOT open every post with `Hi! My name is Robert.` Informal praise of a tool or book the author actually uses (`cool library/app`, `another cool book`). Hold through a hard turn (`But trust me, this is all going somewhere`). Label an ordinary exhibit ordinary (`Believable.`). Stretch a metaphor as `Think of X as "Y"`. `You` only for a cousin the reader may already know (`You may have also seen`). Parenthetical obsession is allowed (`I'm sorry, I'm obsessed with this topic`). The closer may be spoken (`Awesome right?` energy); its job is still security-domain correctness as everything, not a suffix on an unread tail. Those asides are a pool, not a checklist to hit every post.
 
 Hold at a turn. MUST NOT announce the outline (`this section covers`).
 
@@ -67,7 +69,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 
 ## Before finishing
 
-- Ethos before scene; jobs are this post's; scene is this topic's failure mode
+- Ethos before scene; jobs are this post's; scene is this topic's failure mode; greeting and scene opener are not the series stamp
 - One walk; no unearned instrument; no second essay after the landing
 - Classifiers named if membership of program objects appears
 - Closer: security domain is everything; after-states; C1 SaaS codebases at whatever scale
