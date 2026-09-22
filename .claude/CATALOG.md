@@ -79,8 +79,8 @@ skill bodies**, not only this index.
 | information-flow | Nested conceptual-progress outline, then reorder the post if the outline is better |
 | prose-clarity | Paragraph reconstruction: fact vs example, sentence order, no 3-5 word identification runs |
 | scale-review | After a prose fix, re-audit every grain before presenting |
-| editor-diff-cycle | User edits a draft; agent isolates the diff by section and grain into a named persona |
-| rch-editor | (filled after first editor-diff-cycle on a draft) |
+| editor-diff-cycle | User edits a draft; isolate by section and by whole-piece structure into a named persona |
+| rch-editor | Author's KR-draft revision: ethos first, spoken host, cut unearned beats, end at the categorical cousin |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |

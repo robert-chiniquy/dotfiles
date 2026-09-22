@@ -16,7 +16,7 @@ Proof-reading for whether the reader meets each claim in an order that earns the
 - Adding a claim, a name, or a second concept to paper over a hole (TONE 21). Reorder only.
 - Undoing an owner-locked order (exhibit before any reference; Carter diagrams as the first group picture; scene then C1 object then mechanism) unless the user is revisiting that lock.
 - Shipping a new outline without rewriting the post to match, or rewriting the post without writing the outline first.
-- Skipping ethos. Author named, one sentence of the C1 job this post sits in, is a node. An outline that jumps from the scene to `2^n` without that node is incomplete.
+- Skipping ethos. Author named, one sentence of the C1 job this post sits in, is a node. An outline that jumps from the scene to `2^n` without that node is incomplete. KR-like posts: ethos before the incident (`rch-editor`).
 - Treating a product as a pile of named surfaces. C1 is one picture (who has access to what). Later names are parts of that picture.
 - A list of components with mixed stature (connectors next to session `match_cel` next to C1's Go) with no job on each line. TONE 69.
 - Vague `it` for a technical object. TONE 68. The outline names the object.
