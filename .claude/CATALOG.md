@@ -80,7 +80,7 @@ skill bodies**, not only this index.
 | prose-clarity | Paragraph reconstruction: fact vs example, sentence order, no 3-5 word identification runs |
 | scale-review | After a prose fix, re-audit every grain before presenting |
 | editor-diff-cycle | User edits a draft; isolate by section and whole-piece structure; generalize off the source draft into a named series-wide persona |
-| rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, end at the landing plus a closer |
+| rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, gist is latest published draft |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |

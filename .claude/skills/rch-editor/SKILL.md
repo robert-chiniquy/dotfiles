@@ -7,6 +7,8 @@ description: Author's voice for C1 engineering-blog prose. Use when editing a po
 
 Spoken host is the standing register. Ethos before the scene. One walk; end at the landing, then one closer.
 
+Published posts live in the series gist (clone `/Users/rch/repo/research/equational-reasoning/gist/`, https://gist.github.com/robert-chiniquy/aa2ef88faf0eac08b4a1f86cc6ad8027). A file linked from that `OUTLINE.md` is the latest draft of that post. MUST `git pull --ff-only` before editing it. MUST NOT overwrite it from a local unpublished `DRAFT.md`. A gist edit is a persona cycle: generalize it into this file.
+
 ## Common Mistakes
 
 - Opening on the failure. Who is speaking, what C1 is, and which jobs this post sits in come first. Then the scene.
@@ -20,6 +22,11 @@ Spoken host is the standing register. Ethos before the scene. One walk; end at t
 - One model of the source. Many models; several questions of one body. The analysis factors the model a semantics presents, not a unique table of the file.
 - A C1 failure as a present fact. The incident stays Imagine if. Industry-wide latent possibility is fine.
 - A second essay after the result has landed (other checkers, other writings of the same cut). End at the cousin that already did this categorically, then one closer. If there is no cousin, the landing is the result itself, then the closer.
+- Closing on "the whole product" or on an enumeration bound. Correctness in the security domain is everything. Each outcome is the intended after-state. The method still asks those questions of the real C1 SaaS codebases, at whatever scale.
+- A review that is merely not frozen. The review is of all current state.
+- A privilege that does not come back, unnamed. It is a removed privilege that does not come back.
+- One C1 application. C1 is SaaS codebases.
+- Overwriting a published gist file from the local unpublished tail. The gist is the latest draft.
 - Polishing an unread tail after the author asked to stop. That cut is the intended end.
 - Citation baggage (series number, press, year) next to a title the reader can click. Keep the year when it is the result.
 
@@ -34,13 +41,13 @@ The post is one walk. Score these properties before local cuts. Do not force eve
 5. A job or mechanism lives in the beat where it is the object under study.
 6. Hold at the turn, then the result this post is for.
 7. Name Classifiers at the membership joint.
-8. After the result lands, a cousin that already did the categorical version of this move is allowed. Then one concluding paragraph that returns to proving correctness of a real security application. Then stop.
+8. After the result lands, a cousin that already did the categorical version of this move is allowed. Then one concluding paragraph: correctness in the security domain is everything. Name the intended after-states (a grant that lands, a review of all current state, a removed privilege that does not come back). The method still asks those questions of the real C1 SaaS codebases, at whatever scale. Then stop.
 
 MUST NOT open on the scene. MUST NOT park a later mechanism in ethos. MUST NOT start a second essay after the landing.
 
 ## Spoken host (standing)
 
-First person, named, greeting (`Hi!`). Informal praise of a tool or book the author actually uses (`cool library/app`, `another cool book`). Hold through a hard turn (`But trust me, this is all going somewhere`). Label an ordinary exhibit ordinary (`Believable.`). Stretch a metaphor as `Think of X as "Y"`. `You` only for a cousin the reader may already know (`You may have also seen`). Parenthetical obsession is allowed (`I'm sorry, I'm obsessed with this topic`). The closer may be spoken (`Awesome right?` energy); its job is still the product closer, not a suffix on an unread tail.
+First person, named, greeting (`Hi!`). Informal praise of a tool or book the author actually uses (`cool library/app`, `another cool book`). Hold through a hard turn (`But trust me, this is all going somewhere`). Label an ordinary exhibit ordinary (`Believable.`). Stretch a metaphor as `Think of X as "Y"`. `You` only for a cousin the reader may already know (`You may have also seen`). Parenthetical obsession is allowed (`I'm sorry, I'm obsessed with this topic`). The closer may be spoken (`Awesome right?` energy); its job is still security-domain correctness as everything, not a suffix on an unread tail.
 
 Hold at a turn. MUST NOT announce the outline (`this section covers`).
 
@@ -53,11 +60,12 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 5. Present tense for what the analysis still does. Past tense for the year of a result.
 6. When a subsection resumes an earlier exhibit, name the resume (`Back to the example above`).
 7. When a decomposition lets you skip enumeration, the remaining parts no longer *need* to be listed. Obligation, not a completed skip.
+8. Closer: security domain, everything. After-states, not avoided failures. Real C1 SaaS codebases, any scale. Not one application. Not an enumeration bound.
 
 ## Before finishing
 
 - Ethos before scene; jobs named before they appear in the scene
 - One walk; no unearned instrument; no second essay after the landing
 - Classifiers named if membership of program objects appears
-- Closer returns to proving correctness of a real security application
-- Spoken host present; outline not announced
+- Closer: security domain is everything; after-states; C1 SaaS codebases at whatever scale
+- Spoken host present; outline not announced; published post matches gist after pull

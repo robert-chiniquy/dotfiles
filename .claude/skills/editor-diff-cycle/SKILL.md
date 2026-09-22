@@ -7,10 +7,13 @@ description: After the user edits a draft in the editor, isolate their changes b
 
 The user edits. The agent does not. When they say they are done, the agent reads the diff, not the chat. Isolation may quote the source draft. The persona MUST NOT mention or reference that draft. It applies to the rest of the posts.
 
+If the post is already on the series gist, that gist file is the latest draft. MUST `git pull --ff-only` the gist clone before editing or mining. The local unpublished `DRAFT.md` is not the object. A gist edit is a cycle: generalize it into the series persona.
+
 ## Common Mistakes
 
 - Editing the draft while they are in the file. MUST NOT.
 - Diffing against a dirty baseline. MUST commit or stash first so `git diff HEAD -- <file>` is only their pass.
+- Mining a local unpublished `DRAFT.md` after the post is on the gist. MUST pull the gist clone. That file is the latest draft.
 - One subagent on the whole file. MUST fan out by section (H2 / outline nodes) and by grain (word, sentence, paragraph, section, post).
 - Fan-out that stops at H2. MUST also spawn one gestalt / holistic reviewer of the overall change of the structure of the whole piece.
 - Mixing their intent with prior TONE numbers. Characterize *this* pass first, then generalize.
@@ -21,8 +24,8 @@ The user edits. The agent does not. When they say they are done, the agent reads
 
 ## Cycle
 
-1. Pin baseline: working tree clean for the named file. Open that markdown in the editor. Stop.
-2. On "done": `git diff HEAD -- <file>` is the object. Spawn read-only subagents:
+1. Pin baseline: working tree clean for the named file. If the post is on the series gist, the named file is the gist clone after `git pull --ff-only`. Open that markdown in the editor. Stop.
+2. On "done": `git diff HEAD -- <file>` is the object (gist clone if published). Spawn read-only subagents:
    - one per section, each scoring small-to-large grains. Each returns a discrete list: location, before, after, grain, one-line characterization.
    - one gestalt / holistic reviewer of the whole piece. Returns: nested outline of conceptual progress before vs after (claims the reader now has, not headings); numbered whole-piece moves (what node moved, was cut, or was added in the walk); the through-line in one paragraph; remaining structural defect. Grain is the post. Not a merge of the section lists.
    No rewrite.
@@ -31,7 +34,7 @@ The user edits. The agent does not. When they say they are done, the agent reads
 
 ## Before finishing
 
-- Baseline SHA recorded before their edit
+- Baseline SHA recorded before their edit (gist tip if published)
 - Subagent lists exist per section; gestalt list exists (walk, moves, through-line, remaining structural defect)
 - Rules grouped by intent, named as classes; groups that will not fire on the rest of the series were asked or dropped
 - Persona exists, names no source post, contains post-grain properties not that draft's outline
