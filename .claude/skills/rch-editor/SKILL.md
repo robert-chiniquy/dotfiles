@@ -28,7 +28,10 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - One model of the source. Many models; several questions of one body. The analysis factors the model a semantics presents, not a unique table of the file.
 - A C1 failure as a present fact, or as something that definitely happened. C1 failures are subjunctive: they may happen. We prevent them by anticipating. MUST NOT be happening. MUST NOT have happened. A listing on the page (PairLedger, a table) may run in the indicative; C1 production does not. The opener of that scene varies (`Suppose`, a would-unfold Friday, the object gone wrong). Not `Imagine if` as the series default.
 - A second essay after the result has landed (other checkers, other writings of the same cut). End at the cousin that already did this categorically, then one closer. If there is no cousin, the landing is the result itself, then the closer.
-- Closing on "the whole product" or on an enumeration bound. Correctness in the security domain is everything. Each outcome is the intended after-state. The method still asks those questions of the real C1 SaaS codebases, at whatever scale.
+- Closing on a sibling's closer. This post's after-states, this post's words. Nothing verbatim anywhere in the series.
+- Repeating `But trust me, this is all going somewhere` or `I'm sorry, I'm obsessed with this topic` after it has already appeared in the series.
+- The word `wrap` (vaulted secrets). Say vaulting.
+- A sentence that begins with a backtick'd noun.
 - A review that is merely not frozen. The review is of all current state.
 - A privilege that does not come back, unnamed. It is a removed privilege that does not come back.
 - One C1 application. C1 is SaaS codebases.
@@ -48,13 +51,19 @@ The post is one walk. Score these properties before local cuts. Do not force eve
 5. A job or mechanism lives in the beat where it is the object under study.
 6. Hold at the turn, then the result this post is for.
 7. Name Classifiers at the membership joint.
-8. After the result lands, a cousin that already did the categorical version of this move is allowed. Then one concluding paragraph: correctness in the security domain is everything. Name the intended after-states (a grant that lands, a review of all current state, a removed privilege that does not come back). The method still asks those questions of the real C1 SaaS codebases, at whatever scale. Then stop.
+8. After the result lands, a cousin that already did the categorical version of this move is allowed. Then one concluding paragraph unique to this post: this topic's after-states, in this post's words. MUST NOT paste `Correctness in the security domain is everything: a grant that lands, a review of all current state, a removed privilege that does not come back` or any other closer from a sibling. Nothing in the series is repeated verbatim.
 
 MUST NOT open on the scene. MUST NOT park a later mechanism in ethos. MUST NOT start a second essay after the landing.
 
 ## Spoken host (standing)
 
-First person, named, somewhere in ethos. Greeting varies: `Hi!`, `I'm Robert`, job then name, name then job. MUST NOT open every post with `Hi! My name is Robert.` Informal praise of a tool or book the author actually uses (`cool library/app`, `another cool book`). Hold through a hard turn (`But trust me, this is all going somewhere`). Label an ordinary exhibit ordinary (`Believable.`). Stretch a metaphor as `Think of X as "Y"`. `You` only for a cousin the reader may already know (`You may have also seen`). Parenthetical obsession is allowed (`I'm sorry, I'm obsessed with this topic`). The closer may be spoken (`Awesome right?` energy); its job is still security-domain correctness as everything, not a suffix on an unread tail. Those asides are a pool, not a checklist to hit every post.
+First person, named, somewhere in ethos. Greeting varies. MUST NOT open every post with `Hi! My name is Robert.`
+
+Asides (`But trust me, this is all going somewhere`, `I'm sorry, I'm obsessed with this topic`, `Awesome right?`, `Believable.`) are each allowed at most once in the series. MUST NOT paste any of them into a second post. A hold at a turn is still allowed in other words.
+
+MUST NOT begin a sentence with a backtick'd noun. Write the job in English, then the token.
+
+`wrap` is forbidden in every post. Vaulting is vaulting: vault, vaulted secret, epoch, member snapshot, catch-up, open. MUST NOT use wrap, unwrap, or wrapping for that path. XML Signature wrapping is a different attack; name that attack in full, not `wrap`.
 
 Hold at a turn. MUST NOT announce the outline (`this section covers`).
 
@@ -68,8 +77,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 6. When a subsection resumes an earlier exhibit, name the resume (`Back to the example above`).
 7. When a decomposition lets you skip enumeration, the remaining parts no longer *need* to be listed. Obligation, not a completed skip.
 8. Closer: security domain, everything. After-states, not avoided failures. Real C1 SaaS codebases, any scale. Not one application. Not an enumeration bound.
-9. Title is a blog claim, not the concept name alone. Vary. MUST NOT title every post `Residuation`, `Classifiers`, `Phantom union`.
-    Series H1s, in publish order, are a walk of concept introduction. A later title uses a concept an earlier title named. MUST NOT re-introduce `a set` after `A condition is a set`. MUST NOT stamp every H1 as `X is Y`. The title may name the running example (`Detecting deadlocks with Krohn-Rhodes`). MUST NOT use `(and more!)` as a bag for the other classes; those classes live in the body. The closer is still correctness as everything.
+9. Title is a keyword pair people can pick: one CS concept and one security / SaaS / reliability / product concept, in many posts, not all (a stamp of that pair is the same miss). Series H1s introduce concepts in publish order. A later title uses a concept an earlier title named. MUST NOT re-introduce `a set` after classifiers already named it. MUST NOT stamp every H1 as `X is Y`. Role mining belongs in the exact-comparison title. Vaulting belongs in the weakest-precondition title. Two clocks as a product is a fold candidate into vaulting or session product, not a required standalone. The title may name the running example (`Detecting deadlocks with Krohn-Rhodes`). MUST NOT use `(and more!)`.
 10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
 11. C1 failures: may happen; we anticipate and prevent. Subjunctive. Not underway. Not already done.
 
@@ -78,5 +86,5 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 - Ethos before scene; jobs are this post's; scene is this topic's failure mode; greeting and scene opener are not the series stamp; C1 failures stay subjunctive
 - One walk; no unearned instrument; no second essay after the landing
 - Classifiers named if membership of program objects appears
-- Closer: security domain is everything; after-states; C1 SaaS codebases at whatever scale
+- Closer unique to this post; no series-verbatim aside; no `wrap`; no sentence starting with a backtick'd noun
 - Spoken host present; outline not announced; published post matches gist after pull; section titles progress
