@@ -20,6 +20,10 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - "Instead of A and B": two avoided outcomes in one contrast. TONE 82.
 - One defect class named as the whole analysis. TONE 83.
 - A category word (`model checker`, `model`) used without saying what the category is, what a member is, and why the category exists. TONE 84.
+- `` Name is the set `` on first use of a coined name. TONE 85: `` `Legal` means ``.
+- A comparison to a generic noun ("a board"). TONE 86: name chess, and how the squares relate.
+- Agentless passive ("is told"). TONE 87.
+- `this class of` / `that product` / `those cases` with no named object in the previous sentence. TONE 88. Audit: walk every demonstrative + category noun.
 
 ## Pass
 
@@ -30,6 +34,7 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 1. Nested outline, one node per sentence: the claim the reader now has.
 2. Score that outline: order, one topic, fact vs example labeled, objects named, sentence length.
 3. Rewrite to match a better sentence outline. Split paragraphs when topics split. Identification runs become a table or one longer mapping sentence.
+4. Audit every `this`/`that`/`those` + noun, every `is told` / `is asked`, every `like a [generic noun]`, and every first-use `Name is the set`. Each must resolve.
 
 ## Before finishing
 
@@ -41,3 +46,4 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 - No halted same-shape run of three short sentences
 - One contrast per sentence; defect classes not collapsed to one name
 - Category words named as category, member, and why before the instance
+- Demonstratives, passives, and `like a [generic]` each resolve
