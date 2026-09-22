@@ -68,6 +68,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 7. When a decomposition lets you skip enumeration, the remaining parts no longer *need* to be listed. Obligation, not a completed skip.
 8. Closer: security domain, everything. After-states, not avoided failures. Real C1 SaaS codebases, any scale. Not one application. Not an enumeration bound.
 9. Title is a blog claim, not the concept name alone. Vary. MUST NOT title every post `Residuation`, `Classifiers`, `Phantom union`.
+    Series H1s, in publish order, are a walk of concept introduction. A later title uses a concept an earlier title named. MUST NOT re-introduce `a set` after `A condition is a set`. MUST NOT stamp every H1 as `X is Y`. The title may name the running example (`Detecting deadlocks with Krohn-Rhodes`). MUST NOT use `(and more!)` as a bag for the other classes; those classes live in the body. The closer is still correctness as everything.
 10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
 11. C1 failures: may happen; we anticipate and prevent. Subjunctive. Not underway. Not already done.
 
