@@ -26,6 +26,10 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - `this class of` / `that product` / `those cases` with no named object in the previous sentence. TONE 88. Audit: walk every demonstrative + category noun.
 - Generic role-pairs (`authors and operators`) with no names, no job, and no act. TONE 89.
 - A product word (`worker`, `extract`, `grant path`) used before the reader has it. TONE 93. Prefer a phrase that carries the job over overexplaining. Nested: word in sentence, sentence in passage, passage in section, section in post. Would an engineer who has only read up to this sentence already have this word?
+- An author/LLM reminder in the post ("GAP was already on the original reference list"; "DFA-regular is a different use of the word"). TONE 94. Put it in NOTES.md.
+- A statement that is untrue as stated ("the book is the computation"). TONE 95.
+- One sentence that asks the reader to hold more than two new loads. TONE 96. "emptiness" without a gloss. TONE 97.
+- Three consecutive sentences of the same template. TONE 99.
 
 ## Pass
 
@@ -51,3 +55,6 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 - Category words named as category, member, and why before the instance
 - Demonstratives, passives, and `like a [generic]` each resolve
 - Every jargon noun is already in the reader's inventory at that sentence
+- No author/LLM reminder in the post
+- No statement that is untrue as stated
+- One sentence, one new load; no unexplained emptiness
