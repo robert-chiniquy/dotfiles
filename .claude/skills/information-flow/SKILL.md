@@ -21,6 +21,8 @@ Proof-reading for whether the reader meets each claim in an order that earns the
 - A list of components with mixed stature (connectors next to session `match_cel` next to C1's Go) with no job on each line. TONE 69.
 - Vague `it` for a technical object. TONE 68. The outline names the object.
 - "This is part of a series" with no following job. TONE 70. Not a node.
+- Identifying a code defect with a product-picture defect. TONE 71.
+- Treating a regular coloring or group picture as a full program. TONE 72.
 
 ## Outline (subagent)
 
