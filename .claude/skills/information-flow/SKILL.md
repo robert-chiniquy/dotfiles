@@ -23,6 +23,8 @@ Proof-reading for whether the reader meets each claim in an order that earns the
 - "This is part of a series" with no following job. TONE 70. Not a node.
 - Identifying a code defect with a product-picture defect. TONE 71.
 - Treating a regular coloring or group picture as a full program. TONE 72.
+- `machine` for an abstract table. TONE 73.
+- A C1 practice with no why. TONE 74.
 
 ## Outline (subagent)
 
