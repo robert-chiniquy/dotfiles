@@ -20,6 +20,7 @@ Proof-reading for whether the reader meets each claim in an order that earns the
 - Treating a product as a pile of named surfaces. C1 is one picture (who has access to what). Later names are parts of that picture.
 - A list of components with mixed stature (connectors next to session `match_cel` next to C1's Go) with no job on each line. TONE 69.
 - Vague `it` for a technical object. TONE 68. The outline names the object.
+- "This is part of a series" with no following job. TONE 70. Not a node.
 
 ## Outline (subagent)
 
