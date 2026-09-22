@@ -12,6 +12,9 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 ## Common Mistakes
 
 - Opening on the failure. Who is speaking, what C1 is, and which jobs this post sits in come first. Then the scene.
+- Copying another post's ethos. The greeting and one C1 sentence may repeat. The jobs named after that are only the surfaces this post will analyze.
+- Naming connectors (or grants, wraps, sessions) because a sibling post did. If this post is not about ingest, downloads, or grant-applying jobs, connectors stay off the page.
+- Copying another post's Imagine-if. The scene is the failure mode this topic prevents, not a weekend deadlock unless this post is about lock-order.
 - A product or job noun in the scene before ethos has named that job.
 - Parking a later mechanism in the lede. Resume, durability, representation, and cousins live where they are the object under study.
 - Contrasting a language the exhibit is not written in. The listing is the object.
@@ -34,9 +37,9 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 
 The post is one walk. Score these properties before local cuts. Do not force every post through the same nodes.
 
-1. Ethos is node one: name, C1, the jobs this post sits in, 24x7 if they run that way. The scene is a consequence of that shop.
-2. If the scene is an incident: one customer, a major incident, latent in this architecture (including essentially all security SaaS). A class of failure, not a unique disaster.
-3. Why now: shipping is fast; every commit is more to verify; agentic development made these classes harder. Static analysis across the stack, including open-source connectors. Why this analysis: hand review cannot list the combinations.
+1. Ethos is node one: name, C1 in one sentence, then the jobs this post actually sits in. Not a roster of every C1 surface. 24x7 only if those jobs run that way and this post is about that run.
+2. If the scene is an incident: one customer, the failure this topic prevents, latent in services that share that architecture. A class of failure, not a unique disaster, and not a copied freeze of the grant list.
+3. Why now is this topic's combinations. Shipping and agentic development only if this post is about analysis volume. MUST NOT paste "open-source connectors" into a post that is not about connectors.
 4. Name the traditional method as a category (what it is, what a member is, why it exists), then C1's exhibit in the language the shop actually uses.
 5. A job or mechanism lives in the beat where it is the object under study.
 6. Hold at the turn, then the result this post is for.
@@ -64,7 +67,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 
 ## Before finishing
 
-- Ethos before scene; jobs named before they appear in the scene
+- Ethos before scene; jobs are this post's; scene is this topic's failure mode
 - One walk; no unearned instrument; no second essay after the landing
 - Classifiers named if membership of program objects appears
 - Closer: security domain is everything; after-states; C1 SaaS codebases at whatever scale
