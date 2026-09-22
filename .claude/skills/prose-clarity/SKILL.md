@@ -19,6 +19,7 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - Halted rhythm: three or more consecutive same-shape short sentences. TONE 81.
 - "Instead of A and B": two avoided outcomes in one contrast. TONE 82.
 - One defect class named as the whole analysis. TONE 83.
+- A category word (`model checker`, `model`) used without saying what the category is, what a member is, and why the category exists. TONE 84.
 
 ## Pass
 
@@ -39,3 +40,4 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 - Every comparison names both sides in that sentence or the one before
 - No halted same-shape run of three short sentences
 - One contrast per sentence; defect classes not collapsed to one name
+- Category words named as category, member, and why before the instance
