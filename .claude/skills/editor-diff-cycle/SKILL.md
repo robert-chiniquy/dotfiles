@@ -1,6 +1,6 @@
 ---
 name: editor-diff-cycle
-description: After the user edits a draft in the editor, isolate their changes by section, by grain, and by whole-piece structure, generalize each cluster into a series-wide rule, and write or update a named review persona. Use when the user will polish a draft themselves, then wants those edits turned into rch-editor or another named persona.
+description: After the user edits a draft in the editor, isolate their changes by section, by grain, and by whole-piece structure, generalize each cluster into a series-wide rule, and write or update a named review persona the user gave this cycle. Use when the user will polish a draft themselves, then wants those edits turned into a named persona.
 ---
 
 # Editor diff cycle
@@ -17,7 +17,7 @@ The user edits. The agent does not. When they say they are done, the agent reads
 - Inventing a persona rule for a one-off polish that does not recur.
 - Writing the persona as a recap of the source draft (path, title, SHA, that walk's nodes, named exhibits). MUST NOT. Isolation keeps the quotes. The persona names the class.
 - Copying that draft's outline into the persona as the walk every post must take. Whole-piece moves become properties of a walk. Do not force every post through the same nodes.
-- Writing `rch-editor` before the grouped-rule list exists.
+- Writing the persona file before the grouped-rule list exists.
 
 ## Cycle
 
@@ -27,7 +27,7 @@ The user edits. The agent does not. When they say they are done, the agent reads
    - one gestalt / holistic reviewer of the whole piece. Returns: nested outline of conceptual progress before vs after (claims the reader now has, not headings); numbered whole-piece moves (what node moved, was cut, or was added in the walk); the through-line in one paragraph; remaining structural defect. Grain is the post. Not a merge of the section lists.
    No rewrite.
 3. Parent merges those lists, groups by intent, writes a reusable rule per group. Apply a critical eye: name the class, not the exhibit. Whole-piece moves become properties of a walk (ethos before scene, a mechanism lives where it is the object under study, landing then closer), not a numbered recap of that draft's nodes. A rule that cannot fire on another post in the series is not reusable; ask, or drop.
-4. Create or update the named persona (`rch-editor` unless they named another) from those rules only. Catalog it. Do not copy the whole TONE file into it. The persona MUST NOT mention or reference the source post.
+4. Create or update the named persona the user gave this cycle, from those rules only. If they did not name one, ask. MUST NOT assume a persona name. Catalog it. Do not copy the whole TONE file into it. The persona MUST NOT mention or reference the source post.
 
 ## Before finishing
 
