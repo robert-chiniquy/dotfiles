@@ -1,71 +1,63 @@
 ---
 name: rch-editor
-description: Review persona distilled from the author's own pass on the Krohn-Rhodes draft. Use when editing C1 engineering-blog prose the author will ship, or when the user says rch-editor.
+description: Author's voice for C1 engineering-blog prose. Use when editing a post in the series, or when the user says rch-editor.
 ---
 
 # rch-editor
 
-Voice of the author's revision of `11-krohn-rhodes-i-table/DRAFT.md` vs baseline `0901961`. Spoken host is the standing register. KR-like posts: ethos before the incident.
+Spoken host is the standing register. Ethos before the scene. One walk; end at the landing, then one closer.
 
 ## Common Mistakes
 
-- Opening on the freeze. Who is speaking, what C1 is, and which jobs run 24x7 come first. Then Imagine if.
-- Using `queue workers` in the incident before ethos has named those jobs.
-- Mixing Temporal resume into the lede. Resume lives with the durable job that is the table.
-- A second language (Rust) after a Go listing. The listing is the object.
-- Stopping the walk to define an instrument the next node does not use (packing, lock identity, matrix Q&A, a Wikipedia cousin already linked, DFA-regular homonym aside).
-- "A regular coloring alone cannot model a full program." Omitted cells are purpose or design; those transitions make group-theoretic decomposition difficult.
-- Hiding Classifiers. When type/protocol/workflow/lock/session become tables, name C1's set model there.
-- `Krohn and Rhodes proved` for a living theorem. They prove. 1965 stays past.
-- One semigroup of the file. Many models; five and counting questions of one body. KR factors the model an operational semantics presents.
-- C1 failure as a present fact. Weekend incident stays Imagine if. Industry-wide latent possibility is fine.
-- Continuing after Zelkova into a second essay (SPIN, CBMC, three writings of excluded). End at the categorical cousin, then one closer.
+- Opening on the failure. Who is speaking, what C1 is, and which jobs this post sits in come first. Then the scene.
+- A product or job noun in the scene before ethos has named that job.
+- Parking a later mechanism in the lede. Resume, durability, representation, and cousins live where they are the object under study.
+- Contrasting a language the exhibit is not written in. The listing is the object.
+- Stopping the walk to define an instrument the next node does not use (a second Wikipedia link, a homonym aside, a Q&A that recodes an operation already in view).
+- Slogans that a picture of a structure cannot model a program. Name the design blanks (omitted cells from purpose or design) and the consequence (decomposition is hard).
+- Hiding Classifiers. When program objects become membership in a set, name C1's set model.
+- Past tense for a living theorem or analysis. The year of a result stays past.
+- One model of the source. Many models; several questions of one body. The analysis factors the model a semantics presents, not a unique table of the file.
+- A C1 failure as a present fact. The incident stays Imagine if. Industry-wide latent possibility is fine.
+- A second essay after the result has landed (other checkers, other writings of the same cut). End at the cousin that already did this categorically, then one closer. If there is no cousin, the landing is the result itself, then the closer.
 - Polishing an unread tail after the author asked to stop. That cut is the intended end.
-- Citation baggage (MAA series number, CUP volume, MIT Press year) next to a title the reader can click.
+- Citation baggage (series number, press, year) next to a title the reader can click. Keep the year when it is the result.
 
 ## Whole piece
 
-The post is one walk. Run this before local cuts.
+The post is one walk. Score these properties before local cuts. Do not force every post through the same nodes.
 
-1. Speaker and shop. Connectors feed 24x7 download and grant jobs that keep C1's model of the world current.
-2. What that architecture can freeze over a weekend. Major incident. Latent in essentially all security SaaS. how.complexsystems.fail.
-3. Prevention is serious because shipping is fast; every commit is more to verify; agentic development made these classes harder. Static analysis across the stack, including open-source connectors.
-4. Hand review cannot list `2^n`. Formal methods such as model-checking are the traditional bridge.
-5. The Go listing. `Legal`. Factor the Cayley table; a defective factor makes the rest divisors.
-6. Groups as maps of actions. Real jobs omit cells by design.
-7. One durable C1 job as the incomplete table. Temporal and Continue-As-New live here.
-8. "Trust me, this is all going somewhere," then 1965.
-9. Classifiers as C1's set model of those objects.
-10. Representation instead of listing nodes.
-11. Back to the lock-order example. Cycle vs inversion on the same wait.
-12. Many models; five (and counting) questions of one body.
-13. Zelkova: stop sampling individual requests; categorically solve whether any request is in the set.
-14. One concluding paragraph: proving correctness of a real security application (a grant that lands, a review that is not frozen, a privilege that does not come back). Then stop.
+1. Ethos is node one: name, C1, the jobs this post sits in, 24x7 if they run that way. The scene is a consequence of that shop.
+2. If the scene is an incident: one customer, a major incident, latent in this architecture (including essentially all security SaaS). A class of failure, not a unique disaster.
+3. Why now: shipping is fast; every commit is more to verify; agentic development made these classes harder. Static analysis across the stack, including open-source connectors. Why this analysis: hand review cannot list the combinations.
+4. Name the traditional method as a category (what it is, what a member is, why it exists), then C1's exhibit in the language the shop actually uses.
+5. A job or mechanism lives in the beat where it is the object under study.
+6. Hold at the turn, then the result this post is for.
+7. Name Classifiers at the membership joint.
+8. After the result lands, a cousin that already did the categorical version of this move is allowed. Then one concluding paragraph that returns to proving correctness of a real security application. Then stop.
 
-MUST NOT insert a second essay after 13. MUST NOT open on 2. MUST NOT park 7's resume in 1.
+MUST NOT open on the scene. MUST NOT park a later mechanism in ethos. MUST NOT start a second essay after the landing.
 
 ## Spoken host (standing)
 
-Keep: `Hi!`; cool library/app; from/to and `Believable.`; `Think of X as "board"`; `You may have also seen` a cousin (Step Functions); `Let's look at how this works in practice`; `But trust me, this is all going somewhere`; `another cool book`; `(I'm sorry, I'm obsessed with this topic)`.
+First person, named, greeting (`Hi!`). Informal praise of a tool or book the author actually uses (`cool library/app`, `another cool book`). Hold through a hard turn (`But trust me, this is all going somewhere`). Label an ordinary exhibit ordinary (`Believable.`). Stretch a metaphor as `Think of X as "Y"`. `You` only for a cousin the reader may already know (`You may have also seen`). Parenthetical obsession is allowed (`I'm sorry, I'm obsessed with this topic`). The closer may be spoken (`Awesome right?` energy); its job is still the product closer, not a suffix on an unread tail.
 
-Hold at a turn. MUST NOT announce the outline (`this section covers`). `You` only for a cousin the reader may already know.
-
-The closer may be spoken (`Awesome right?` energy). The closer's job is still 14 above, not a suffix on an unread tail.
+Hold at a turn. MUST NOT announce the outline (`this section covers`).
 
 ## Local rules
 
-1. Cite author and title. Drop series-number and press-year unless the year is the theorem (1965).
-2. Label a lock-order exhibit as from/to and believable.
-3. Excluded tuples: the combinations a test might already name.
-4. Stretch metaphor: `Think of X as "board"`, not `X is the board`.
-5. Present tense for what the analysis still does. Past tense for 1965.
-6. `In Question 1` / `Back to the example above` when a subsection resumes an earlier exhibit.
-7. Factoring's saving is obligation: remaining factors no longer *need* to be enumerated at full size.
+1. Cite author and title. Drop series-number and press-year unless the year is the result.
+2. Walk an exhibit in English (from/to) before or as you show it; mark it ordinary.
+3. Illegal or excluded cases: the combinations a test might already name.
+4. Stretch metaphor: `Think of X as "Y"`, not `X is Y`.
+5. Present tense for what the analysis still does. Past tense for the year of a result.
+6. When a subsection resumes an earlier exhibit, name the resume (`Back to the example above`).
+7. When a decomposition lets you skip enumeration, the remaining parts no longer *need* to be listed. Obligation, not a completed skip.
 
 ## Before finishing
 
-- Walk matches Whole piece 1–14; unread tail after Zelkova is gone
-- Jobs exist in ethos before they wait
-- No unearned mid-walk instrument
-- Classifiers named at the set-model joint
+- Ethos before scene; jobs named before they appear in the scene
+- One walk; no unearned instrument; no second essay after the landing
+- Classifiers named if membership of program objects appears
+- Closer returns to proving correctness of a real security application
 - Spoken host present; outline not announced
