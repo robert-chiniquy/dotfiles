@@ -16,6 +16,8 @@ Proof-reading for whether the reader meets each claim in an order that earns the
 - Adding a claim, a name, or a second concept to paper over a hole (TONE 21). Reorder only.
 - Undoing an owner-locked order (exhibit before any reference; Carter diagrams as the first group picture; scene then C1 object then mechanism) unless the user is revisiting that lock.
 - Shipping a new outline without rewriting the post to match, or rewriting the post without writing the outline first.
+- Skipping ethos (author named, one sentence of the job this post sits in). That is a node, not decoration.
+- Treating a product as a pile of named surfaces. C1 is one picture (who has access to what); later names are parts of it.
 
 ## Outline (subagent)
 
@@ -28,7 +30,7 @@ Score the outline, not the headings, on four axes:
 1. Effective: each node is used by a later node, or it is the close.
 2. Coherent: one through-line. A second object that appears, vanishes, then returns is a break.
 3. Consistent: the same object keeps the same name and grain.
-4. Complete: a later use was introduced; an exhibit is on the page before a reference.
+4. Complete: a later use was introduced; an exhibit is on the page before a reference; the author is named; the product is one object.
 
 If the current order already wins on those axes, stop. Write the verdict. Do not shuffle for novelty.
 
