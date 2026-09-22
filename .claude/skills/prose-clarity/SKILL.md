@@ -18,7 +18,11 @@ Read only for reconstruction. An engineer who does not already know this paragra
 
 ## Pass
 
-1. Nested outline of the paragraph, one node per sentence: the claim the reader now has.
+On one paragraph: outline each sentence, score, rewrite.
+
+On a whole post: spawn one read-only subagent per H2 (lede is its own section). Each returns a sentence outline, issues, and a candidate rewrite of that section. Parent merges. Do not have the parent outline the sections.
+
+1. Nested outline, one node per sentence: the claim the reader now has.
 2. Score that outline: order, one topic, fact vs example labeled, objects named, sentence length.
 3. Rewrite to match a better sentence outline. Split paragraphs when topics split. Identification runs become a table or one longer mapping sentence.
 
