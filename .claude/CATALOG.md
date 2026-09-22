@@ -35,12 +35,14 @@ skill bodies**, not only this index.
 | technical-writing-voice | Long-form external voice (articles, talks) |
 | structural-constraints | Architecture decisions, type system design |
 | subprocess-lifecycle | Spawning a child process: ownership mode, parent-death, signals, reaping |
+| checkoutless-github-publish | No writable git checkout: scratch-tree verification + gh data API publish/rebase with the whole-file divergence gate |
 | terraform / terraform-skill | .tf files, HCL, infrastructure pipelines |
 | protogen | .proto files, gRPC, codegen |
 | documentation | Writing or reviewing docs |
 | design | Stage 1 default depth (`/design`); see project-process |
 | systematic-feature-design | Stage 1 **only** when large/architecture (not a second pipeline) |
 | designing-occult-application | Userspace Occult app: theory, middle functor, G, last hop |
+| occult-engine-work | Occult engine implementer gates (residual, one path, identity); complements principled-review |
 | rigorous-critique | Stage 2 **only** critique path (canonical) |
 | critique | `/critique` alias for rigorous-critique job |
 | new-rfc | Stage 3 **only** RFC path |
@@ -48,15 +50,19 @@ skill bodies**, not only this index.
 | complete-developer-experience | Tools + docs + agents for developer-facing features |
 | overcorrection-review | Needless complexity, premature exclusions, cost/value claims |
 | post-change-verification | After Go code changes: fmt/lint/build/test protocol |
+| pre-push-self-review | Before push/PR: written graph-walk of your own diff (callers, teardown, enum consumers, falsified comments) |
 | golang-code-review | Go PR / architecture / test quality review |
-| pr-pass / pr-status | Open PR triage and status |
+| invalid-cache-review | Caches, memos, derived indexes: hit rate, staleness, and measurement corruption |
+| pr-pass | Open PR triage and status |
 | mergeability-walkthrough | One-PR-at-a-time merge decisions |
 | github-pr-threads | After fixes: `Addressed in <sha>` + resolve threads |
 | pr-deep-review | Multi-agent deep PR review |
 | gh-fix-ci | Failing GitHub Actions checks |
 | squire-env-management | Ephemeral remote agents and task pools |
 | c1-squire-dispatch / c1-dev-stack-in-squire | c1-specific squire dispatch |
-| squire-qol | Personalize squire envs (dotfiles/nix), defaults, mux chrome |
+| on-call | ConductorOne on-call: docs/channels/paging quickref + agent capability map |
+| organizer | Calendar writes without API write access: emit .ics + OS `open` |
+| squire-qol | Personalize squire envs (dotfiles/nix), user skills/files, env vars |
 | find-delegation-pebbles | Bounded independent backlog tasks for remote agents |
 | codebase-memory | Structural codebase graph exploration |
 | large-scale-refactor | Multi-file / long-running refactors |
@@ -67,7 +73,9 @@ skill bodies**, not only this index.
 | refine-illustrations-iteratively | Iterative image edit sessions |
 | calendaring | Multi-month personal master schedule |
 | tactical-sitrep | Named milestone + hard deadline → readiness |
+| rfc-surface-clusters | RFC surfaces → workflow clusters, ranked by Slack+Linear UX damage |
 | questioning-the-user | Multiple pending decisions → one at a time |
+| terms-pass | Series TERMS.md gloss pass: one file, one term at a time, drafts wait |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |
@@ -96,21 +104,28 @@ skill bodies**, not only this index.
 | audit-context-building | Line-by-line audit context |
 | trailmark | Code graph for security analysis |
 | static-analysis-triage | Novel linter output → PRs |
+| resume-after-host-reboot | Same-pane continue after host reboot (not resume-codex) |
+| occult-app-naming | Name Occult app identifiers; do not explain them |
+| owner-design-lock | Do not overturn the user's design without asking |
+| work-in-checkout-not-tmp | Work in the repo or a worktree, not /private/tmp |
+| no-compat-surfaces | Cut over only; no compatibility shims |
+| standing-production-merge | Simple production PRs merge when reviewed/approved/CI green; complex only with permission |
+| occult-lsp | occult_lsp only sees the session workspace root |
+| occult-factoring-discipline | Weaker-LLM Occult factoring; one concept one spine |
+| expected-work-inventory | Personal expected-work list across trackers |
+| occult-lint | occult-lint unroll/exists/plane rules |
 
 ## Manual Only (`disable-model-invocation: true` where set)
 
 | Skill | Invocation | Description |
 |-------|------------|-------------|
-| git-pr | `/git-pr` | Stage, check, commit, push, create PR |
 | git-create-pr | `/git-create-pr` | Full PR create workflow |
 | git-final-pass | `/git-final-pass` | Pre-PR final pass |
 | git-reset-workspace | `/git-reset-workspace` | Workspace cleanup |
-| git-cleanup | `/git-cleanup` | Branches, worktrees, stashes |
-| find-work / finding-uncommitted-work | `/find-work` | Uncommitted / unpushed / unmerged work |
+| finding-uncommitted-work | `/finding-uncommitted-work` | Uncommitted / unpushed / unmerged work |
 | incomplete-work-audit | manual | Audit incomplete work surfaces |
 | humanizer | `/humanizer` | Strip AI-writing patterns |
-| project-init | `/project-init [topic]` | Initialize project framework |
-| project | manual | Project skill hub (if present) |
+| project | `/project [topic]` | Initialize project framework |
 | critique | `/critique` | Four-lens design review |
 | design | `/design [topic]` | Feature design (pipeline stage 1) |
 | pqthink | `/pqthink` | Six-pass pragmatic architecture judgment |
