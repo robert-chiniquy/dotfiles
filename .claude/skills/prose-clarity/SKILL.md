@@ -25,6 +25,7 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - Agentless passive ("is told"). TONE 87.
 - `this class of` / `that product` / `those cases` with no named object in the previous sentence. TONE 88. Audit: walk every demonstrative + category noun.
 - Generic role-pairs (`authors and operators`) with no names, no job, and no act. TONE 89.
+- A product word (`worker`, `extract`, `grant path`) used before the reader has it. TONE 93. Prefer a phrase that carries the job over overexplaining. Nested: word in sentence, sentence in passage, passage in section, section in post. Would an engineer who has only read up to this sentence already have this word?
 
 ## Pass
 
@@ -36,6 +37,7 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 2. Score that outline: order, one topic, fact vs example labeled, objects named, sentence length.
 3. Rewrite to match a better sentence outline. Split paragraphs when topics split. Identification runs become a table or one longer mapping sentence.
 4. Audit every `this`/`that`/`those` + noun, every `is told` / `is asked`, every `like a [generic noun]`, and every first-use `Name is the set`. Each must resolve.
+5. For every product or jargon noun: would an engineer who has only read up to this sentence already have this word? If not, replace with a phrase that carries the job, or introduce the object in this sentence. Do not add a glossary paragraph.
 
 ## Before finishing
 
@@ -48,3 +50,4 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 - One contrast per sentence; defect classes not collapsed to one name
 - Category words named as category, member, and why before the instance
 - Demonstratives, passives, and `like a [generic]` each resolve
+- Every jargon noun is already in the reader's inventory at that sentence

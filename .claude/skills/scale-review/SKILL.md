@@ -18,7 +18,7 @@ A fix for halted rhythm that mints a void referent is not done. Present only aft
 
 1. Post: conceptual-progress outline. Ethos, product as one object, exhibit before reference.
 2. Section/paragraph: reconstruction. Fact vs example, one topic, sentence order.
-3. Two-to-three sentences: both sides of a comparison; `this`/`that`/`those` + noun; agentless passive; generic role-pairs; `Name means`; category named before instance.
+3. Two-to-three sentences: both sides of a comparison; `this`/`that`/`those` + noun; agentless passive; generic role-pairs; `Name means`; category named before instance; each jargon noun already in the reader's inventory (TONE 93).
 4. Word: `it` for a technical object; `machine` for a table; `you`; empty `This is ___`.
 5. Humanizer: not-X-but-Y, tour-guide, one-line closer, same-opening run.
 
