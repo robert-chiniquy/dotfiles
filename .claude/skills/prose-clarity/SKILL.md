@@ -24,6 +24,7 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - A comparison to a generic noun ("a board"). TONE 86: name chess, and how the squares relate.
 - Agentless passive ("is told"). TONE 87.
 - `this class of` / `that product` / `those cases` with no named object in the previous sentence. TONE 88. Audit: walk every demonstrative + category noun.
+- Generic role-pairs (`authors and operators`) with no names, no job, and no act. TONE 89.
 
 ## Pass
 
