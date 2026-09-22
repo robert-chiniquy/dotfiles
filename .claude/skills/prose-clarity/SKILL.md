@@ -15,6 +15,7 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - A run of 3-5 word identifications ("A new page is a `signal`.") as prose. TONE 64: table or one sentence that carries the mapping.
 - Outlining the post when the defect is sentence order inside one paragraph. Use information-flow grain: each sentence is a node.
 - Vague `it`. TONE 68.
+- A referent that does not name both sides ("makes a comparison"; "this picture"; "those standards"). TONE 80. The engineer must be able to say what is compared to what, in the sentence that uses the word.
 
 ## Pass
 
@@ -32,3 +33,4 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 - Each paragraph has one topic
 - No 3-5 word identification run left as prose
 - Objects named; no vague `it`
+- Every comparison names both sides in that sentence or the one before
