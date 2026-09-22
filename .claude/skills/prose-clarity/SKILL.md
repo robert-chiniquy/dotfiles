@@ -16,6 +16,9 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - Outlining the post when the defect is sentence order inside one paragraph. Use information-flow grain: each sentence is a node.
 - Vague `it`. TONE 68.
 - A referent that does not name both sides ("makes a comparison"; "this picture"; "those standards"). TONE 80. The engineer must be able to say what is compared to what, in the sentence that uses the word.
+- Halted rhythm: three or more consecutive same-shape short sentences. TONE 81.
+- "Instead of A and B": two avoided outcomes in one contrast. TONE 82.
+- One defect class named as the whole analysis. TONE 83.
 
 ## Pass
 
@@ -34,3 +37,5 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 - No 3-5 word identification run left as prose
 - Objects named; no vague `it`
 - Every comparison names both sides in that sentence or the one before
+- No halted same-shape run of three short sentences
+- One contrast per sentence; defect classes not collapsed to one name
