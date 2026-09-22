@@ -13,6 +13,7 @@ Every post, every iteration. A title pass, a lede pass, or a gist push is an ite
 - Skipping prose-clarity. Missing referents are a fleet member, not an optional extra.
 - One subagent on the whole file for reconstruction. prose-clarity fans out per H2.
 - Skipping section-title-review after a body edit. Headings drift when the walk moves.
+- A C1 failure in the indicative (happening, or already happened). Subjunctive only: may happen; we anticipate and prevent.
 - Parent applying fixes, then handing over without scale-review on the changed sentences.
 - Editing the gist from local unpublished `DRAFT.md`. Published file is the gist clone after pull.
 

@@ -25,7 +25,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Hiding Classifiers. When program objects become membership in a set, name C1's set model.
 - Past tense for a living theorem or analysis. The year of a result stays past.
 - One model of the source. Many models; several questions of one body. The analysis factors the model a semantics presents, not a unique table of the file.
-- A C1 failure as a present fact. The incident stays counterfactual (subjunctive, a case we refuse). The opener of that scene varies.
+- A C1 failure as a present fact, or as something that definitely happened. C1 failures are subjunctive: they may happen. We prevent them by anticipating. MUST NOT be happening. MUST NOT have happened. A listing on the page (PairLedger, a table) may run in the indicative; C1 production does not. The opener of that scene varies (`Suppose`, a would-unfold Friday, the object gone wrong). Not `Imagine if` as the series default.
 - A second essay after the result has landed (other checkers, other writings of the same cut). End at the cousin that already did this categorically, then one closer. If there is no cousin, the landing is the result itself, then the closer.
 - Closing on "the whole product" or on an enumeration bound. Correctness in the security domain is everything. Each outcome is the intended after-state. The method still asks those questions of the real C1 SaaS codebases, at whatever scale.
 - A review that is merely not frozen. The review is of all current state.
@@ -41,7 +41,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 The post is one walk. Score these properties before local cuts. Do not force every post through the same nodes.
 
 1. Ethos is node one: name, C1 in one sentence, then the jobs this post actually sits in. Not a roster of every C1 surface. 24x7 only if those jobs run that way and this post is about that run.
-2. If the scene is an incident: one customer, the failure this topic prevents. Opener varies: a Friday that already unfolded in the subjunctive, the object gone wrong in present tense, `Suppose`, the exhibit first. Not `Imagine if` as the series default.
+2. If the scene is an incident: one customer, the failure this topic may produce, which we anticipate and prevent. Opener varies. The verbs stay subjunctive (`would`, `might`, `were`). MUST NOT narrate a C1 outage as past fact (`Monday a reviewer still listed Alice`).
 3. Why now is this topic's combinations. Shipping and agentic development only if this post is about analysis volume. MUST NOT paste "open-source connectors" into a post that is not about connectors.
 4. Name the traditional method as a category (what it is, what a member is, why it exists), then C1's exhibit in the language the shop actually uses.
 5. A job or mechanism lives in the beat where it is the object under study.
@@ -69,10 +69,11 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 8. Closer: security domain, everything. After-states, not avoided failures. Real C1 SaaS codebases, any scale. Not one application. Not an enumeration bound.
 9. Title is a blog claim, not the concept name alone. Vary. MUST NOT title every post `Residuation`, `Classifiers`, `Phantom union`.
 10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
+11. C1 failures: may happen; we anticipate and prevent. Subjunctive. Not underway. Not already done.
 
 ## Before finishing
 
-- Ethos before scene; jobs are this post's; scene is this topic's failure mode; greeting and scene opener are not the series stamp
+- Ethos before scene; jobs are this post's; scene is this topic's failure mode; greeting and scene opener are not the series stamp; C1 failures stay subjunctive
 - One walk; no unearned instrument; no second essay after the landing
 - Classifiers named if membership of program objects appears
 - Closer: security domain is everything; after-states; C1 SaaS codebases at whatever scale

@@ -29,7 +29,7 @@ Read only for reconstruction. An engineer who does not already know this paragra
 - An author/LLM reminder in the post ("GAP was already on the original reference list"; "DFA-regular is a different use of the word"). TONE 94. Put it in NOTES.md.
 - A statement that is untrue as stated ("the book is the computation"). TONE 95.
 - Passive with an unclear actor. TONE 100.
-- A C1 failure in the indicative. TONE 101.
+- A C1 failure in the indicative. TONE 101. May happen; we anticipate and prevent. Not underway. Not already done.
 - The same tool inadequacy restated in three sections. TONE 102.
 - Indicative for a language the listing is not written in. TONE 103.
 - One sentence that asks the reader to hold more than two new loads. TONE 96. "emptiness" without a gloss. TONE 97.
