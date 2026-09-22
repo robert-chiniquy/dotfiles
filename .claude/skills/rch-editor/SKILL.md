@@ -66,6 +66,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 6. When a subsection resumes an earlier exhibit, name the resume (`Back to the example above`).
 7. When a decomposition lets you skip enumeration, the remaining parts no longer *need* to be listed. Obligation, not a completed skip.
 8. Closer: security domain, everything. After-states, not avoided failures. Real C1 SaaS codebases, any scale. Not one application. Not an enumeration bound.
+9. Title is a blog claim, not the concept name alone. Vary. MUST NOT title every post `Residuation`, `Classifiers`, `Phantom union`.
 
 ## Before finishing
 
