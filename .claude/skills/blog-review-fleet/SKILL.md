@@ -11,7 +11,7 @@ Every post, every iteration. A title pass, a lede pass, or a gist push is an ite
 
 - Shipping after one persona (titles, rch-editor, humanizer) without the rest.
 - Skipping prose-clarity. Missing referents are a fleet member, not an optional extra.
-- Skipping why-review. A sentence that says what X does, and not why, is a fleet miss. Deep: every operational claim, not one why per section.
+- Skipping why-review. A sentence that says what X does, and not why, is a fleet miss. The why may sit earlier in the beat; it must be clear at the use. Deep: every operational claim, not one why per section.
 - One subagent on the whole file for reconstruction. prose-clarity fans out per H2.
 - Skipping section-title-review after a body edit. Headings drift when the walk moves.
 - A C1 failure in the indicative (happening, or already happened). Subjunctive only: may happen; we anticipate and prevent.
