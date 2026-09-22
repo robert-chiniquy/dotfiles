@@ -10,7 +10,7 @@ A fix for halted rhythm that mints a void referent is not done. Present only aft
 ## Common Mistakes
 
 - Fixing one TONE number and handing the file over. The changed sentences are where the next defect lands.
-- Parent doing every grain. Spawn at least: section titles (`section-title-review`), post outline (`information-flow`), per-H2 reconstruction (`prose-clarity`, missing referents), `rch-editor`, sentence/referent audit (TONE 80–89), humanizer. The outer procedure is `blog-review-fleet`: every post, every iteration.
+- Parent doing every grain. Spawn at least: section titles (`section-title-review`), post outline (`information-flow`), per-H2 reconstruction (`prose-clarity`, missing referents), per-H2 why (`why-review`), `rch-editor`, sentence/referent audit (TONE 80–89), humanizer. The outer procedure is `blog-review-fleet`: every post, every iteration.
 - Re-running only the persona that just fired. After a TONE 89 fix, run 81, 88, 65, humanizer on those sentences.
 - Opening HTML before the second pass.
 

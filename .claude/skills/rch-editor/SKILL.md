@@ -19,6 +19,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Linking [How complex systems fail](https://how.complexsystems.fail/) in every post. Cite that page at most once in the series. Later posts may say the class is latent without the URL, or skip that sentence when the scene already shows the class.
 - A product or job noun in the scene before ethos has named that job.
 - Parking a later mechanism in the lede. Resume, durability, representation, and cousins live where they are the object under study.
+- An operational sentence that says what X does and not why (`We run static analysis on that Go` with no after-state). why-review.
 - Contrasting a language the exhibit is not written in. The listing is the object.
 - Stopping the walk to define an instrument the next node does not use (a second Wikipedia link, a homonym aside, a Q&A that recodes an operation already in view).
 - Slogans that a picture of a structure cannot model a program. Name the design blanks (omitted cells from purpose or design) and the consequence (decomposition is hard).
