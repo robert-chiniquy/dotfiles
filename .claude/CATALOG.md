@@ -79,7 +79,7 @@ skill bodies**, not only this index.
 | information-flow | Nested conceptual-progress outline, then reorder the post if the outline is better |
 | prose-clarity | Paragraph reconstruction: fact vs example, sentence order, no 3-5 word identification runs |
 | scale-review | After a prose fix, re-audit every grain before presenting |
-| editor-diff-cycle | User edits a draft; isolate by section and by whole-piece structure into a named persona |
+| editor-diff-cycle | User edits a draft; isolate by section and whole-piece structure; generalize off the source draft into a series-wide persona |
 | rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, end at the landing plus a closer |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |

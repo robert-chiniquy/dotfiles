@@ -1,11 +1,11 @@
 ---
 name: editor-diff-cycle
-description: After the user edits a draft in the editor, isolate their changes by section, by grain, and by whole-piece structure, generalize each cluster into a reusable rule, and write or update a named review persona. Use when the user will polish a draft themselves, then wants those edits turned into rch-editor or another named persona.
+description: After the user edits a draft in the editor, isolate their changes by section, by grain, and by whole-piece structure, generalize each cluster into a series-wide rule, and write or update a named review persona. Use when the user will polish a draft themselves, then wants those edits turned into rch-editor or another named persona.
 ---
 
 # Editor diff cycle
 
-The user edits. The agent does not. When they say they are done, the agent reads the diff, not the chat.
+The user edits. The agent does not. When they say they are done, the agent reads the diff, not the chat. Isolation may quote the source draft. The persona MUST NOT mention or reference that draft. It applies to the rest of the posts.
 
 ## Common Mistakes
 
@@ -15,6 +15,8 @@ The user edits. The agent does not. When they say they are done, the agent reads
 - Fan-out that stops at H2. MUST also spawn one gestalt / holistic reviewer of the overall change of the structure of the whole piece.
 - Mixing their intent with prior TONE numbers. Characterize *this* pass first, then generalize.
 - Inventing a persona rule for a one-off polish that does not recur.
+- Writing the persona as a recap of the source draft (path, title, SHA, that walk's nodes, named exhibits). MUST NOT. Isolation keeps the quotes. The persona names the class.
+- Copying that draft's outline into the persona as the walk every post must take. Whole-piece moves become properties of a walk. Do not force every post through the same nodes.
 - Writing `rch-editor` before the grouped-rule list exists.
 
 ## Cycle
@@ -24,13 +26,12 @@ The user edits. The agent does not. When they say they are done, the agent reads
    - one per section, each scoring small-to-large grains. Each returns a discrete list: location, before, after, grain, one-line characterization.
    - one gestalt / holistic reviewer of the whole piece. Returns: nested outline of conceptual progress before vs after (claims the reader now has, not headings); numbered whole-piece moves (what node moved, was cut, or was added in the walk); the through-line in one paragraph; remaining structural defect. Grain is the post. Not a merge of the section lists.
    No rewrite.
-3. Parent merges those lists, groups by intent, writes a reusable rule per group. Whole-piece moves become persona rules at post grain, not only local cuts. Ask about a group that will not generalize.
-4. Create or update the named persona (`rch-editor` unless they named another) from those rules only. Catalog it. Do not copy the whole TONE file into it.
+3. Parent merges those lists, groups by intent, writes a reusable rule per group. Apply a critical eye: name the class, not the exhibit. Whole-piece moves become properties of a walk (ethos before scene, a mechanism lives where it is the object under study, landing then closer), not a numbered recap of that draft's nodes. A rule that cannot fire on another post in the series is not reusable; ask, or drop.
+4. Create or update the named persona (`rch-editor` unless they named another) from those rules only. Catalog it. Do not copy the whole TONE file into it. The persona MUST NOT mention or reference the source post.
 
 ## Before finishing
 
 - Baseline SHA recorded before their edit
-- Subagent lists exist per section
-- Gestalt list exists: before/after walk, whole-piece moves, through-line, remaining structural defect
-- Rules are grouped by intent; ambiguous groups were asked
-- Persona file exists and contains only this cycle's generalizations, including post-grain structure
+- Subagent lists exist per section; gestalt list exists (walk, moves, through-line, remaining structural defect)
+- Rules grouped by intent, named as classes; groups that will not fire on the rest of the series were asked or dropped
+- Persona exists, names no source post, contains post-grain properties not that draft's outline
