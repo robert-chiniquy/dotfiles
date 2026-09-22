@@ -81,6 +81,8 @@ skill bodies**, not only this index.
 | scale-review | After a prose fix, re-audit every grain before presenting |
 | editor-diff-cycle | User edits a draft; isolate by section and whole-piece structure; generalize off the source draft into a named series-wide persona |
 | rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, gist is latest published draft |
+| section-title-review | H1/H2/H3 cadence and progress; numbered sequences keep one template |
+| blog-review-fleet | Every post, every iteration: section titles, missing referents, information-flow, rch-editor, then scale-review |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |
