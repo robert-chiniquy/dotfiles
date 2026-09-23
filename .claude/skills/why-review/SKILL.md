@@ -18,6 +18,7 @@ Default is miss. "Clear from context" is a high bar: a reader who has only this 
 - "Why" as a slogan (`this is important`). Name the after-state or the missed question.
 - A category with member and no why (TONE 84). Same miss.
 - `C1 refuses X` / `Here is a case we refuse` with no after-state in that sentence (reviewer would certify a Role Okta never assigned).
+- A counterfactual whose actor cannot produce the effect (`Suppose the Okta AWS Federation connector would have recorded AdministratorAccess` while that connector records Okta app profiles, not wrapping XML). The cause must be true of that actor. Wrapping extra Role belongs on a first-Assertion SAML consumer.
 
 ## Pass
 

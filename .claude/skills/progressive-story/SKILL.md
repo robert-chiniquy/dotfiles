@@ -20,6 +20,7 @@ Drawn from fixed-order technical instructions (Oklahoma State / Lumen: supplemen
 - Process of discovery (`we first tried`). The walk is the object, not the session.
 - Closing a magic-trick promise with enumeration. The trick is a closed class, not a longer list.
 - Naming the unreachable list in the lede with nouns the walk has not built (`the rearrangements`, `the last file`, `every extra Role`). That is a blank referent (`prose-clarity`). Name the topic. The list lands when the files are on the page.
+- A scene counterfactual with no cause, or a cause that actor cannot produce. `Suppose the Okta AWS Federation connector would have recorded AdministratorAccess` has no WHY: that connector records assignment profiles, which still name ReadOnly. Wrapping extra Role is recorded by a first-Assertion reader of the login XML, after HOW is on the page.
 
 ## Order
 
