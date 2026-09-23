@@ -10,6 +10,7 @@ Every post, every iteration. A title pass, a lede pass, or a gist push is an ite
 ## Common Mistakes
 
 - Shipping after one persona (titles, rch-editor, humanizer) without the rest.
+- One subagent told it is the whole fleet. Personas spawn separately. Parent greps bans and samples paragraphs.
 - Skipping prose-clarity. Missing referents are a fleet member, not an optional extra.
 - Skipping why-review. A sentence that says what X does, and not why, is a fleet miss. The why may sit earlier in the beat; it must be clear at the use. Deep: every operational claim, not one why per section.
 - One subagent on the whole file for reconstruction. prose-clarity fans out per H2.
@@ -34,9 +35,11 @@ Every post, every iteration. A title pass, a lede pass, or a gist push is an ite
 
 For each live post in the iteration (gist file if published, else `DRAFT.md`):
 
-1. Spawn members 1–5 as read-only subagents. Members 2 and 3 fan out per H2.
+1. Spawn members 1–5 as separate read-only subagents. MUST NOT fold them into one "you are the fleet" agent. Members 2 and 3 fan out per H2.
 2. Parent merges. Apply. Do not skip a member that returned no findings; record the empty.
-3. Members 7–8 on the result.
+3. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`. Any hit is a failed pass until rewritten.
+4. Members 7–8 on the result.
+5. Parent samples three paragraphs at random against prose-clarity and why-review. If those paragraphs fail, the fleet pass failed.
 
 ## Before finishing
 

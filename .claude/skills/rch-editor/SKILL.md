@@ -40,6 +40,11 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Polishing an unread tail after the author asked to stop. That cut is the intended end.
 - Citation baggage (series number, press, year) next to a title the reader can click. Keep the year when it is the result.
 - Mixing a concept-name H2 with a claim H2 in the same post. Section titles progress. A numbered sequence keeps one template. Two headings for one node collapse.
+- Reusing Friday. Recycled ethos. Unlabeled fictive scene. `cut` as a named time. Codd. Git as a cool library. Gratuitous citation. `cool` as filler.
+- Mixing session-policy product with vaulting clocks in one post.
+- A retitle that dropped the topic words the original still needed.
+- A wrapping exhibit with no account of how the extra Assertion arrived.
+- Combined "you are the whole fleet" subagent. Personas spawn separately. Parent greps the bans.
 
 ## Whole piece
 
@@ -82,6 +87,13 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
 11. C1 failures: may happen; we anticipate and prevent. Subjunctive. Not underway. Not already done.
 12. When a C1 product feature is named, at least once per post include a screenshot excerpt of that feature in the C1 dashboard, or a flashback replay gif if the action is a live session rather than a page. Crop to the feature, not a full-window dump. Caption names the feature. MUST NOT invent UI. If capture is blocked, an author-only HTML comment names the feature and screenshot vs flashback; the public body does not get a placeholder. Gist figures use gistusercontent raw URLs.
+13. A fictive scene is labeled as a case we refuse, not a gear-shift into past-tense report. Name the person and their job (Jobs to be Done): the access reviewer certifying the list, the group admin before the next sync, the on-call opening a vaulted secret. The calendar day is the next day after the event for that person. MUST NOT reuse Friday across the series. MUST NOT jump into the scene without a rhetorical frame.
+14. Cite only what the reader needs at that sentence. MUST NOT mention Codd. MUST NOT call Git a cool library. MUST NOT praise tools everyone already has. `cool` is rare; once in the series is enough.
+15. Do not say `cut` for a named time or history prefix. Say time, epoch, as-of, or the writes up to that time.
+16. A thin post folds into the post that already owns the object (crash/tombstone and two maps on the identity store belong with last-write history). Session product and vaulting two clocks are different objects; MUST NOT mix them in one lede.
+17. Before keeping a retitle, compare it to the original heading. If the new title dropped the words that still name the topic (compaction, time, history, residuation), the retitle lost. Self-critical; no epicycles.
+18. Connector draft: the bundle C1 will serve for one connector version. Runtime file: one named file in that bundle (script, schema, policy). Define both before any scene that uses them.
+19. A wrapping scenario must say how the extra node got there: signature covers a named subtree by id; a consumer that reads the first Assertion can see a different Role than the signed one. Authorization uses authenticated data.
 
 ## Before finishing
 
