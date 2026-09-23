@@ -18,6 +18,7 @@ Public phrase: logic programming paradigms in use at C1. MUST NOT name Occult, l
 - Restating a live INDEX title.
 - Naming the engine product or latchkey in public copy.
 - Inventing UI.
+- Putting an as-yet-unfixed C1 production defect on Add-to-draft or New-post as public copy. Surface those privately. Public items use a class and a constructed exhibit, or wait until the hole is closed.
 
 ## Authorship gate
 

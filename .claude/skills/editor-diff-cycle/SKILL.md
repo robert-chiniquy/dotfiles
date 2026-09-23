@@ -7,7 +7,7 @@ description: After the user edits a draft in the editor, isolate their changes b
 
 The user edits. The agent does not. When they say they are done, the agent reads the diff, not the chat. Isolation may quote the source draft. The persona MUST NOT mention or reference that draft. It applies to the rest of the posts.
 
-If the post is already on the series gist, that gist file is the latest draft. MUST `git pull --ff-only` the gist clone before editing or mining. The local unpublished `DRAFT.md` is not the object. A gist edit is a cycle: generalize it into the series persona.
+If the post is on the series gist, the gist file is the latest draft; pull before mining and do not treat a local `DRAFT.md` as the object (`/Users/rch/.claude/skills/rch-editor/references/series-gist-workflow.md`). A gist edit is a cycle: generalize it into the series persona.
 
 ## Common Mistakes
 

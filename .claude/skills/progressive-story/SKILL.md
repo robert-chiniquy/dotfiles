@@ -12,7 +12,7 @@ Drawn from fixed-order technical instructions (Oklahoma State / Lumen: supplemen
 ## Common Mistakes
 
 - Punchline in the lede. The wrapping split, the extra Role, the deadlock, dumped before the chain that makes it possible.
-- A named fact with no WHY (`The signed Assertion named ReadOnly`) and no job that put that value there.
+- A named fact with no WHY (`The signed Assertion named ReadOnly`) and no job that put that value there. Same miss: `Suppose two runtime files would share a name and differ in content` with no second put of the same key.
 - A surprising split with no HOW from the design (enveloped signature, C14N, `URI=#id` vs first child, schema siblings).
 - Reversal of a belief the reader does not yet hold (`You might think`). First create the honest object, then show what the check actually named.
 - Answering the gap in the same sentence that opens it.

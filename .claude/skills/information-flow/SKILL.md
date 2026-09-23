@@ -26,6 +26,10 @@ Proof-reading for whether the reader meets each claim in an order that earns the
 - Treating a regular coloring or group picture as a full program. TONE 72.
 - `machine` for an abstract table. TONE 73.
 - A C1 practice with no why. TONE 74.
+- A post with no thesis the body taught. After the walk, the parent writes one sentence the engineer now has. If that sentence cannot be recovered from the body, or the body is a pile of encodings with no disagreement that matters, the pass failed. Worked fail: "Dynamic groups as a list, a CEL, and a tree" that never lands that the three writings can disagree on Alice, so the hourly sync is what other surfaces read. Worked fail: last-write compaction that names `put`/`del`/`Query` without saying which two C1 files would disagree after serve.
+- `This post is ____` as a node. Not a claim. Drop it. Show the object.
+- A stub: ethos and a landing with no HOW beats. Below 70% of the published KR gist by `wc -w` is not a draft.
+- Inconsistent leveling across nodes: a node that teaches shoe-tying (what a login is) next to a node that assumes sailing (CEL `Match`, Datalog least-model). One altitude for the topic. Same grain of detail in adjacent nodes.
 
 ## Outline (subagent)
 

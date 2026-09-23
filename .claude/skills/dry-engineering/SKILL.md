@@ -30,6 +30,15 @@ Governs every reply, not only code artifacts.
   colon, comma, or parentheses. No agenty labels ("load-bearing", "key
   insight", and kin): state the mechanism or failure mode instead.
 
+## Banned labels, rewritten
+
+Replace an importance label with the mechanism or failure mode it stood in for.
+
+* `The key insight is that the cache key includes the tenant id.` becomes
+  `The cache key includes the tenant id, so two tenants never read each other's entry.`
+* `This lock is load-bearing.` becomes `Drop it and two writers interleave and
+  lose an update.`
+
 ## Code Review Comments
 
 Lead with the risk, not the preference. Direct language, no softening.
