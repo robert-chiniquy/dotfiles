@@ -94,6 +94,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 17. Before keeping a retitle, compare it to the original heading. If the new title dropped the words that still name the topic (compaction, time, history, residuation), the retitle lost. Self-critical; no epicycles.
 18. Connector draft: the bundle C1 will serve for one connector version. Runtime file: one named file in that bundle (script, schema, policy). Define both before any scene that uses them.
 19. A wrapping scenario must say how the extra node got there: signature covers a named subtree by id; a consumer that reads the first Assertion can see a different Role than the signed one. Authorization uses authenticated data.
+20. When a post has a source RFC or planning corpus, the draft uses that corpus. A title that names the product job while the body stays a thin set-algebra lecture is a miss.
 
 ## Before finishing
 
