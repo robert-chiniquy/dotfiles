@@ -84,7 +84,8 @@ skill bodies**, not only this index.
 | rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, gist is latest published draft, C1 feature screenshot or flashback gif |
 | section-title-review | H1/H2/H3 cadence and progress; numbered sequences keep one template |
 | why-review | Operational sentences that say what X does but not why; after-state or missed question |
-| blog-review-fleet | Every post, every iteration: section titles, missing referents, why, information-flow, rch-editor, then scale-review |
+| progressive-story | Instruction-manual order: WHY, then HOW from design issues, then the surprising use; magic trick is a closed class |
+| blog-review-fleet | Every post, every iteration: section titles, missing referents, why, progressive-story, information-flow, rch-editor, then scale-review |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |

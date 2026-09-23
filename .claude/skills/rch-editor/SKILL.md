@@ -9,6 +9,8 @@ Spoken host is the standing register. Ethos before the scene. One walk; end at t
 
 The unifying goal is unique, interesting, meaningful content. Repetition is the miss. A sentence, aside, closer, ethos dump, or scene frame that already appeared in a sibling post is not content.
 
+Another way to think about the series: teach a magic trick for something the reader thought was unreachable (list every rearrangement, every lock order, every CEL path). The trick is a closed representation. MUST NOT dump the mechanism in the lede. Name the topic and the unreachable list. Teach WHY each named value is true, then HOW the surprising split is possible from design issues, then the use (`progressive-story`).
+
 Published posts live in the series gist (clone `/Users/rch/repo/research/equational-reasoning/gist/`, https://gist.github.com/robert-chiniquy/aa2ef88faf0eac08b4a1f86cc6ad8027). A file linked from that `OUTLINE.md` is the latest draft of that post. MUST `git pull --ff-only` before editing it. MUST NOT overwrite it from a local unpublished `DRAFT.md`. A gist edit is a persona cycle: generalize it into this file. Gist markdown images MUST use `https://gist.githubusercontent.com/<user>/<id>/raw/<file>` with no commit SHA. A relative `![...](file.png)` is rewritten to a `#file-` fragment and does not render. GitHub may inject a SHA into the *rendered* `img src`; that tracks the viewed revision. MUST NOT copy that href back into the markdown. Published `.md` files MUST sort first (`00-` prefix). Gist lists files alphabetically; a PNG as the first file suppresses the markdown preview.
 
 ## Common Mistakes
@@ -46,7 +48,8 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Reusing Friday. Recycled ethos. Unlabeled fictive scene. `cut` as a named time. Codd. Git as a cool library. Gratuitous citation. `cool` as filler.
 - Mixing session-policy product with vaulting clocks in one post.
 - A retitle that dropped the topic words the original still needed.
-- A wrapping exhibit with no account of how the extra Assertion arrived.
+- A wrapping exhibit that dumps the signed-id vs first-child split before teaching HOW that split is possible from SAML/XML design (enveloped signature, C14N, `URI=#id` vs document order, schema siblings).
+- `The signed Assertion named ReadOnly` with no WHY (Okta assignment → profile attribute → AWS Role attribute → IdP signs those statements).
 - Combined "you are the whole fleet" subagent. Personas spawn separately. Parent greps the bans.
 
 ## Whole piece
@@ -96,8 +99,10 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 16. A thin post folds into the post that already owns the object (crash/tombstone and two maps on the identity store belong with last-write history). Session product and vaulting two clocks are different objects; MUST NOT mix them in one lede.
 17. Before keeping a retitle, compare it to the original heading. If the new title dropped the words that still name the topic (compaction, time, history, residuation), the retitle lost. Self-critical; no epicycles.
 18. Connector draft: the bundle C1 will serve for one connector version. Runtime file: one named file in that bundle (script, schema, policy). Define both before any scene that uses them.
-19. A wrapping scenario must say how the extra node got there: signature covers a named subtree by id; a consumer that reads the first Assertion can see a different Role than the signed one. Authorization uses authenticated data.
+19. A wrapping scenario is a story. First: WHY the honest Role is on the signed Assertion (Okta assignment → profile → AWS Role attribute → IdP signs those statements). Then: HOW an extra Role is possible, from SAML/XML design, one issue at a time (enveloped signature inside the payload; C14N of a tree the signer is modifying; `URI=#id` names a subtree, not the first child; the schema allows siblings and `Advice`; finding the Signature already parses the file). Then Eve's unsigned first Assertion. MUST NOT dump `signature covers a named subtree by id; a consumer that reads the first Assertion can see a different Role` in the lede. Authorization uses authenticated data.
 20. When a post has a source RFC or planning corpus, the draft uses that corpus. A title that names the product job while the body stays a thin set-algebra lecture is a miss.
+21. Magic trick: the unreachable list (XSW1–XSW8 has no last file) then a closed class that makes the extra value unrepresentable. Enumeration is the foil, not the landing.
+22. A check written as membership in a closed class is a static artifact with two jobs: an implementation you can verify, and an introspectable spec other implementations can be compared against. State both at the closed-class landing, in two sentences, without `not only / but`.
 
 ## Before finishing
 
@@ -107,3 +112,4 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 - Closer unique to this post; no series-verbatim aside; no `wrap`; no sentence starting with a backtick'd noun
 - Spoken host present; outline not announced; published post matches gist after pull; section titles progress
 - One C1-feature dashboard excerpt or flashback gif, or an author-only comment naming the blocked capture
+- Magic trick named without dumping the mechanism; WHY then HOW then use; closed-class artifact has both jobs (check, spec)
