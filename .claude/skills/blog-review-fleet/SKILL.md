@@ -16,6 +16,7 @@ Every post, every iteration. A title pass, a lede pass, or a gist push is an ite
 - Skipping section-title-review after a body edit. Headings drift when the walk moves.
 - A C1 failure in the indicative (happening, or already happened). Subjunctive only: may happen; we anticipate and prevent.
 - Parent applying fixes, then handing over without scale-review on the changed sentences.
+- A C1 product feature named with no dashboard excerpt or flashback gif in the post.
 - Editing the gist from local unpublished `DRAFT.md`. Published file is the gist clone after pull.
 
 ## Members (all, this order)
@@ -43,3 +44,4 @@ For each live post in the iteration (gist file if published, else `DRAFT.md`):
 - Members 1–5 ran; prose-clarity and why-review were per H2; missing-referent and does-without-why audits ran
 - scale-review ran on changed sentences
 - HTML opened only after that
+- C1 product feature has a dashboard excerpt or flashback gif, or an author-only comment naming the blocked capture

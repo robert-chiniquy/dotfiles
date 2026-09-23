@@ -32,6 +32,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - Repeating `But trust me, this is all going somewhere` or `I'm sorry, I'm obsessed with this topic` after it has already appeared in the series.
 - The word `wrap` (vaulted secrets). Say vaulting.
 - A sentence that begins with a backtick'd noun.
+- Naming a C1 product feature with no dashboard excerpt (or flashback gif) anywhere in the post.
 - A review that is merely not frozen. The review is of all current state.
 - A privilege that does not come back, unnamed. It is a removed privilege that does not come back.
 - One C1 application. C1 is SaaS codebases.
@@ -80,6 +81,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 9. Title is a keyword pair people can pick: one CS concept and one security / SaaS / reliability / product concept, in many posts, not all (a stamp of that pair is the same miss). Series H1s introduce concepts in publish order. A later title uses a concept an earlier title named. MUST NOT re-introduce `a set` after classifiers already named it. MUST NOT stamp every H1 as `X is Y`. Role mining belongs in the exact-comparison title. Vaulting belongs in the weakest-precondition title. Two clocks as a product is a fold candidate into vaulting or session product, not a required standalone. The title may name the running example (`Detecting deadlocks with Krohn-Rhodes`). MUST NOT use `(and more!)`.
 10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
 11. C1 failures: may happen; we anticipate and prevent. Subjunctive. Not underway. Not already done.
+12. When a C1 product feature is named, at least once per post include a screenshot excerpt of that feature in the C1 dashboard, or a flashback replay gif if the action is a live session rather than a page. Crop to the feature, not a full-window dump. Caption names the feature. MUST NOT invent UI. If capture is blocked, an author-only HTML comment names the feature and screenshot vs flashback; the public body does not get a placeholder. Gist figures use gistusercontent raw URLs.
 
 ## Before finishing
 
@@ -88,3 +90,4 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 - Classifiers named if membership of program objects appears
 - Closer unique to this post; no series-verbatim aside; no `wrap`; no sentence starting with a backtick'd noun
 - Spoken host present; outline not announced; published post matches gist after pull; section titles progress
+- One C1-feature dashboard excerpt or flashback gif, or an author-only comment naming the blocked capture
