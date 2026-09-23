@@ -13,7 +13,8 @@ Public phrase: logic programming paradigms in use at C1. MUST NOT name Occult, l
 
 - Suggesting a post that restates a live INDEX title.
 - Naming the engine product or latchkey in a public suggestion.
-- Surveying all of GitHub. Stay on series-adjacent C1 surfaces (CEL, classifiers, grants, SAML, vaulting, connectors, compaction, session policy, role mining, deadlocks, XML Signature).
+- Stopping at surfaces already in INDEX. The job is unused C1 work that can become a post, including surfaces the series has not named yet (MCP OAuth, findings, connectors, proto, CLI, Terraform, SDKs, every baton connector).
+- Capping the list early. Paginate GitHub. Walk every local codebase path that exists. One line per distinct product+CS pair. Dozens to 100+ is the expected grain if the corpus supports it. MUST NOT stop at a dozen because the first hits were on CEL and SAML.
 - A claim with no source path or PR URL.
 - Inventing UI or product behavior not in the source.
 
@@ -21,9 +22,17 @@ Public phrase: logic programming paradigms in use at C1. MUST NOT name Occult, l
 
 Live and published titles: `/Users/rch/repo/research/equational-reasoning/INDEX.md` and gist `01-OUTLINE.md` (https://gist.github.com/robert-chiniquy/aa2ef88faf0eac08b4a1f86cc6ad8027).
 
-Local (read; do not assume every path exists): `/Users/rch/repo/c1`, `/Users/rch/repo/cone`, `/Users/rch/repo/baton-sdk`, `/Users/rch/repo/connector-registry`, `/Users/rch/repo/occult-sigil`, `/Users/rch/repo/occult`, `/Users/rch/.claude/codebases.json`.
+Local (read; skip missing): every path in `/Users/rch/.claude/codebases.json`, plus `/Users/rch/repo/c1`, `/Users/rch/repo/cone`, `/Users/rch/repo/docs`, `/Users/rch/repo/occult-sigil`, `/Users/rch/repo/occult`, and every `/Users/rch/repo/baton-*` directory that exists.
 
-GitHub since 2025-10-01 (author started at C1 ~11 months before 2026-09): `gh search prs --author=robert-chiniquy --created=">=2025-10-01" --limit 50`, `gh search commits --author=robert-chiniquy --author-date=">=2025-10-01" --limit 50`, then org/repo filters (`conductorone`, personal). Full PR URL at every mention.
+GitHub since 2025-10-01 (author started at C1 ~11 months before 2026-09). Paginate. Do not inherit the current workspace repo. Explicit owner filters:
+
+```
+gh search prs --author=robert-chiniquy --owner=ductone --created=">=2025-10-01" --limit 100
+gh search prs --author=robert-chiniquy --owner=ConductorOne --created=">=2025-10-01" --limit 100
+gh search prs --author=robert-chiniquy --created=">=2025-10-01" --limit 100
+```
+
+Same for commits (`--author-date`). Full PR URL at every mention. Record how many PRs and how many local repos were actually opened.
 
 ## Pass
 
@@ -31,7 +40,7 @@ GitHub since 2025-10-01 (author started at C1 ~11 months before 2026-09): `gh se
 2. Search local code/docs for those surfaces and adjacent ones (Okta SAML roles, session CEL, vault epochs, last-write indexes, connector draft names, role mining preview).
 3. Search GitHub PRs/commits in the same window.
 4. For each hit: already in a draft, add-to-draft, or new-post.
-5. Write `/Users/rch/repo/research/equational-reasoning/reports/REPORT_SERIES_CORPUS_YYYY-MM-DD.md` with two lists only when they have items: Add to a current draft; New post. Each item: title or draft id, one-sentence claim, source (absolute local path or full GitHub URL). New-post titles are one CS keyword + one C1 product keyword.
+5. Write a new dated report (do not overwrite an earlier same-day report). Two lists: Add to a current draft; New post. Each item: title or draft id, one-sentence claim, source (absolute local path or full GitHub URL). New-post titles are one CS keyword + one C1 product keyword. Methodology must name PR count and repo count surveyed.
 
 ## Before finishing
 
