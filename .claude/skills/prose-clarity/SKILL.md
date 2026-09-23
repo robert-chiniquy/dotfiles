@@ -10,6 +10,7 @@ Read only for reconstruction. An engineer who does not already know this paragra
 ## Common Mistakes
 
 - A definite noun with no object yet on the page. `the rearrangements`, `the last file`, `every extra Role` in `The rearrangements have no last file, so refusing every extra Role looks unreachable.` The reader cannot say rearrangements of what, last file of what, extra of what. This is a failed pass, not a slogan. MUST NOT keep it because another persona wanted an unreachable list or a magic trick in the lede.
+- An empty scene frame. `Here is a case we refuse.` The reader cannot say which case, or what is refused. The next sentence is not the referent (in the SAML lede it was Alice's honest ReadOnly job). Same miss: `Imagine if.` MUST name the refused object in that sentence (`C1 refuses a Grants row that would name AdministratorAccess for that assignment.`).
 - Reviewing tone, gratitude, or TONE numbers. This persona is reconstruction only.
 - Leaving fact and example in one run with no "example" mark. Friday GitHub is an example; connectors ingesting who-has-what is the fact.
 - A paragraph that changes topic mid-way (ingest, then deploy, then three event names) without a new paragraph or a table.

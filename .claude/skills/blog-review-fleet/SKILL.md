@@ -41,7 +41,7 @@ For each live post in the iteration (gist file if published, else `DRAFT.md`):
 1. Spawn members 1–6 as separate read-only subagents. MUST NOT fold them into one "you are the fleet" agent. Members 2 and 3 fan out per H2.
 2. Parent merges. Apply. Do not skip a member that returned no findings; record the empty. A prose-clarity blank definite noun in the lede is applied before any slogan from progressive-story or rch-editor.
 3. Parent fills the lede definite-noun table (prose-clarity step 0) in the merge, not only in a sample. Phrase, prior quote that built the object, pass/fail. Any empty prior is a failed pass until rewritten.
-4. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`, `Priya`, `Devon`, `Dana,`, `Jordan`. Any hit is a failed pass until rewritten. Ethos must name this post's C1 surface and the CS concept it introduces.
+4. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`, `Priya`, `Devon`, `Dana,`, `Jordan`, `Here is a case we refuse.`. Any hit is a failed pass until rewritten. Ethos must name this post's C1 surface and the CS concept it introduces. `Here is a case we refuse.` fails unless the rest of that same sentence names the refused object.
 5. Members 8–9 on the result.
 6. Parent samples three paragraphs at random against prose-clarity, why-review, and progressive-story. If those paragraphs fail, the fleet pass failed. A sampled punchline that precedes its WHY/HOW chain is a failed pass. A sampled `the/those/every` + noun with no prior object is a failed pass.
 
