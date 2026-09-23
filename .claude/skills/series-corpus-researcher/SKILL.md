@@ -1,55 +1,74 @@
 ---
 name: series-corpus-researcher
-description: Search repos the author created, commits they shipped to main, and PRs they originated, since 2025-10, for material adjacent to the C1 engineering-blog series. Use when the user asks for new post topics, more context for current drafts, or a corpus pass.
+description: Find unused work the author originated for the C1 engineering-blog series. Repos they created, commits they shipped to main, originating PRs. Use when the user asks for new post topics, more draft context, or a corpus pass.
 ---
 
 # Series corpus researcher
 
-Find unused work the author originated that belongs next to a live draft or as a new post. Write a dated report. Do not edit drafts unless asked.
+Write a new dated report. Do not edit drafts unless asked. Do not reuse an old corpus report; start the survey from empty.
 
-Public phrase: logic programming paradigms in use at C1. MUST NOT name Occult, latchkey, bead ids in suggested public copy. Author-only sources may use local paths.
+Public phrase: logic programming paradigms in use at C1. MUST NOT name Occult, latchkey, or bead ids in suggested public copy. Author-only sources may use local paths.
 
 ## Common Mistakes
 
-- Citing C1 material the author only touched (review, follow-up, rename, CI, a later edit on someone else's surface). Original author only.
-- Searching PRs only. Also: repos they created, and commits they shipped directly to `main`.
-- Stopping at a GitHub 403. Read `gh api rate_limit`. If remaining is 0, wait until `reset`, then continue. Checkpoint to a file under `reports/`. Finish the dataset.
-- Suggesting a post that restates a live INDEX title.
-- Naming the engine product or latchkey in a public suggestion.
-- Stopping at surfaces already in INDEX.
-- Capping the list early. Paginate. Walk every local path that exists. One line per distinct product+CS pair the author originated.
-- A claim with no source path, PR URL, or commit SHA.
-- Inventing UI or product behavior not in the source.
+- Citing C1 material the author only touched (review, follow-up, rename, CI, a later edit). Original author only.
+- Searching PRs only. Also: repos they created, and commits they shipped to `main`.
+- Stopping at a GitHub 403. Read `gh api rate_limit`. If remaining is 0, wait until `reset`, checkpoint, continue. Finish the dataset.
+- A new-post item that is only an implementation fact (`refresh failures are classified from the typed error class`). Every new post MUST carry one observation of interest worth public discussion under the author's name: a stake a C1 engineering-blog reader would argue about, not a typed-error cleanup.
+- Restating a live INDEX title.
+- Naming the engine product or latchkey in public copy.
+- Inventing UI.
 
 ## Authorship gate
 
-Cite a fact only when the author originated it. Evidence, in order:
+Cite only when the author originated the surface.
 
-1. They created the repo (`gh repo view --json isPrivate,createdAt,owner` plus creator; `gh search repos --owner=robert-chiniquy`; org repos whose creator is `robert-chiniquy`).
-2. They shipped the introducing commit to `main` (or `master`): `git log origin/main --author='Robert Chiniquy' --author='rchiniquy@' --since=2025-10-01`. For a path, the first add on main is theirs (`git log origin/main --diff-filter=A --follow --format='%an %ae %H' -- <path>`).
-3. They opened the PR that introduced the surface, and they wrote the body of that change. A later PR that only touches, renames, tests, or reviews someone else's work does not count.
+1. They created the repo.
+2. They shipped the introducing commit to `main`/`master`: first add on that path is theirs.
+3. They opened the PR that introduced the surface and wrote that change. Review-only, CI-only, rename-only, and follow-ups on someone else's design fail.
 
-If the first commit on the path is someone else, omit it, or label it `touched-not-cited` in methodology. MUST NOT put touched-not-cited items on Add-to-draft or New-post.
+If the first commit on the path is someone else: omit, or list under methodology as `touched-not-cited`. MUST NOT put those on Add-to-draft or New-post.
 
-Author emails seen in-tree: `rchiniquy@yahoo.com`, `robert.chiniquy@conductorone.com`. GitHub login: `robert-chiniquy`. Window: 2025-10-01 onward (C1 start ~11 months before 2026-09).
+Author: GitHub `robert-chiniquy`. Emails: `rchiniquy@yahoo.com`, `robert.chiniquy@conductorone.com`. Window: 2025-10-01 onward, plus earlier work they originated that the series can still use (Rust Occult, static analysis).
+
+## Interest gate (new posts)
+
+For each New post, write:
+
+- Title: one CS keyword + one C1 product keyword
+- Claim: one sentence
+- Observation of interest: one sentence a reader would discuss under this author's name (failure, invariant, trick, or unrepresentable extra). If you cannot write that sentence, drop the item.
+- Source + authorship reason (`created repo`, `first commit on path <sha>`, `originating PR <url>`)
+
+Fail example: "Typed class in MCP OAuth refresh" with no stake.
+Pass example: "A checkpoint write that omits AssignedTo = this worker would let a second consumer replace the live grant sequence."
 
 ## Corpus
 
-Live and published titles: `/Users/rch/repo/research/equational-reasoning/INDEX.md` and gist `01-OUTLINE.md`.
+INDEX: `/Users/rch/repo/research/equational-reasoning/INDEX.md`. Gist outline: `/Users/rch/repo/research/equational-reasoning/gist/01-OUTLINE.md`.
 
-Local (skip missing): every path in `/Users/rch/.claude/codebases.json`, plus `/Users/rch/repo/c1`, `/Users/rch/repo/cone`, `/Users/rch/repo/docs`, `/Users/rch/repo/occult-sigil`, `/Users/rch/repo/occult`, every `/Users/rch/repo/baton-*`.
+Must open:
 
-GitHub (do not inherit the workspace repo):
+- `/Users/rch/repo/occult-go-analysis` (README title occult-static-analysis)
+- `/Users/rch/repo/occult-rust` (original Rust Occult)
+- `/Users/rch/repo/occult` (`goanalysis/`)
+- `/Users/rch/repo/occult-sigil`
+- `/Users/rch/repo/c1`, `/Users/rch/repo/cone`, `/Users/rch/repo/docs`
+- every `/Users/rch/repo/baton-*` that exists
+- every path in `/Users/rch/.claude/codebases.json` that exists
+- repos they created (`gh search repos --owner=robert-chiniquy`; org repos whose creator is `robert-chiniquy`)
+
+GitHub (do not inherit the workspace repo). Paginate. Commits to main on local clones:
 
 ```
-gh search repos --owner=robert-chiniquy --limit 100
-gh search prs --author=robert-chiniquy --owner=ductone --created=">=2025-10-01" --limit 100
-gh search prs --author=robert-chiniquy --owner=ConductorOne --created=">=2025-10-01" --limit 100
-gh search commits --author=robert-chiniquy --author-date=">=2025-10-01" --limit 100
-git -C <repo> log origin/main --author='Robert Chiniquy' --since=2025-10-01 --pretty='%h %ad %s' --date=short
+git log origin/main --author='Robert Chiniquy' --since=2025-10-01 --pretty='%h %ad %s' --date=short
 ```
 
-Paginate search with `created:` windows. Full PR URL or commit SHA at every mention. Record: repos created, commits-to-main counted, PRs listed, local repos opened.
+First add on a cited path:
+
+```
+git log origin/main --diff-filter=A --follow --format='%an %ae %H %s' -- <path>
+```
 
 ## Rate limits
 
@@ -57,20 +76,22 @@ Paginate search with `created:` windows. Full PR URL or commit SHA at every ment
 gh api rate_limit --jq '{core: .resources.core, search: .resources.search}'
 ```
 
-If `remaining` is 0, wait until `reset` (Unix seconds), then resume from the checkpoint. MUST NOT drop the rest of the dataset. MUST NOT background the wait with `&`. Foreground wait is allowed. Checkpoint: `/Users/rch/repo/research/equational-reasoning/reports/_corpus_authored_checkpoint.md` (listings, windows done, remaining queries).
+Remaining 0: wait until `reset` in the foreground (no `&`). Checkpoint: `/Users/rch/repo/research/equational-reasoning/reports/_corpus_checkpoint.md`. Resume until windows are done.
 
 ## Pass
 
-1. One line per live/published post: C1 surface + CS concept.
-2. List repos the author created. List commits they shipped to `main`. Then PRs they originated.
-3. Authorship gate each hit.
-4. Classify: already in a draft, add-to-draft, or new-post.
-5. Write a new dated report (do not overwrite an earlier same-day report). Two lists: Add to a current draft; New post. Each item: title or draft id, one-sentence claim, source (path, PR URL, or commit SHA) plus a one-line authorship reason (`created repo`, `first commit on path`, `originating PR`). Methodology names counts and how many candidates failed the authorship gate.
+1. Live/published titles, one line each.
+2. Repos created, then commits to main, then originating PRs.
+3. Authorship gate, then interest gate.
+4. Classify: already in a draft, add-to-draft, new-post.
+5. Write `/Users/rch/repo/research/equational-reasoning/reports/REPORT_SERIES_CORPUS_YYYY-MM-DD.md` (new file; never overwrite). Methodology: repos created, commits-to-main, PRs listed, opened local repos, rejected-touched count, items dropped for no public stake.
+
+Skip as new posts: exclusive Kinesis lease (already in KR gist); duplicate Assertion id (already in 15).
 
 ## Before finishing
 
-- Report path exists
-- Every listed item has a source and an authorship reason
+- Report path exists and is a new file
+- Every listed item has source, authorship reason, and (for new posts) an observation of interest
 - No touched-not-cited item on the two lists
-- Rate-limit waits completed; checkpoint windows are done or named as remaining
-- Public suggestions omit Occult, latchkey, bead ids
+- Rate-limit waits finished or remaining windows named
+- Public copy omits Occult, latchkey, bead ids
