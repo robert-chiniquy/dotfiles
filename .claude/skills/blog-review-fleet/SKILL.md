@@ -42,8 +42,9 @@ For each live post in the iteration (gist file if published, else `DRAFT.md`):
 2. Parent merges. Apply. Do not skip a member that returned no findings; record the empty. A prose-clarity blank definite noun in the lede is applied before any slogan from progressive-story or rch-editor.
 3. Parent fills the lede definite-noun table (prose-clarity step 0) in the merge, not only in a sample. Phrase, prior quote that built the object, pass/fail. Any empty prior is a failed pass until rewritten.
 4. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`, `Priya`, `Devon`, `Dana,`, `Jordan`, `case we refuse`, `Here is a case we refuse`. Any hit is a failed pass until rewritten. Ethos must name this post's C1 surface and the CS concept it introduces. A `refuses` / `takes preventing` sentence with no after-state in that sentence is a why-review fail.
-5. Members 8–9 on the result.
-6. Parent samples three paragraphs at random against prose-clarity, why-review, and progressive-story. If those paragraphs fail, the fleet pass failed. A sampled punchline that precedes its WHY/HOW chain is a failed pass. A sampled `the/those/every` + noun with no prior object is a failed pass.
+5. Parent runs `jscpd` on live `DRAFT.md` files as plain text (markdown tokenizer only sees fences). `jscpd --pattern '**/DRAFT.md' --formats-exts 'txt:md' --format txt --min-lines 2 --min-tokens 12 --ignore '**/gist/**' --reporters console --no-tips --absolute <series-root>`. Default `--min-tokens 50` misses a 4-word stamp. A clone that is a scene opener, closer, or ethos dump across two live posts is a failed pass. HTML comments and folded successor copies of the same epic may stay. Install: `cargo install jscpd` or `brew install jscpd`.
+6. Members 8–9 on the result.
+7. Parent samples three paragraphs at random against prose-clarity, why-review, and progressive-story. If those paragraphs fail, the fleet pass failed. A sampled punchline that precedes its WHY/HOW chain is a failed pass. A sampled `the/those/every` + noun with no prior object is a failed pass.
 
 ## Before finishing
 
