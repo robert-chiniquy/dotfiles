@@ -31,8 +31,7 @@ skill bodies**, not only this index.
 | engineering-guidelines | Design, debug, review, or quality judgment beyond Claude.md |
 | passive-qol | Dotfiles, shell config, system QoL, friction |
 | casual-slack-tone | Slack messages, DMs, PR descriptions on own repos |
-| technical-writing | Blog posts, articles, long-form external content |
-| technical-writing-voice | Long-form external voice (articles, talks) |
+| technical-writing | Long-form external voice + structure: blog posts, articles, deep dives, talks |
 | structural-constraints | Architecture decisions, type system design |
 | subprocess-lifecycle | Spawning a child process: ownership mode, parent-death, signals, reaping |
 | checkoutless-github-publish | No writable git checkout: scratch-tree verification + gh data API publish/rebase with the whole-file divergence gate |
@@ -82,11 +81,12 @@ skill bodies**, not only this index.
 | editor-diff-cycle | User edits a draft; isolate by section and whole-piece structure; generalize off the source draft into a named series-wide persona |
 | talks-diff-cycle | User edits a talk deck; isolate by yaml cluster and whole-deck walk; propose rch-editor Talks rules; write only after confirmation |
 | rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, gist is latest published draft, C1 feature screenshot or flashback gif |
+| research-voice | Lab-note cadence on C1 exhibits; review lens over rch-editor drafts (claim-size, query direction; does not overturn ethos/scene) |
 | section-title-review | H1/H2/H3 cadence and progress; numbered sequences keep one template |
 | why-review | Operational sentences that say what X does but not why; default is miss; after-state in the same beat |
 | series-corpus-researcher | Local C1/occult code plus GitHub since 2025-10, adjacent to live and published blog posts |
 | progressive-story | Instruction-manual order: WHY, then HOW from design issues, then the surprising use; magic trick is a closed class |
-| blog-review-fleet | Every post, every iteration: section titles, missing referents, why, progressive-story, information-flow, rch-editor, then scale-review |
+| blog-review-fleet | Every post, every iteration: section titles, missing referents, why, progressive-story, information-flow, rch-editor, research-voice, then scale-review |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |
