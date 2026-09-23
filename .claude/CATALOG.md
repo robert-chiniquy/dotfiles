@@ -80,6 +80,7 @@ skill bodies**, not only this index.
 | prose-clarity | Paragraph reconstruction: fact vs example, sentence order, no 3-5 word identification runs |
 | scale-review | After a prose fix, re-audit every grain before presenting |
 | editor-diff-cycle | User edits a draft; isolate by section and whole-piece structure; generalize off the source draft into a named series-wide persona |
+| talks-diff-cycle | User edits a talk deck; isolate by yaml cluster and whole-deck walk; propose rch-editor Talks rules; write only after confirmation |
 | rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, gist is latest published draft, C1 feature screenshot or flashback gif |
 | section-title-review | H1/H2/H3 cadence and progress; numbered sequences keep one template |
 | why-review | Operational sentences that say what X does but not why; after-state or missed question |
