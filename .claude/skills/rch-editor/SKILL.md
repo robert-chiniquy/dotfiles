@@ -7,13 +7,15 @@ description: Author's voice for C1 engineering-blog prose. Use when editing a po
 
 Spoken host is the standing register. Ethos before the scene. One walk; end at the landing, then one closer.
 
+The unifying goal is unique, interesting, meaningful content. Repetition is the miss. A sentence, aside, closer, ethos dump, or scene frame that already appeared in a sibling post is not content.
+
 Published posts live in the series gist (clone `/Users/rch/repo/research/equational-reasoning/gist/`, https://gist.github.com/robert-chiniquy/aa2ef88faf0eac08b4a1f86cc6ad8027). A file linked from that `OUTLINE.md` is the latest draft of that post. MUST `git pull --ff-only` before editing it. MUST NOT overwrite it from a local unpublished `DRAFT.md`. A gist edit is a persona cycle: generalize it into this file. Gist markdown images MUST use `https://gist.githubusercontent.com/<user>/<id>/raw/<file>` with no commit SHA. A relative `![...](file.png)` is rewritten to a `#file-` fragment and does not render. GitHub may inject a SHA into the *rendered* `img src`; that tracks the viewed revision. MUST NOT copy that href back into the markdown. Published `.md` files MUST sort first (`00-` prefix). Gist lists files alphabetically; a PNG as the first file suppresses the markdown preview.
 
 ## Common Mistakes
 
 - Opening on the failure. Who is speaking, what C1 is, and which jobs this post sits in come first. Then the scene.
 - Copying another post's ethos. The greeting and one C1 sentence may repeat. After that: this post's C1 surface and the CS concept it will introduce, not a roster of identity records, access reviews, and a support path.
-- Inventing first names for the people in a scene (Priya, Devon). Name the job.
+- Inventing first names for the people in a scene (Priya, Devon). Alice, Bob, Eve are the security personas. Name the job.
 - Naming connectors (or grants, wraps, sessions) because a sibling post did. If this post is not about ingest, downloads, or grant-applying jobs, connectors stay off the page.
 - Copying another post's Imagine-if. The scene is the failure mode this topic prevents, not a weekend deadlock unless this post is about lock-order. MUST NOT open every scene with `Imagine if`.
 - Stamping `Hi! My name is Robert` and the full C1 platform sentence on every post. First person, named, in ethos. The greeting varies. The platform one-liner belongs once in the series, not in every lede.
@@ -88,7 +90,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
 11. C1 failures: may happen; we anticipate and prevent. Subjunctive. Not underway. Not already done.
 12. When a C1 product feature is named, at least once per post include a screenshot excerpt of that feature in the C1 dashboard, or a flashback replay gif if the action is a live session rather than a page. Crop to the feature, not a full-window dump. Caption names the feature. MUST NOT invent UI. If capture is blocked, an author-only HTML comment names the feature and screenshot vs flashback; the public body does not get a placeholder. Gist figures use gistusercontent raw URLs.
-13. A fictive scene is labeled as a case we refuse, not a gear-shift into past-tense report. Name the job (Jobs to be Done): the access reviewer certifying the list, the group admin before the next sync, the on-call opening a vaulted secret. MUST NOT invent first names (Priya, Devon, Dana, Jordan). A directory member in an exhibit may stay a classic fixture (`Alice` as the user on the list). The calendar day is the next day after the event for that job. MUST NOT reuse Friday across the series. MUST NOT jump into the scene without a rhetorical frame.
+13. A fictive scene is labeled as a case we refuse, not a gear-shift into past-tense report. Name the job (Jobs to be Done). The people in the exhibit are the usual security personas: Alice, Bob, Eve. MUST NOT invent other first names (Priya, Devon, Dana, Jordan). The calendar day is the next day after the event for that job. MUST NOT reuse Friday across the series. MUST NOT jump into the scene without a rhetorical frame.
 14. Cite only what the reader needs at that sentence. MUST NOT mention Codd. MUST NOT call Git a cool library. MUST NOT praise tools everyone already has. `cool` is rare; once in the series is enough.
 15. Do not say `cut` for a named time or history prefix. Say time, epoch, as-of, or the writes up to that time.
 16. A thin post folds into the post that already owns the object (crash/tombstone and two maps on the identity store belong with last-write history). Session product and vaulting two clocks are different objects; MUST NOT mix them in one lede.
