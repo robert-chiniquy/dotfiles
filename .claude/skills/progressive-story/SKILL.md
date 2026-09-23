@@ -19,6 +19,7 @@ Drawn from fixed-order technical instructions (Oklahoma State / Lumen: supplemen
 - All parts of a mechanism in one paragraph. One new fact per beat.
 - Process of discovery (`we first tried`). The walk is the object, not the session.
 - Closing a magic-trick promise with enumeration. The trick is a closed class, not a longer list.
+- Naming the unreachable list in the lede with nouns the walk has not built (`the rearrangements`, `the last file`, `every extra Role`). That is a blank referent (`prose-clarity`). Name the topic. The list lands when the files are on the page.
 
 ## Order
 
@@ -28,7 +29,7 @@ Drawn from fixed-order technical instructions (Oklahoma State / Lumen: supplemen
 4. Then the trick: the closed class that makes the extra value unrepresentable.
 5. Zoom back to the product after-state.
 
-A magic trick is a move the reader thought was unreachable (list every rearrangement, every lock order, every CEL path). The trick is a closed representation. MUST NOT dump the mechanism in sentence one of the lede. Name the topic and the unreachable list. Teach the move in the walk.
+A magic trick is a move the reader thought was unreachable (list every rearrangement, every lock order, every CEL path). The trick is a closed representation. MUST NOT dump the mechanism in the lede. MUST NOT put `rearrangements`, `last file`, or `extra Role` in the lede before those objects exist. Name the topic. Teach the move in the walk. The unreachable list is a sentence in the XSW / enumeration beat, after a file is on the page.
 
 A formally verifiable check written as membership in a closed class is also a static artifact other implementations can be compared against. State both jobs of that artifact at the landing of the closed class, in two sentences, without `not only / but`.
 

@@ -18,6 +18,7 @@ Every post, every iteration. A title pass, a lede pass, or a gist push is an ite
 - Skipping section-title-review after a body edit. Headings drift when the walk moves.
 - A C1 failure in the indicative (happening, or already happened). Subjunctive only: may happen; we anticipate and prevent.
 - Parent applying fixes, then handing over without scale-review on the changed sentences.
+- Parent keeping a lede slogan after prose-clarity listed a blank definite noun (`the rearrangements`, `the last file`, `every extra Role`). That is a failed pass. Reconstructability beats magic-trick / unreachable-list placement.
 - A C1 product feature named with no dashboard excerpt or flashback gif in the post.
 - Editing the gist from local unpublished `DRAFT.md`. Published file is the gist clone after pull.
 
@@ -38,15 +39,16 @@ Every post, every iteration. A title pass, a lede pass, or a gist push is an ite
 For each live post in the iteration (gist file if published, else `DRAFT.md`):
 
 1. Spawn members 1–6 as separate read-only subagents. MUST NOT fold them into one "you are the fleet" agent. Members 2 and 3 fan out per H2.
-2. Parent merges. Apply. Do not skip a member that returned no findings; record the empty.
-3. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`, `Priya`, `Devon`, `Dana,`, `Jordan`. Any hit is a failed pass until rewritten. Ethos must name this post's C1 surface and the CS concept it introduces.
-4. Members 8–9 on the result.
-5. Parent samples three paragraphs at random against prose-clarity, why-review, and progressive-story. If those paragraphs fail, the fleet pass failed. A sampled punchline that precedes its WHY/HOW chain is a failed pass.
+2. Parent merges. Apply. Do not skip a member that returned no findings; record the empty. A prose-clarity blank definite noun in the lede is applied before any slogan from progressive-story or rch-editor.
+3. Parent fills the lede definite-noun table (prose-clarity step 0) in the merge, not only in a sample. Phrase, prior quote that built the object, pass/fail. Any empty prior is a failed pass until rewritten.
+4. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`, `Priya`, `Devon`, `Dana,`, `Jordan`. Any hit is a failed pass until rewritten. Ethos must name this post's C1 surface and the CS concept it introduces.
+5. Members 8–9 on the result.
+6. Parent samples three paragraphs at random against prose-clarity, why-review, and progressive-story. If those paragraphs fail, the fleet pass failed. A sampled punchline that precedes its WHY/HOW chain is a failed pass. A sampled `the/those/every` + noun with no prior object is a failed pass.
 
 ## Before finishing
 
 - Every live post in the iteration was a fleet subject
-- Members 1–6 ran; prose-clarity and why-review were per H2; missing-referent, does-without-why, and punchline-before-chain audits ran
+- Members 1–6 ran; prose-clarity and why-review were per H2; lede definite-noun table filled; missing-referent, does-without-why, and punchline-before-chain audits ran
 - scale-review ran on changed sentences
 - HTML opened only after that
 - C1 product feature has a dashboard excerpt or flashback gif, or an author-only comment naming the blocked capture

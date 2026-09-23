@@ -9,7 +9,7 @@ Spoken host is the standing register. Ethos before the scene. One walk; end at t
 
 The unifying goal is unique, interesting, meaningful content. Repetition is the miss. A sentence, aside, closer, ethos dump, or scene frame that already appeared in a sibling post is not content.
 
-Another way to think about the series: teach a magic trick for something the reader thought was unreachable (list every rearrangement, every lock order, every CEL path). The trick is a closed representation. MUST NOT dump the mechanism in the lede. Name the topic and the unreachable list. Teach WHY each named value is true, then HOW the surprising split is possible from design issues, then the use (`progressive-story`).
+Another way to think about the series: teach a magic trick for something the reader thought was unreachable (list every rearrangement, every lock order, every CEL path). The trick is a closed representation. MUST NOT dump the mechanism in the lede. MUST NOT name that list with nouns the walk has not built (`The rearrangements have no last file, so refusing every extra Role looks unreachable.`). Name the topic. Teach WHY each named value is true, then HOW the surprising split is possible from design issues, then the use (`progressive-story`). The unreachable list lands when a file is on the page.
 
 Published posts live in the series gist (clone `/Users/rch/repo/research/equational-reasoning/gist/`, https://gist.github.com/robert-chiniquy/aa2ef88faf0eac08b4a1f86cc6ad8027). A file linked from that `OUTLINE.md` is the latest draft of that post. MUST `git pull --ff-only` before editing it. MUST NOT overwrite it from a local unpublished `DRAFT.md`. A gist edit is a persona cycle: generalize it into this file. Gist markdown images MUST use `https://gist.githubusercontent.com/<user>/<id>/raw/<file>` with no commit SHA. A relative `![...](file.png)` is rewritten to a `#file-` fragment and does not render. GitHub may inject a SHA into the *rendered* `img src`; that tracks the viewed revision. MUST NOT copy that href back into the markdown. Published `.md` files MUST sort first (`00-` prefix). Gist lists files alphabetically; a PNG as the first file suppresses the markdown preview.
 
@@ -50,7 +50,8 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 - A retitle that dropped the topic words the original still needed.
 - A wrapping exhibit that dumps the signed-id vs first-child split before teaching HOW that split is possible from SAML/XML design (enveloped signature, C14N, `URI=#id` vs document order, schema siblings).
 - `The signed Assertion named ReadOnly` with no WHY (Okta assignment → profile attribute → AWS Role attribute → IdP signs those statements).
-- Combined "you are the whole fleet" subagent. Personas spawn separately. Parent greps the bans.
+- `The rearrangements have no last file, so refusing every extra Role looks unreachable.` Definite nouns with no object yet. prose-clarity step 0. Reconstructability beats the magic-trick slogan.
+- Combined "you are the whole fleet" subagent. Personas spawn separately. Parent greps the bans. Parent fills the lede definite-noun table.
 
 ## Whole piece
 
@@ -112,4 +113,4 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 - Closer unique to this post; no series-verbatim aside; no `wrap`; no sentence starting with a backtick'd noun
 - Spoken host present; outline not announced; published post matches gist after pull; section titles progress
 - One C1-feature dashboard excerpt or flashback gif, or an author-only comment naming the blocked capture
-- Magic trick named without dumping the mechanism; WHY then HOW then use; closed-class artifact has both jobs (check, spec)
+- Magic trick named without dumping the mechanism; no lede definite noun whose object is a later H2; WHY then HOW then use; closed-class artifact has both jobs (check, spec)

@@ -9,6 +9,7 @@ Read only for reconstruction. An engineer who does not already know this paragra
 
 ## Common Mistakes
 
+- A definite noun with no object yet on the page. `the rearrangements`, `the last file`, `every extra Role` in `The rearrangements have no last file, so refusing every extra Role looks unreachable.` The reader cannot say rearrangements of what, last file of what, extra of what. This is a failed pass, not a slogan. MUST NOT keep it because another persona wanted an unreachable list or a magic trick in the lede.
 - Reviewing tone, gratitude, or TONE numbers. This persona is reconstruction only.
 - Leaving fact and example in one run with no "example" mark. Friday GitHub is an example; connectors ingesting who-has-what is the fact.
 - A paragraph that changes topic mid-way (ingest, then deploy, then three event names) without a new paragraph or a table.
@@ -41,6 +42,8 @@ On one paragraph: outline each sentence, score, rewrite.
 
 On a whole post: spawn one read-only subagent per H2 (lede is its own section). Each returns a sentence outline, issues, and a candidate rewrite of that section. Parent merges. Do not have the parent outline the sections.
 
+0. Lede definite-noun table (mandatory, first, blocking). In the first two paragraphs after the H1, list every `the` / `those` / `every` / `that` / `this` + technical noun. For each: quote the earlier sentence that built that object (same sentence may build it: `The Okta AWS Federation connector records…`). Empty quote = fail. Rewrite or drop. Exempt only: `this post`, `C1` after named, a time phrase after a time is set. MUST NOT exempt a later-H2 object (`rearrangements`, `last file`, `extra Role`, `admitted class`, `XSW`) used as a lede slogan.
+
 1. Nested outline, one node per sentence: the claim the reader now has.
 2. Score that outline: order, one topic, fact vs example labeled, objects named, sentence length.
 3. Rewrite to match a better sentence outline. Split paragraphs when topics split. Identification runs become a table or one longer mapping sentence.
@@ -49,6 +52,7 @@ On a whole post: spawn one read-only subagent per H2 (lede is its own section). 
 
 ## Before finishing
 
+- Lede definite-noun table is filled; every empty prior was rewritten
 - Fact and example are distinguishable
 - Each paragraph has one topic
 - No 3-5 word identification run left as prose
