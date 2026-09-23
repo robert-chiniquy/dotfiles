@@ -12,7 +12,8 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 ## Common Mistakes
 
 - Opening on the failure. Who is speaking, what C1 is, and which jobs this post sits in come first. Then the scene.
-- Copying another post's ethos. The greeting and one C1 sentence may repeat. The jobs named after that are only the surfaces this post will analyze.
+- Copying another post's ethos. The greeting and one C1 sentence may repeat. After that: this post's C1 surface and the CS concept it will introduce, not a roster of identity records, access reviews, and a support path.
+- Inventing first names for the people in a scene (Priya, Devon). Name the job.
 - Naming connectors (or grants, wraps, sessions) because a sibling post did. If this post is not about ingest, downloads, or grant-applying jobs, connectors stay off the page.
 - Copying another post's Imagine-if. The scene is the failure mode this topic prevents, not a weekend deadlock unless this post is about lock-order. MUST NOT open every scene with `Imagine if`.
 - Stamping `Hi! My name is Robert` and the full C1 platform sentence on every post. First person, named, in ethos. The greeting varies. The platform one-liner belongs once in the series, not in every lede.
@@ -50,7 +51,7 @@ Published posts live in the series gist (clone `/Users/rch/repo/research/equatio
 
 The post is one walk. Score these properties before local cuts. Do not force every post through the same nodes.
 
-1. Ethos is node one: name, C1 in one sentence, then the jobs this post actually sits in. Not a roster of every C1 surface. 24x7 only if those jobs run that way and this post is about that run.
+1. Ethos is node one: name, C1 in one sentence, then this post's C1 surface together with the CS or math concept the post will introduce (Access Profiles and emptiness of a difference; session policies and residuation; dynamic groups and unfinished CEL). MUST NOT dump identity-records / access-reviews / support-path unless those are this post's objects. 24x7 only if those jobs run that way and this post is about that run.
 2. If the scene is an incident: one customer, the failure this topic may produce, which we anticipate and prevent. Opener varies. The verbs stay subjunctive (`would`, `might`, `were`). MUST NOT narrate a C1 outage as past fact (`Monday a reviewer still listed Alice`).
 3. Why now is this topic's combinations. Shipping and agentic development only if this post is about analysis volume. MUST NOT paste "open-source connectors" into a post that is not about connectors.
 4. Name the traditional method as a category (what it is, what a member is, why it exists), then C1's exhibit in the language the shop actually uses.
@@ -87,7 +88,7 @@ Hold at a turn. MUST NOT announce the outline (`this section covers`).
 10. Section titles are a walk in the post title's register. They progress: what is in view, or how much of the program is in the table. A numbered sequence keeps one template (`One operator`, `One observed run`, `One function's table`). Two headings for one node collapse. MUST NOT mix a concept-name H2 (`Acquisition order`) with a claim H2 in the same post.
 11. C1 failures: may happen; we anticipate and prevent. Subjunctive. Not underway. Not already done.
 12. When a C1 product feature is named, at least once per post include a screenshot excerpt of that feature in the C1 dashboard, or a flashback replay gif if the action is a live session rather than a page. Crop to the feature, not a full-window dump. Caption names the feature. MUST NOT invent UI. If capture is blocked, an author-only HTML comment names the feature and screenshot vs flashback; the public body does not get a placeholder. Gist figures use gistusercontent raw URLs.
-13. A fictive scene is labeled as a case we refuse, not a gear-shift into past-tense report. Name the person and their job (Jobs to be Done): the access reviewer certifying the list, the group admin before the next sync, the on-call opening a vaulted secret. The calendar day is the next day after the event for that person. MUST NOT reuse Friday across the series. MUST NOT jump into the scene without a rhetorical frame.
+13. A fictive scene is labeled as a case we refuse, not a gear-shift into past-tense report. Name the job (Jobs to be Done): the access reviewer certifying the list, the group admin before the next sync, the on-call opening a vaulted secret. MUST NOT invent first names (Priya, Devon, Dana, Jordan). A directory member in an exhibit may stay a classic fixture (`Alice` as the user on the list). The calendar day is the next day after the event for that job. MUST NOT reuse Friday across the series. MUST NOT jump into the scene without a rhetorical frame.
 14. Cite only what the reader needs at that sentence. MUST NOT mention Codd. MUST NOT call Git a cool library. MUST NOT praise tools everyone already has. `cool` is rare; once in the series is enough.
 15. Do not say `cut` for a named time or history prefix. Say time, epoch, as-of, or the writes up to that time.
 16. A thin post folds into the post that already owns the object (crash/tombstone and two maps on the identity store belong with last-write history). Session product and vaulting two clocks are different objects; MUST NOT mix them in one lede.

@@ -37,7 +37,7 @@ For each live post in the iteration (gist file if published, else `DRAFT.md`):
 
 1. Spawn members 1–5 as separate read-only subagents. MUST NOT fold them into one "you are the fleet" agent. Members 2 and 3 fan out per H2.
 2. Parent merges. Apply. Do not skip a member that returned no findings; record the empty.
-3. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`. Any hit is a failed pass until rewritten.
+3. Parent greps the result for: `Friday`, `Codd`, `cool`, ` named cut`, `Git is a cool`, `wrap` (except `XML Signature wrapping`), `But trust me`, `I'm obsessed`, `a grant that lands`, `Priya`, `Devon`, `Dana,`, `Jordan`. Any hit is a failed pass until rewritten. Ethos must name this post's C1 surface and the CS concept it introduces.
 4. Members 7–8 on the result.
 5. Parent samples three paragraphs at random against prose-clarity and why-review. If those paragraphs fail, the fleet pass failed.
 
