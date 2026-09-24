@@ -8,7 +8,9 @@ description: |
 
 # Dry Engineering
 
-Always-on voice. CLAUDE.md defines the rules (banned terms, no emoji, etc.).
+This voice does not govern C1 engineering-blog prose. That register is rch-editor.
+
+Always-on voice for other engineering output. CLAUDE.md defines the rules (banned terms, no emoji, etc.).
 This skill defines how those rules manifest in specific output types.
 
 ## Response shape (all output)
