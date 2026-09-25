@@ -5,11 +5,15 @@ description: Triage open GitHub pull requests for actionable feedback, unresolve
 
 # PR Pass
 
+## Common Mistakes
+
+1. **Asking to merge a pure-tests or pure-docs PR.** If the remaining diff is only tests/fixtures and/or docs that already belong in git, and CI is green on the merge SHA, merge it (Claude.md standing grant). Production comments, CI, config, engine, and stdlib are not that grant.
+
 ## Overview
 
 Run a focused GitHub PR sweep. Report only what needs action and which PRs are ready to merge; avoid long status dumps.
 
-Do not merge, assign reviewers, post comments, or push changes unless the user explicitly asks for that write action.
+Do not merge, assign reviewers, post comments, or push changes unless the user explicitly asks for that write action, or a standing grant already covers it (pure-tests and/or pure-docs on green merge SHA).
 
 ## Workflow
 
@@ -38,7 +42,7 @@ gh api repos/OWNER/REPO/pulls/NUMBER --jq '{number, mergeable, mergeable_state, 
    - Include only open, non-draft PRs with successful checks, no unresolved threads, no requested changes, no merge conflicts, and a review state that satisfies branch protection.
    - If branch protection requires review, require `reviewDecision: APPROVED`.
    - If checks or mergeability are stale or unknown after refresh, put the PR under "Unknown" rather than calling it mergeable.
-   - Link directly to each ready PR. Do not merge unless explicitly asked.
+   - Link directly to each ready PR. Do not merge unless explicitly asked or a standing grant already covers it (pure-tests and/or pure-docs, CI green on the merge SHA). Merge those during the pass.
 
 5. Report tersely.
    - Lead with action-needed PRs.

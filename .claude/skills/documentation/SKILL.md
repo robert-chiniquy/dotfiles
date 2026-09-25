@@ -8,6 +8,10 @@ description: |
 
 # Documentation
 
+## Common Mistakes
+
+1. **README that starts with stack or commands.** A new project README MUST try to lead with a value prop: one-sentence seam, the split (what stays where), what that buys, what it is not, limits. Commands and stack come after. MUST ship that lead only if it is specific (named surfaces, named non-goals). MUST NOT ship marketing adjectives in place of a split. MUST NOT invent a second product story beside an existing clear README. Worked shape: a README whose first sections are The split / What that buys / What it is not / Limits.
+
 Hub skill. Reference files cover the full methodology:
 
 | File | Topic |

@@ -15,6 +15,7 @@ Worked example: `plans/occult-g/DESIGN.md` (squine live-pass / env handle).
 - [Last hop](#last-hop)
 - [Product of machines](#product-of-machines)
 - [Constructor raise is not G](#constructor-raise-is-not-g)
+- [Start from an IO sketch](#start-from-an-io-sketch)
 - [Existence proof first](#existence-proof-first)
 - [Application Occult vs engine](#application-occult-vs-engine)
 - [Contracts the sources leave implicit](#contracts-the-sources-leave-implicit)
@@ -135,6 +136,27 @@ Keep both. The name says which surface. `G` says send then recv on a handle.
 Replacing `G` with more string aliases is vacuity (Occult as a string table
 the host `Run`s).
 
+## Start from an IO sketch
+
+Write the app as abstract IO first, with names that are not yet grounded:
+
+```
+request = get("www.google.com");
+result = process(request);
+write(result);
+```
+
+Those names are free terms. `get`, `process`, `write`, `request`, and
+`result` have no backend yet. The next step is to say what each one is:
+a protocol action, a theory operation, a handle-threaded IO, or a last
+hop. Occult has no userspace HTTP; `get("www.google.com")` in the sketch
+does not become `std.http`. It becomes a free `get` whose last hop is a
+named cell or a native the host already has.
+
+Do not start by picking a native, an HTTP client, or a compiled module
+blob (`.ocma`). The smallest program that is still the app is this
+sketch plus a `check_*.occult` that reduces to `true`.
+
 ## Existence proof first
 
 Echo's axiom test rewrites
@@ -193,7 +215,7 @@ These are true of Occult. They are not stated as one stack in one file.
 4. `G` and `execute` as one spelling.
 5. `ground(verb, isolation)` as a substitute for `pipe`.
 6. Two machines written as one protocol term.
-7. Design starts at the native or the HTTP client.
+7. Design starts at the native, the HTTP client, or a compiled module blob.
 8. HOWTO distributed / Engine Guide as the authoring model.
 9. One `.occult` catalog file per rendezvous name.
 10. New env and existing env as the same `conn`.
@@ -216,4 +238,4 @@ Squine:
 
 - `docs/OCCULT_FACTORING_V2.md`
 - `plans/occult-g/DESIGN.md`
-- `occult/app.occult`, `occult/testdata/check_*.occult`
+- `occult/app.occult`, `occult/tests/check_*.occult`

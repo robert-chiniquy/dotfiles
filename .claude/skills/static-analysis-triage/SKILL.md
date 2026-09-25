@@ -57,4 +57,4 @@ Per detector batch: total candidates, false positives, real-but-low-impact (with
 
 ## Related Skills
 
-`golang-code-review` for the fix code before submission; `git-pr` for PR creation.
+`golang-code-review` for the fix code before submission; `git-create-pr` for PR creation.

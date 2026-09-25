@@ -24,7 +24,7 @@ Large projects use subdirectories to keep top-level focused.
 project/
 ├── old/           # Superseded versions
 ├── design/        # DESIGN_*.md, *_DESIGN.md
-├── plans/         # PLAN_*.md
+├── plans/         # PLAN_*.md; per-topic dirs with RFC + squire prompt file
 ├── analysis/      # Research, axioms, assessments
 ├── reference/     # Concepts, guides, inventories
 ├── retro/         # Retrospectives, critiques, failures

@@ -3,7 +3,8 @@ name: git-create-pr
 disable-model-invocation: true
 description: |
   Safe git-to-PR workflow. Classifies changes, stages by explicit filename,
-  runs final-pass checks, commits with approval, pushes, creates PR via gh.
+  runs final-pass checks, commits verified work without a second ask, pushes
+  under the Claude.md draft-PR and clean-rebase exceptions, creates PR via gh.
   Encodes all git safety rules. Use when ready to ship code as a PR.
 allowed-tools:
   - Read
@@ -32,7 +33,7 @@ Complete workflow from dirty working tree to open pull request.
 ## Prerequisites
 
 - On a feature branch (not main/master)
-- Branch follows naming convention: `rch/<type>/<topic>`
+- Branch follows naming convention: `<username>/<type>/<topic>`
 - Changes are ready for review
 
 ## Process
@@ -45,9 +46,9 @@ Complete workflow from dirty working tree to open pull request.
    - **Core**: directly related to the PR's purpose
    - **Supporting**: tests, docs, configs for core changes
    - **Incidental**: formatting, typo fixes discovered along the way
-   - **Unrelated**: changes that don't belong in this PR (stash or reset these)
+   - **Unrelated**: changes that don't belong in this PR (leave them in the tree; do not stash when other agents share the tree)
 
-Present the classification to the user. Ask if any files should be excluded.
+If the brief already named the include list, skip the exclude ask. Stop after commit when the brief says do not push. Otherwise present the classification.
 
 ### Phase 2: Pre-flight
 
@@ -81,7 +82,7 @@ Draft a commit message:
 - Body explaining what and why (not how)
 - No Co-Authored-By or Signed-off-by trailers
 
-Show the message to the user. **Ask "ready to commit?" and wait for approval.**
+Show the commit message. Commit verified work without waiting.
 
 ### Phase 5: Push
 
@@ -95,14 +96,14 @@ If not, push with `-u`:
 git push -u origin HEAD
 ```
 
-**Ask "ready to push?" and wait for approval.** Never push without asking.
+Push without asking only for a draft PR of verified work, a clean rebase with --force-with-lease, or rebase-plus-docs. Merge without asking a remaining-diff-only tests/docs/lint/lsp PR with CI green on the merge SHA. Ask before a non-draft push, marking ready, or merge of any other PR.
 
 ### Phase 6: Create PR
 
 Use `gh pr create`:
 - Title: short, under 70 chars, describes the change
 - Body: what changed, why, how to test
-- Use casual-slack-tone for own repos, dry-witted-engineering for others
+- Use casual-slack-tone for own repos, dry-engineering for others (no wit)
 
 ```bash
 gh pr create --title "title" --body "$(cat <<'EOF'
@@ -126,9 +127,9 @@ Return the PR URL to the user.
 ## Safety Rules
 
 1. Never `git add -A` or `git add .` — stage files explicitly
-2. Never commit without user approval
-3. Never push without user approval
-4. Never force push (`--force`, `--force-with-lease`) without explicit instruction
+2. Commit verified work freely after the user already asked to ship.
+3. Never push a non-draft publish without asking, except the draft-PR and clean-rebase exceptions in Claude.md.
+4. Never `--force`. `--force-with-lease` only for a clean rebase of already-authored commits, per Claude.md.
 5. Never skip hooks (`--no-verify`)
 6. Never commit secrets, credentials, or internal URLs
 7. Never include unrelated changes in the PR

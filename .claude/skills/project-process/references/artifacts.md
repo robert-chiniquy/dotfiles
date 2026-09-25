@@ -117,6 +117,7 @@ Rules:
 - Append-only during execution
 - Mark completed/abandoned but preserve
 - Large projects: put plans in `plans/` subdirectory to reduce top-level clutter
+- Per-topic dir `plans/<topic>/` holds the plan, the RFC, and the squire `--prompt-file` brief next to each other. Long squire briefs never go as shell `-p`.
 
 ## FAILURES.md
 

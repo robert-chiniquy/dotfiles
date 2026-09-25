@@ -82,6 +82,9 @@ Reject or reclassify these common shapes:
 - local-worktree, stash, credential, or operator-state cleanup;
 - a research or design verb presented as implementation;
 - a language-facing change hidden inside a lint, fixture, or documentation task.
+- a task whose description leans on a vague verb ("wire it up", "add appropriate
+  tests", "similar to X", "investigate whether", "make sure it works") instead
+  of naming what changes, why, the exact file/symbol, and a falsifiable gate.
 
 Very small edits may cost less locally than remote setup. Group related
 micro-items by ownership surface, or classify them as local pebbles.
@@ -93,15 +96,16 @@ gate family. Parallel tasks must own disjoint files or packages.
 
 Prefer:
 
-- one environment/pool with sibling tasks for a homogeneous repository;
-- one cohesive task for several items touching the same central file;
-- separate tasks for disjoint packages;
-- a separate broad-verification pool after focused task gates pass.
+- one child env per pebble (`squire new` / squine `env_create`);
+- a dedicated shared env with sibling tasks only for a homogeneous batch
+  of the same repo/image/gates (never the dispatching env);
+- one cohesive pebble for several items touching the same central file;
+- separate pebbles for disjoint packages;
+- a separate broad-verification env after focused gates pass.
 
-Use the repository-approved remote execution workflow. Create sibling tasks in
-one verified environment when the provider supports them. Specify environment,
-working directory, base revision, title, prompt, model, and idempotency key.
-Do not route through deprecated pool wrappers.
+Bead first before spawn. `notify_parent` on spawn. Use the
+repository-approved remote execution workflow (`squire-env-management`).
+Specify title, prompt, model. Do not route through deprecated pool wrappers.
 
 Never substitute a bare full-suite prompt for focused completion gates. Broad
 suites need an explicit, separately owned verification task after focused

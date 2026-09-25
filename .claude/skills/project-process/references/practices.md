@@ -4,13 +4,15 @@ Mandatory practices for all projects.
 
 ## File Versioning
 
-When receiving feedback on a document:
-- DO NOT overwrite existing file
-- Create new version: `FILENAME_V2.md`, `FILENAME_V3.md`
-- Or: `FILENAME_PHASE2.md`, `FILENAME_REVISED.md`
-- Preserve older content for reference
+The live draft stays at an unchanging filename (`OUTLINE.md`, `DRAFT.md`, `DESIGN.md`). Opening that path reuses the same editor tab.
 
-Exception: Typo fixes can update in place.
+When the draft is superseded:
+- Copy the current file to `FILENAME_V1.md`, `FILENAME_V2.md`, `FILENAME_PHASE2.md`, or `FILENAME_REVISED.md`
+- Write the new content onto the original filename
+- Put the outdated-successor banner on the versioned copy, pointing at the live path
+- `_V#` suffixes are only for superseded copies, never the live file
+
+Typo fixes update the live file in place with no snapshot.
 
 ## Stable Identifiers
 
@@ -106,6 +108,6 @@ Before any phase complete:
 - [ ] TODO.md empty or truly blocked
 - [ ] Deprecated code in old/ with docs
 - [ ] Sensitive docs in private/
-- [ ] Documents versioned, not overwritten
+- [ ] Live draft at stable filename; superseded copies are `_V#`
 - [ ] Checkpoint commit created
 - [ ] Catalog documents updated

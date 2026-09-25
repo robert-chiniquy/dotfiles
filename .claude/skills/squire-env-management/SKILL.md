@@ -16,22 +16,43 @@ description: >-
 > again.
 
 Squire provisions ephemeral dev environments — per-env container, services,
-and agent session. The in-env agent is OpenCode, NOT Claude Code. The CLI
+and agent session. Primary harness is OMP (Oh My Pi), not Claude Code.
+Default model is DeepSeek V4 Flash; Astra is the strong pin. The CLI
 surface moves; when a flag matters, verify with `--help` before scripting it.
 
 
 ## Common Mistakes
 
+- **Sibling task on the dispatching env** — MUST NOT. Default spawn is a
+  child env (`squire new` / squine `env_create`), one env per item.
+  Sibling `squire task create` is only for a batch on a dedicated shared
+  env created for that batch, never the laptop session and never a
+  live-pass inner env.
+- **Spawn without a bead** — MUST NOT. `bd create`, then `--claim`, then
+  spawn. No bead, no spawn. Bead ids stay internal (never in PRs or
+  commits).
+- **Treating notify_parent as laptop poll** — `notify_parent` wakes an
+  in-Squire calling task. From the laptop it is a no-op. Laptop wait is
+  squine `poll` / `github_poll`. Pass it anyway (squine defaults true;
+  CLI `--notify-parent`).
 - **Passing a long brief as a shell argument** — backticks and `$(...)` in
   the brief get shell-interpreted. Use `squire task create --prompt-file`
   (or scp a brief file in and send a one-line pointer prompt).
 - **Assuming `-p` attaches** — `squire new -p` now exits immediately
   (fire-and-forget by default); `--attach` to watch. Older docs said the
   opposite.
-- **Using `git clone` URL for repos not in the GitHub App** — credential
-  helper fails (`could not read Username for 'https://github.com/...'`).
-  Install the App on the repo. Squire clones from origin. Do not git-bundle
-  inject or extract.
+- **Cloning with SSH URLs, or treating `gh auth status` as git auth** —
+  Squire rewrites `git@github.com:` and `ssh://git@github.com/` to HTTPS
+  and mints GitHub App tokens via `git-credential-squire`. Clone
+  `https://github.com/org/repo.git`. `gh auth status` can say logged out
+  while that helper still works. `could not read Username for
+  'https://github.com'` has two causes: the helper did not run (common
+  on `squire ssh -- git clone` with no TTY), or the App does not cover
+  the repo. Ask the in-env agent to clone over HTTPS. If the helper
+  returns nothing, install the App. Do not git-bundle inject or extract.
+- **`--skip-sync` on an image that does not bake the repo** — skips
+  fetch/reset; `base-default` stays empty. Unset already follows
+  flavor/image. Do not pass `--skip-sync` as a clone workaround.
 - **Assuming `gh` is not logged in** — the env `gh` wrapper and git
   credential helper use the credential socket. `git push` and `gh pr create`
   are the return path. PRs are stamped as opened from Squire.
@@ -75,28 +96,49 @@ surface moves; when a flag matters, verify with `--help` before scripting it.
 ## Core Commands
 
 ```bash
-squire new <name> -p "Fix the login bug" -m anthropic/claude-opus-5   # dispatch
-squire new <name> --no-attach                      # create env, no prompt yet
-squire env                                         # list envs / select one
-squire ssh <id> -- "cd /workspace && git status"   # non-interactive exec (quote it)
-squire attach <id>                                 # watch the agent TUI (multiplayer)
+squire new <name> -p "Fix the login bug" --harness omp -m together/deepseek-ai/DeepSeek-V4-Flash-0731
+squire new <name> -p "Hard refactor" --harness omp -m openai/gpt-6-astra
+squire new <name> --no-attach
+squire env
+squire ssh <id> -- "cd /workspace && git status"
+squire attach <id>
 ```
 
 `squire new` with `-p` is fire-and-forget BY DEFAULT: the prompt is sent when
 the env is ready and the CLI exits immediately. `--attach` overrides to watch.
-Useful flags (verified 2026-08-05; re-verify, the set moves): `-m/--model`,
+Useful flags (re-verify, the set moves): `-m/--model`, `--harness`,
 `-f/--flavor` (`xxsmall`…`xlarge`), `--image`, `--git-branch`,
 `--skip-sync`/`--skip-build`/`--skip-services`, `--timeout`.
 
-**Pass `-m` a full model ID, never a short alias.** The aliases resolve to
-retired pins: `-m opus` failed 2026-08-07 with `400 unknown or disabled model
-"anthropic/claude-opus-4-8"`. The 400's `detail` field lists every id the
-gateway currently accepts, so read the error rather than guessing a successor.
+**Pass `-m` a full model ID, never a short alias.** `-m opus` resolves to a
+retired pin and 400s. Together/DeepSeek without `--harness omp` falls through
+to OpenCode (provider `*` canonical harness), not OMP.
 
-## Agent Tasks (primary dispatch + follow-up surface)
+Default / daily: `together/deepseek-ai/DeepSeek-V4-Flash-0731`
+Mid: `together/deepseek-ai/DeepSeek-V4-Pro-0813`
+Strong: `openai/gpt-6-astra`
+
+All three are OMP-compatible. Laptop CLI defaults (`squire config list`):
+`new.harness` / `task.create.harness` = `omp`, model = Flash. Explicit
+`--harness` / `-m` still win. Web UI and MCP env_create do not read those
+CLI defaults.
+
+## Dispatch (MUST)
+
+1. Bead first: `bd create`, `--claim`, then spawn. No bead, no spawn.
+2. Child env per item: `squire new` / squine `env_create` with the brief
+   (`--prompt-file` when long). MUST NOT `squire task create` on the
+   dispatching env.
+3. Batch exception: first item `squire new` as a dedicated shared env;
+   the rest `squire task create --notify-parent` on that shared env with
+   isolated worktrees. Never the inner/live-pass env.
+4. `notify_parent` on spawn. Squire no-ops from laptop; laptop wait is
+   squine `poll`. In-Squire parent wakes.
+
+## Agent Tasks (batch / follow-up on a dedicated shared env)
 
 `squire task` drives task lifecycle over gateway HTTP — prefer it to the raw
-OpenCode API for everything it covers:
+OpenCode API for follow-up and for the batch exception above:
 
 ```bash
 squire task create --env <env> --prompt-file brief.md --title 'fix-auth'
@@ -182,8 +224,8 @@ Repo Pattern rather than reading a path off this table.
 | `latchkey-proto` | Canonical proto schemas for V4 API + models + service contracts. |
 | `latchkey-mls-core` | MLS adapter + OpenMLS shim. |
 | `latchkey-client-sdk` | Rust SDK consumed by every native client. |
-| `latchkey-client-shells` | CLI binary + shell scaffolds. |
-| `latchkey-desktop` | Tauri 2.x desktop client. |
+| `multipass-cli` | CLI binary + shell scaffolds. |
+| `multipass-desktop` | Tauri 2.x desktop client. |
 | `c1` | The C1 monorepo (image-provided; resolve the path). |
 
 "Add a CLI command" almost always touches the SDK and may touch the proto.
@@ -210,13 +252,15 @@ squire ssh <id> -- 'find / -maxdepth 4 -type d -name <repo> -not -path "*/node_m
 Then name the resolved absolute path in the brief. Filter the `find` hits:
 `*/cache/*` and `*/gocache/*` are build caches, not working trees.
 
-If the checkout is genuinely absent and the GitHub App covers the repo,
-clone over HTTPS (credential helper). If the App does not cover it, stop:
-install the App. Do not git-bundle inject.
+If the checkout is genuinely absent, ask the in-env agent to
+`git clone https://github.com/org/repo.git` (credential helper, HTTPS).
+Do not clone over SSH. Do not clone via `squire ssh -- git clone` as
+the first try. If the helper returns no credentials, install the App
+on that repo. Do not git-bundle inject.
 
 ## Monitoring Agent Progress
 
-Prefer the task surface, fall back to ssh probes:
+Drive work with in-env agent prompts (`squire task create` / `squire attach -p`). `squire ssh` is locate/probe only:
 
 ```bash
 squire task list --env <env>                       # states, newest first
@@ -230,15 +274,12 @@ squire ssh <id> -- "git -C /data/squire/src/<repo> diff --stat"
 Cheaper models produce lower-quality output and subtle bugs; agents can
 drift mid-session. Discipline:
 
-- Pin the model at creation (`squire new -m anthropic/claude-opus-5`) and in
-  every raw `prompt_async` payload (the payload model field is authoritative
-  per prompt). Full IDs only — short aliases are retired pins (see Core
-  Commands).
-- Approved: the newest Claude Opus available to the env (as of 2026-08:
-  `anthropic/claude-opus-5`). Check the env's whitelist BEFORE first
-  dispatch — a model ID not in the whitelist fails silently
-  (`ProviderModelNotFoundError`, session shows 0 messages):
-  `squire ssh <id> -- "cat /home/squire/.config/opencode/opencode.json | jq '.provider.anthropic.whitelist'"`
+- Pin harness and model at creation (`squire new --harness omp -m <full-id>`)
+  and on `squire task create`. Full IDs only. Short aliases are retired pins
+  (see Core Commands).
+- Approved default: `together/deepseek-ai/DeepSeek-V4-Flash-0731`. Strong:
+  `openai/gpt-6-astra`. A model ID the gateway does not list fails at spawn
+  (`squire models` is the catalog).
 - Verify on polling ticks; on drift, send the next prompt with an approved
   model in the payload model field.
 
@@ -278,8 +319,8 @@ BACKLOG:
 Rules:
 1. Max 2 concurrent envs on the same branch (push conflicts); one active +
    one queued is the sweet spot.
-2. `bd update <id> --claim` AT dispatch time — `bd list --status=in_progress`
-   must reflect reality.
+2. Bead first: `bd create`, then `bd update <id> --claim`, then spawn.
+   `bd list --status=in_progress` must reflect reality. No bead, no spawn.
 3. Dispatch the next QUEUED item when a running env opens a PR (or pushes).
 4. BLOCKED items wait for their dependency's push; then promote to QUEUED.
 5. HUMAN items stop the queue — report the decision and wait; later items
@@ -287,9 +328,9 @@ Rules:
 6. After each push, check the PR for feedback (github-pr-threads skill);
    new findings append to the backlog.
 
-bd lifecycle: `bd create` → open; `--claim` at dispatch → in_progress;
-`bd close` after merge+push. Wall-clock priors (refine from metrics): small
-~15 min, medium ~45 min, large ~60 min.
+bd lifecycle: `bd create` before spawn → open; `--claim` then spawn →
+in_progress; `bd close` after merge+push. Wall-clock priors (refine from
+metrics): small ~15 min, medium ~45 min, large ~60 min.
 
 ### Drain mode
 
@@ -311,8 +352,8 @@ failure is expensive (destructive git, deployments).
 Independent work items get independent envs:
 
 ```bash
-squire new auth-fix -p "Fix token refresh bug in pkg/auth" -m anthropic/claude-opus-5
-squire new api-perf -p "Profile and optimize the sync endpoint" -m anthropic/claude-opus-5
+squire new auth-fix -p "Fix token refresh bug in pkg/auth" --harness omp -m together/deepseek-ai/DeepSeek-V4-Flash-0731
+squire new api-perf -p "Profile and optimize the sync endpoint" --harness omp -m openai/gpt-6-astra
 ```
 
 Each is isolated. `squire env` lists; `squire attach --mux` opens one pane
@@ -325,8 +366,10 @@ and `gh` wrapper). Track that PR. Review with `squire diff out`. Optional
 local landing without GitHub: `squire git remote add`. Do not git-bundle
 harvest.
 
-If push fails with `could not read Username`, the GitHub App is not
-installed on that repo. Install the App. That is not a bundle protocol.
+If push fails with `could not read Username` after a helper-backed
+HTTPS remote, the GitHub App is not installed on that repo. Install
+the App. That is not a bundle protocol. SSH remotes are rewritten to
+HTTPS; do not "fix" this by switching to SSH.
 
 ## Quality Gates
 
@@ -437,8 +480,8 @@ for CLI callers.
 
 ## Before finishing
 
+- [ ] Bead claimed, child env per item, `notify_parent` (CLI `--notify-parent`; squine defaults true)?
 - [ ] Brief via `--prompt-file` (not shell-arg) if long?
-- [ ] Model pinned / whitelisted?
-- [ ] Fire-and-forget brief has no blocking question?
+- [ ] Full model ID; fire-and-forget brief has no blocking question?
 - [ ] Gates defined and green before claiming done?
 - [ ] No committed env-only `[patch]` tables?

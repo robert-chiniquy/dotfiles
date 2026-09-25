@@ -41,7 +41,7 @@ decision walk after a set is in hand.
   summary — a card may use the whole screen for what is live.
 - Self-waiving a failing check via attribution reasoning instead of
   presenting the evidence and letting the human decide.
-- Merging a draft, or folding ready-for-review approval into a merge action.
+- Merging a production-code draft, or folding RFR into merge for a code PR. A qualifying pure-tests, pure-docs, and/or pure-lint/lsp PR may be marked ready and merged together under the standing grant.
 - Manual re-CI choreography when a merge queue already re-tests entries —
   or treating plain auto-merge as if it were a queue.
 - Batch greenlights without cards (or without a confirmed multi-action recap).
@@ -54,7 +54,8 @@ decision walk after a set is in hand.
 - Shipping an experimental path as the product default without saying so.
 - Ignoring on-disk/key state when a server-only PR changes next-session client writes.
 - Treating external SDK / library PRs as product delivery by themselves.
-- Enqueueing a merge queue without an option that explicitly authorizes it.
+- Enqueueing a merge queue without an option that explicitly authorizes it. Exception: a qualifying pure-tests and/or pure-docs PR (Claude.md standing grant) is already authorized; merge it, do not card it.
+- Asking the human to merge a PR whose remaining diff is only tests/fixtures and/or docs that already belong in git, with CI green on the merge SHA. That is a standing grant. Production comments, CI, config, engine, and stdlib are not docs.
 - Claiming green CI on a pre-restack SHA after force-push.
 - Merging on review state observed earlier in the walk without the
   last-second sweep for review comments that landed since.
@@ -74,20 +75,25 @@ decision walk after a set is in hand.
    checks, unresolved thread count, base/head SHAs. If the world moved since
    the last card, say so and adapt.
 
-0.5 **Standing grants first** — if any authorization already covers a card
-   (e.g. tests-only auto-merge on green), name it. A fully covered card is
-   inform-only. Partially covered: ask only the uncovered part. Omit this
-   line when no grant applies.
+0.5 **Standing grants first** - if any authorization already covers a card,
+   name it. Standing grant (Claude.md, 2026-09-01): a PR whose remaining
+   diff is only tests/fixtures, documentation that already belongs in git,
+   pure lint/lsp, or a combination of those, may be marked ready and merged
+   without asking when CI is green on the SHA that will merge (post-rebase
+   if the base moved). A fully covered card is inform-only, then merge it.
+   Partially covered: ask only the uncovered part. Omit this line when no
+   grant applies.
 
-0.7 **Bring each PR to readiness before its card.** The only reason NOT to
-   have already done a thing — rebase onto the moved base, reply to and
-   resolve addressed threads, fix what unresolved threads ask, run any
-   purely information-gathering action — is a GOOD reason that requires the
-   human. Everything optionality-safe that improves the readiness or the
-   quality of the human's decision is done first, so the card presents a PR
-   at maximal readiness, not a to-do list. Decision actions (merge, enqueue,
-   close, RFR) still wait for authorization; this step is everything before
-   those.
+0.7 **Bring each PR to readiness before its card.** Rebase only PRs the
+   user opened, unless the user names another author's PR. The only reason
+   NOT to have already done a thing (rebase onto the moved base of an
+   allowed PR, reply to and resolve addressed threads, fix what unresolved
+   threads ask, run any purely information-gathering action) is a GOOD
+   reason that requires the human. Everything optionality-safe that improves
+   the readiness or the quality of the human's decision is done first, so
+   the card presents a PR at maximal readiness, not a to-do list. Decision
+   actions (merge, enqueue, close, RFR) still wait for authorization; this
+   step is everything before those.
 
 1. **Order: simplest resolution first.** Sort by the work standing between the
    PR and merge, not by subject matter: green with no open threads → needs a
@@ -150,8 +156,10 @@ decision walk after a set is in hand.
      (or base is already trunk after parent merged). Else offer **restack**,
      not merge. Do not mention stacks on an independent PR.
    - **Draft lifecycle** — a draft stays draft until the user approves
-     ready-for-review; a ready PR stays ready until merged. RFR approval is
-     its own card decision, never an implicit step inside a merge action.
+     ready-for-review, except a qualifying pure-tests and/or pure-docs PR
+     (standing grant) which may be marked ready and merged without asking.
+     A ready PR stays ready until merged. RFR approval is its own card
+     decision except under that grant.
 
 4. **Each card must include**
    - **The PR URL** — first line, bare `https://github.com/owner/repo/pull/N`

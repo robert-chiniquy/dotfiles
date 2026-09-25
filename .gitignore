@@ -65,6 +65,7 @@ scripts/squire-metrics.jsonl
 bin/golangci-lint
 bin/gotestsum
 bin/pr-watch
+bin/sleep-report
 
 # Demo / scratch docs
 DEMO_CODEX_LIMITED.md

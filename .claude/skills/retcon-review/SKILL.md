@@ -62,7 +62,6 @@ Structured files: parse, do not regex.
 
 Add this persona to the review/RFC roster when any of:
 
-- the artifact will be shared or published
 - the repo or `plans/<topic>/` has retcon derivatives
 - the user asked for retcon
 

@@ -31,16 +31,17 @@ skill bodies**, not only this index.
 | engineering-guidelines | Design, debug, review, or quality judgment beyond Claude.md |
 | passive-qol | Dotfiles, shell config, system QoL, friction |
 | casual-slack-tone | Slack messages, DMs, PR descriptions on own repos |
-| technical-writing | Blog posts, articles, long-form external content |
-| technical-writing-voice | Long-form external voice (articles, talks) |
+| technical-writing | Long-form external voice + structure: blog posts, articles, deep dives, talks |
 | structural-constraints | Architecture decisions, type system design |
 | subprocess-lifecycle | Spawning a child process: ownership mode, parent-death, signals, reaping |
+| checkoutless-github-publish | No writable git checkout: scratch-tree verification + gh data API publish/rebase with the whole-file divergence gate |
 | terraform / terraform-skill | .tf files, HCL, infrastructure pipelines |
 | protogen | .proto files, gRPC, codegen |
 | documentation | Writing or reviewing docs |
 | design | Stage 1 default depth (`/design`); see project-process |
 | systematic-feature-design | Stage 1 **only** when large/architecture (not a second pipeline) |
 | designing-occult-application | Userspace Occult app: theory, middle functor, G, last hop |
+| occult-engine-work | Occult engine implementer gates (residual, one path, identity); complements principled-review |
 | rigorous-critique | Stage 2 **only** critique path (canonical) |
 | critique | `/critique` alias for rigorous-critique job |
 | new-rfc | Stage 3 **only** RFC path |
@@ -48,15 +49,19 @@ skill bodies**, not only this index.
 | complete-developer-experience | Tools + docs + agents for developer-facing features |
 | overcorrection-review | Needless complexity, premature exclusions, cost/value claims |
 | post-change-verification | After Go code changes: fmt/lint/build/test protocol |
+| pre-push-self-review | Before push/PR: written graph-walk of your own diff (callers, teardown, enum consumers, falsified comments) |
 | golang-code-review | Go PR / architecture / test quality review |
-| pr-pass / pr-status | Open PR triage and status |
+| invalid-cache-review | Caches, memos, derived indexes: hit rate, staleness, and measurement corruption |
+| pr-pass | Open PR triage and status |
 | mergeability-walkthrough | One-PR-at-a-time merge decisions |
 | github-pr-threads | After fixes: `Addressed in <sha>` + resolve threads |
 | pr-deep-review | Multi-agent deep PR review |
 | gh-fix-ci | Failing GitHub Actions checks |
 | squire-env-management | Ephemeral remote agents and task pools |
 | c1-squire-dispatch / c1-dev-stack-in-squire | c1-specific squire dispatch |
-| squire-qol | Personalize squire envs (dotfiles/nix), defaults, mux chrome |
+| on-call | ConductorOne on-call: docs/channels/paging quickref + agent capability map |
+| organizer | Calendar writes without API write access: emit .ics + OS `open` |
+| squire-qol | Personalize squire envs (dotfiles/nix), user skills/files, env vars |
 | find-delegation-pebbles | Bounded independent backlog tasks for remote agents |
 | codebase-memory | Structural codebase graph exploration |
 | large-scale-refactor | Multi-file / long-running refactors |
@@ -67,7 +72,33 @@ skill bodies**, not only this index.
 | refine-illustrations-iteratively | Iterative image edit sessions |
 | calendaring | Multi-month personal master schedule |
 | tactical-sitrep | Named milestone + hard deadline → readiness |
+| rfc-surface-clusters | RFC surfaces → workflow clusters, ranked by Slack+Linear UX damage |
 | questioning-the-user | Multiple pending decisions → one at a time |
+| terms-pass | Series TERMS.md gloss pass: one file, one term at a time, drafts wait |
+| information-flow | Nested conceptual-progress outline, then reorder the post if the outline is better |
+| prose-clarity | Paragraph reconstruction: fact vs example, sentence order, no 3-5 word identification runs |
+| scale-review | After a prose fix, re-audit every grain before presenting |
+| editor-diff-cycle | User edits a draft; isolate by section and whole-piece structure; generalize off the source draft into a named series-wide persona |
+| talks-diff-cycle | User edits a talk deck; isolate by yaml cluster and whole-deck walk; propose rch-editor Talks rules; write only after confirmation |
+| rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, gist is latest published draft, C1 feature screenshot or flashback gif |
+| poetic-meter | Sentence stress, variation, continuity, and voice for C1 engineering-blog prose. Modeled on Fussell, Poetic Meter and Poetic Form (1965; revised 1979). Not a verse exercise. |
+| occult-theory | Bring forward a static reading of a whole aggregate, and the open space between systems, ontologies, and categories. The wayfinder stays in the skill. The skill does not name a vendor. Do not give that reading to the product with a direct verb, and do not add a disclaimer. A new formal term gets one sentence of what it is. Never names the private research system in a draft. |
+| series-review | Once across the live C1 engineering-blog drafts: order, continuity, progression, related topics, common elements, allocation. Does not restyle a post. |
+| irony | Which position speaks in a C1 engineering-blog draft. Not sarcasm. Intent is required and includes prior failure modes. Source: occult IRONY-COMPRESSED.md |
+| ambient-research | Field around a C1 engineering-blog draft, plus an ongoing local index. Traverses repositories through the project and project-process notes: README Sources, LEARNINGS, project.md, project_graph. Not fact-checking and not trend chasing. |
+| meta-reviewer | Drift governor after the other blog reviewers. The text must still be about the subject that made it worth writing. Source: occult META_REVIEWER-COMPRESSED.md |
+| research-voice | Lab-note cadence on C1 exhibits; review lens over rch-editor drafts (claim-size, query direction; does not overturn ethos/scene) |
+| fact-review | Factually untrue operational claims: actor cannot produce the effect |
+| triviality-rejector | Rejects a draft whose result is a textbook or Wikipedia example in product nouns. A concrete listing is not a result. Does not invent the missing result. |
+| blog-writer | The one writer for a C1 engineering-blog draft. Starts from the outline and sources. Does not extend an example a triviality note rejected. Does not review. |
+| blog-iteration | Outer loop: deeper sources, one writer, the review fleet, start-over when a draft has nothing to report. The parent dispatches and does not write or review. |
+| blog-tournament | Parallel A/B over writer and reviewer lists for one post. Parent judges the pages. A keep is not the score. Winner meets one new challenger. |
+| section-title-review | H1/H2/H3 cadence and progress; numbered sequences keep one template |
+| why-review | Operational sentences that say what X does but not why; default is miss; after-state in the same beat |
+| series-corpus-researcher | Local C1/occult code plus GitHub since 2025-10, adjacent to live and published blog posts |
+| progressive-story | Instruction-manual order: WHY, then HOW from design issues, then the surprising use; magic trick is a closed class |
+| blog-review-fleet | Every post, every iteration: section titles, missing referents, why, progressive-story, information-flow, rch-editor, poetic-meter, occult-theory, irony, ambient-research, research-voice, fact-review, triviality-rejector, blog-writing-guide, then meta-reviewer, then series-review once, then scale-review |
+| blog-writing-guide | Sentry engineering-blog skill as a C1 fleet reviewer (diagrams, no this-post-is, headings as claims). Upstream https://github.com/getsentry/skills/blob/main/skills/blog-writing-guide/SKILL.md |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |
@@ -96,21 +127,28 @@ skill bodies**, not only this index.
 | audit-context-building | Line-by-line audit context |
 | trailmark | Code graph for security analysis |
 | static-analysis-triage | Novel linter output → PRs |
+| resume-after-host-reboot | Same-pane continue after host reboot (not resume-codex) |
+| occult-app-naming | Name Occult app identifiers; do not explain them |
+| owner-design-lock | Do not overturn the user's design without asking |
+| work-in-checkout-not-tmp | Work in the repo or a worktree, not /private/tmp |
+| no-compat-surfaces | Cut over only; no compatibility shims |
+| standing-production-merge | Simple production PRs merge when reviewed/approved/CI green; complex only with permission |
+| occult-lsp | occult_lsp only sees the session workspace root |
+| occult-factoring-discipline | Weaker-LLM Occult factoring; one concept one spine |
+| expected-work-inventory | Personal expected-work list across trackers |
+| occult-lint | occult-lint unroll/exists/plane rules |
 
 ## Manual Only (`disable-model-invocation: true` where set)
 
 | Skill | Invocation | Description |
 |-------|------------|-------------|
-| git-pr | `/git-pr` | Stage, check, commit, push, create PR |
 | git-create-pr | `/git-create-pr` | Full PR create workflow |
 | git-final-pass | `/git-final-pass` | Pre-PR final pass |
 | git-reset-workspace | `/git-reset-workspace` | Workspace cleanup |
-| git-cleanup | `/git-cleanup` | Branches, worktrees, stashes |
-| find-work / finding-uncommitted-work | `/find-work` | Uncommitted / unpushed / unmerged work |
+| finding-uncommitted-work | `/finding-uncommitted-work` | Uncommitted / unpushed / unmerged work |
 | incomplete-work-audit | manual | Audit incomplete work surfaces |
 | humanizer | `/humanizer` | Strip AI-writing patterns |
-| project-init | `/project-init [topic]` | Initialize project framework |
-| project | manual | Project skill hub (if present) |
+| project | `/project [topic]` | Initialize project framework |
 | critique | `/critique` | Four-lens design review |
 | design | `/design [topic]` | Feature design (pipeline stage 1) |
 | pqthink | `/pqthink` | Six-pass pragmatic architecture judgment |

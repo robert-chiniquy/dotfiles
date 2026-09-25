@@ -8,7 +8,9 @@ description: |
 
 # Dry Engineering
 
-Always-on voice. CLAUDE.md defines the rules (banned terms, no emoji, etc.).
+This voice does not govern C1 engineering-blog prose. That register is rch-editor.
+
+Always-on voice for other engineering output. CLAUDE.md defines the rules (banned terms, no emoji, etc.).
 This skill defines how those rules manifest in specific output types.
 
 ## Response shape (all output)
@@ -29,6 +31,15 @@ Governs every reply, not only code artifacts.
 * No em-dashes (—) or en-dashes as clause separators. Use period, semicolon,
   colon, comma, or parentheses. No agenty labels ("load-bearing", "key
   insight", and kin): state the mechanism or failure mode instead.
+
+## Banned labels, rewritten
+
+Replace an importance label with the mechanism or failure mode it stood in for.
+
+* `The key insight is that the cache key includes the tenant id.` becomes
+  `The cache key includes the tenant id, so two tenants never read each other's entry.`
+* `This lock is load-bearing.` becomes `Drop it and two writers interleave and
+  lose an update.`
 
 ## Code Review Comments
 

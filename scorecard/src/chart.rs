@@ -425,7 +425,7 @@ fn render_text(
     }
     let mut lines = vec![trunc_text(
         &format!(
-            "CHART {} · {}{}",
+            "{} · {}{}",
             chart.title,
             chart.kind.label(),
             axis_caption(chart)
@@ -1150,7 +1150,7 @@ pub(crate) fn render_image_sidecar_rows(
         let image_rows = budget.saturating_sub(1).min(8);
         rows.push(trunc_text(
             &format!(
-                "CHART {} · {}{}",
+                "{} · {}{}",
                 chart.title,
                 chart.kind.label(),
                 axis_caption(chart)
@@ -1223,7 +1223,7 @@ pub(crate) fn render(charts: &[Chart], mode: ChartMode, width: usize, mut budget
                     break;
                 }
                 output.push_str(&format!(
-                    "CHART {} · {}{}\n",
+                    "{} · {}{}\n",
                     chart.title,
                     chart.kind.label(),
                     axis_caption(chart)
@@ -1388,7 +1388,7 @@ type: time-series
         let rows = render_image_sidecar_rows(&parse(TABLE), 40, 9);
 
         assert_eq!(rows.len(), 9);
-        assert!(rows[0].starts_with("CHART Reveal latency"));
+        assert!(rows[0].starts_with("Reveal latency"));
         assert!(rows[1].starts_with("\x1b7\x1b]1337;File="));
         assert!(rows[1].contains("width=40"));
         assert!(rows[1].contains("height=8"));

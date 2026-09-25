@@ -41,6 +41,9 @@ Never suggest these again:
 
 # Applied
 
+## 2026-09-15: sleep-report 10s look cooldown
+`--since` and `--hook` stamp `last_run` on `cursor.json` before sysctl. A second look within 10 seconds exits 0 with no sysctl and without moving `last_seen`. Installed `~/bin/sleep-report` from `dotfiles/pr-watch`.
+
 ## 2026-07-30: One canonical skill tree across harnesses
 ```text
 ~/.claude/skills/ -> canonical source
@@ -760,3 +763,15 @@ Stops macOS tinting window chrome/toolbars to match the wallpaper. With the vapo
 defaults write .GlobalPreferences CGDisableCursorLocationMagnification -bool true
 ```
 Jiggling the mouse no longer balloons the pointer huge. Fully applies after next login.
+
+## 2026-08-28: .occult opens in Visual Studio Code
+```bash
+duti -s com.microsoft.VSCode dyn.ah62d4rv4ge80825dsz0hk all
+```
+Launch Services already mapped `.occult` to VS Code; this pins the dyn UTI. Agents open a single updated `.occult` file with `code`, not Cursor.
+
+## 2026-09-23: Paper deck launcher on the Dock
+```bash
+defaults write com.apple.dock persistent-others -array-add '...Open Paper Deck.command...' && killall Dock
+```
+Pins `/Users/rch/repo/agentic-memory-talk/Open Paper Deck.command` next to Downloads. Click to run `make run-paper`. Backup: `~/Library/Preferences/com.apple.dock.plist.bak-20260923-144337`.

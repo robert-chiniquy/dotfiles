@@ -6,7 +6,7 @@ Load when scrambling against the Core Workflow Completion milestone or Latchkey 
 
 When building the scramble plan, these are typical **parallel local options** for Latchkey milestones:
 
-- Rebase + push open c1 latchkey PR; re-request phoebesimon + madison-c-evans
+- Rebase + push open c1 latchkey PR; re-request its existing reviewers
 - `make protogen` on any branch with proto conflicts (main clone, not broken worktree)
 - Push + open draft PR for branches that exist on 4 repos but have no PR
 - Linear state hygiene on mis-bucketed issues (no comments)
@@ -41,15 +41,6 @@ Local paths (discover at runtime if missing):
 - **c1:** `make protogen` from repo root (docker-backed; use main clone, not broken worktrees)
 - **latchkey-proto:** proto-only; c1 protogen is authoritative for server codegen
 - Do **not** block on squire protogen — local pass is the scramble default
-
-## Latchkey PR reviewers (c1)
-
-Per **c1-squire-dispatch** — latchkey-touching PRs:
-
-- `phoebesimon`
-- `madison-c-evans`
-
-Do not add default c1 reviewers (`arreyder`, `mj-palanker`) to latchkey PRs.
 
 ## Linear API
 

@@ -6,9 +6,9 @@
 //! text output by hand.
 //!
 //! Usage:
-//!   iterm-restore                # default: resume sessions in place (already-open tabs)
+//!   iterm-restore                # default: open one fresh window, one tab per session
 //!   iterm-restore --list | -l    # print an inventory table, write nothing
-//!   iterm-restore --new-window   # open one fresh window, one tab per session
+//!   iterm-restore --in-place     # resume sessions in already-open tabs (matched by tty)
 //!   iterm-restore -o PATH        # write the emitted script to PATH
 //!   iterm-restore snapshot       # inventory now, save a restore script + meta to a state dir
 //!   iterm-restore check          # fast, no-osascript: print a hint if the last snapshot
@@ -146,7 +146,7 @@ struct Args {
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
-    let mut mode = Mode::InPlace;
+    let mut mode = Mode::NewWindow;
     let mut out = None;
     let mut force = false;
     let mut interval = None;
@@ -1193,25 +1193,65 @@ fn snapshot_exists() -> bool {
     snapshot_meta_path().is_file()
 }
 
-/// Seconds since iTerm2 started, via `pgrep` + `ps -o etimes=` (no
-/// osascript: this feeds `check`, which must be fast). None if iTerm2 isn't
-/// running.
+/// Seconds since iTerm2's main process started. Reads `ps -Ao etime=,comm=`
+/// and matches the process whose basename is exactly `iTerm2`, excluding the
+/// `iTerm2SandboxedWorker` and `iTermServer` helpers, then converts macOS's
+/// `[[DD-]hh:]mm:ss` etime to seconds. No osascript: this feeds `check`,
+/// which must be fast. None if iTerm2 isn't running. (macOS `ps` has no
+/// `etimes` keyword and its comm is the full executable path, so neither
+/// `pgrep -x iTerm2` nor `ps -o etimes=` works here.)
 fn iterm_uptime_secs() -> Option<u64> {
-    let pgrep_out = Command::new("pgrep").args(["-x", "iTerm2"]).output().ok()?;
-    let pid = String::from_utf8(pgrep_out.stdout)
-        .ok()?
-        .lines()
-        .next()?
-        .trim()
-        .to_string();
-    if pid.is_empty() {
-        return None;
-    }
-    let ps_out = Command::new("ps")
-        .args(["-o", "etimes=", "-p", &pid])
+    let out = Command::new("ps")
+        .args(["-Ao", "etime=,comm="])
         .output()
         .ok()?;
-    String::from_utf8(ps_out.stdout).ok()?.trim().parse().ok()
+    let text = String::from_utf8(out.stdout).ok()?;
+    parse_etime_secs(iterm_etime_from_ps(&text)?)
+}
+
+/// From `ps -Ao etime=,comm=` output, the etime field of the process whose
+/// comm basename is exactly `iTerm2`. comm can contain spaces (some helpers
+/// live under "Application Support"), so etime is taken as the first
+/// whitespace-delimited field and the remainder is the executable path.
+fn iterm_etime_from_ps(ps_output: &str) -> Option<&str> {
+    for line in ps_output.lines() {
+        let line = line.trim_start();
+        let Some((etime, comm)) = line.split_once(char::is_whitespace) else {
+            continue;
+        };
+        let base = Path::new(comm.trim())
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or("");
+        if base == "iTerm2" {
+            return Some(etime);
+        }
+    }
+    None
+}
+
+/// Convert a macOS `ps` etime (`[[DD-]hh:]mm:ss`) to whole seconds.
+fn parse_etime_secs(etime: &str) -> Option<u64> {
+    let etime = etime.trim();
+    let (days, hms) = match etime.split_once('-') {
+        Some((d, rest)) => (d.parse::<u64>().ok()?, rest),
+        None => (0, etime),
+    };
+    let mut secs = 0u64;
+    let mut mult = 1u64;
+    let mut fields = 0;
+    for field in hms.rsplit(':') {
+        if fields >= 3 {
+            return None;
+        }
+        secs += field.parse::<u64>().ok()? * mult;
+        mult *= 60;
+        fields += 1;
+    }
+    if fields == 0 {
+        return None;
+    }
+    Some(days * 86400 + secs)
 }
 
 /// Count of running processes whose basename is exactly claude, codex, or
@@ -2028,9 +2068,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_args_defaults_to_in_place_and_parses_output_path() {
+    fn parse_args_defaults_to_new_window_and_parses_output_path() {
         let args = parse_args(&["-o".to_string(), "/tmp/x.sh".to_string()]).unwrap();
-        assert_eq!(args.mode, Mode::InPlace);
+        assert_eq!(args.mode, Mode::NewWindow);
         assert_eq!(args.out.as_deref(), Some("/tmp/x.sh"));
 
         let args = parse_args(&["--list".to_string()]).unwrap();
@@ -2038,6 +2078,18 @@ mod tests {
 
         assert!(parse_args(&["-o".to_string()]).is_err());
         assert!(parse_args(&["--bogus".to_string()]).is_err());
+    }
+
+    #[test]
+    fn parse_args_in_place_flag_opts_into_in_place() {
+        assert_eq!(
+            parse_args(&["--in-place".to_string()]).unwrap().mode,
+            Mode::InPlace
+        );
+        assert_eq!(
+            parse_args(&["--new-window".to_string()]).unwrap().mode,
+            Mode::NewWindow
+        );
     }
 
     #[test]
@@ -2168,6 +2220,37 @@ mod tests {
         assert_eq!(parse_snapshot_count(""), None);
         assert_eq!(parse_snapshot_count("count=not-a-number\n"), None);
         assert_eq!(parse_snapshot_count("garbled garbage\x00\n"), None);
+    }
+
+    // parse_etime_secs: macOS etime is [[DD-]hh:]mm:ss, not GNU etimes.
+    #[test]
+    fn parse_etime_secs_handles_mm_ss_hh_and_days() {
+        assert_eq!(parse_etime_secs("05:03"), Some(303));
+        assert_eq!(parse_etime_secs("01:02:56"), Some(3776));
+        assert_eq!(
+            parse_etime_secs("2-03:04:05"),
+            Some(2 * 86400 + 3 * 3600 + 4 * 60 + 5)
+        );
+        assert_eq!(parse_etime_secs("00:00"), Some(0));
+        assert_eq!(parse_etime_secs("garbage"), None);
+        assert_eq!(parse_etime_secs(""), None);
+    }
+
+    // iterm_etime_from_ps: must select the main app by exact basename, not a
+    // substring that also matches iTerm2SandboxedWorker, and must tolerate a
+    // comm path containing spaces (iTermServer under "Application Support").
+    #[test]
+    fn iterm_etime_from_ps_picks_main_app_not_worker() {
+        let ps = "   01:02:56 /Applications/iTerm.app/Contents/MacOS/iTerm2\n   \
+                  01:02:49 /Users/rch/Library/Application Support/iTerm2/iTermServer-3.7.0\n   \
+                  01:02:47 /Applications/iTerm.app/Contents/XPCServices/iTerm2SandboxedWorker.xpc/Contents/MacOS/iTerm2SandboxedWorker\n";
+        assert_eq!(iterm_etime_from_ps(ps), Some("01:02:56"));
+    }
+
+    #[test]
+    fn iterm_etime_from_ps_none_when_main_app_absent() {
+        let ps = "   00:01 /usr/bin/somethingelse\n   00:02 /Applications/iTerm.app/Contents/XPCServices/iTerm2SandboxedWorker.xpc/Contents/MacOS/iTerm2SandboxedWorker\n";
+        assert_eq!(iterm_etime_from_ps(ps), None);
     }
 
     // launchd_plist: renders the fields install/uninstall depend on.

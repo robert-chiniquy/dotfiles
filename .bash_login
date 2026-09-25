@@ -1,3 +1,8 @@
+# Bash login shells read this file INSTEAD of ~/.profile, which on
+# Debian-family systems is what sources ~/.bashrc (distro PS1, aliases,
+# completions). Source it here so login shells keep the interactive config.
+[[ -f "$HOME/.bashrc" ]] && . "$HOME/.bashrc"
+
 # === Locale ===
 export LC_ALL="en_US.UTF-8"
 export LC_CTYPE="en_US.UTF-8"

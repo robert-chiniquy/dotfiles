@@ -15,7 +15,7 @@ Default to a **dark, flattering, serious, underground hacker/counterculture mood
 
 Use or adapt this snippet when the user asks for this aesthetic:
 
-> dark, flattering, photoreal-but-collaged underground hacker aesthetic; grungy warehouse-party textures; spacious post-cyberpunk composition; cut-up literary collage sensibility; neo-expressionist street-art marks; low-key cinematic lighting; charcoal black, tar brown, dirty ivory, neon magenta, electric cyan, acid yellow; bright focal accents; analog grit, torn paper, scratched surfaces, tape, dust, cable clutter, screen glow; serious countercultural energy; minimal text only when explicitly requested
+> dark, flattering, photoreal-but-collaged underground hacker aesthetic; grungy warehouse-party textures; spacious post-cyberpunk composition; cut-up literary collage sensibility; neo-expressionist street-art marks; low-key cinematic lighting; charcoal black, tar brown, dirty ivory, neon magenta, electric cyan, rust orange; bright focal accents; analog grit, torn paper, scratched surfaces, tape, dust, cable clutter, screen glow; serious countercultural energy; minimal text only when explicitly requested
 
 ## Visual priorities
 
@@ -29,8 +29,8 @@ Use or adapt this snippet when the user asks for this aesthetic:
 
 Use this as the default palette:
 
-- **Dominant:** charcoal black, oil black, tar brown, smoke gray, dirty ivory, aged paper, rust.
-- **Accent:** neon magenta, electric cyan, acid yellow, deep red, toxic green.
+- **Dominant:** charcoal black, oil black, tar brown, smoke gray, dirty ivory, aged paper, rust (`#C65A17`).
+- **Accent:** neon magenta, electric cyan, rust orange (`#C65A17`), deep red, toxic green. Not mustard gold (`#F5A337`). Not acid yellow as a large fill.
 - **Signal colors:** vivid rainbow pride colors, preserved as bright, saturated focal elements.
 - **Avoid:** pastel softness, glossy corporate blue, clean white backgrounds, cheerful high-key lighting.
 
@@ -144,4 +144,4 @@ When rewriting or composing an image prompt, use this order:
 
 Example structure:
 
-> Create a 16:9 image of [subject] in [scene]. Preserve [specific cues]. Make them look [flattering mood]. Apply a dark underground hacker/counterculture aesthetic with grungy warehouse textures, sparse post-cyberpunk space, torn-paper collage details, and neo-expressionist street-art marks. Use low-key cinematic lighting, black and dirty-ivory tones, neon magenta/cyan/yellow accents, and vivid rainbow focal elements. Include only the text: “[exact text].” Do not add any other captions or readable text.
+> Create a 16:9 image of [subject] in [scene]. Preserve [specific cues]. Make them look [flattering mood]. Apply a dark underground hacker/counterculture aesthetic with grungy warehouse textures, sparse post-cyberpunk space, torn-paper collage details, and neo-expressionist street-art marks. Use low-key cinematic lighting, black and dirty-ivory tones, neon magenta/cyan/rust-orange accents, and vivid rainbow focal elements. Include only the text: “[exact text].” Do not add any other captions or readable text.

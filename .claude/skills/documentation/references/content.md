@@ -6,6 +6,8 @@
 
 ```
 1. ORIENT       What system? What problem solved?
+                For a new-project README: one-sentence seam, then the split
+                (what stays where). Commands and stack are not orient.
                 Reader knows they're in the right place
 
 2. CONTEXTUALIZE Where does this fit? What comes before/after?
