@@ -140,7 +140,7 @@ Choose based on what makes retrieval easier.
 
 ### Versioning
 
-- **Documents**: Feedback = new version (`_V2.md`), not overwrite
+- **Documents**: live draft stays at the stable filename; superseded copies get versioned names; typo-only edits stay in place
 - **Identifiers**: Numbers are permanent, removed items get ~~strikethrough~~
 - **Plans**: `PLAN_<OBJECTIVE>.md`, multiple can coexist
 - **Commits**: Checkpoint at phase boundaries and before major changes
@@ -319,17 +319,8 @@ Claims cite files, line numbers, or commits. Don't theorize - verify.
 ### Show Me the Source
 When quoting documentation in summaries or reports, include the URL. Every quote needs a link. This is non-negotiable - a quote without a URL is unverifiable and therefore useless.
 
-### Version, Don't Overwrite
-When receiving feedback on a document, NEVER edit it in place. Create a new version with **prefix** (for sortability):
-- `V2_FILENAME.md`, `V3_FILENAME.md`
-- `REVISED_FILENAME.md`, `FINAL_FILENAME.md`
-- `PHASE2_FILENAME.md`
-
-Prefix, not suffix. `V2_FOO.md` sorts next to `V1_FOO.md`. `FOO_V2.md` does not.
-
-The only exception: typo fixes or minor corrections that don't change meaning.
-
-Feedback includes: corrections, additions, "you forgot X", "add Y", "fix Z". If the user points out something wrong or missing, that's feedback - version the file.
+### Live draft, versioned copies
+The live draft stays at the stable filename. When the draft is superseded, copy it to a versioned name (`FILENAME_V1.md`, `FILENAME_V2.md`, `FILENAME_PHASE2.md`) and write the new content onto the original filename. Typo-only edits stay in place. Template and Key Practices must say the same rule.
 
 ### Catalogs
 Enumerable things get a catalog .md. Catalog is authoritative.

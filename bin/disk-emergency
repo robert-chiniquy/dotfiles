@@ -14,9 +14,15 @@
 #   8. Last resort — Go build cache, only if STILL below threshold after the
 #      above AND the cache exceeds GO_CACHE_TRIGGER_GB (default 40). Go has no
 #      cache size cap of its own; the cache is fully regenerable.
+#   9. Last resort: stale Bazel execroots. Each worktree/checkout gets its own
+#      _bazel_rch/<hash> output base holding a full copy of that build's output;
+#      stale ones are pure regenerable bloat. Keep the newest output base,
+#      remove the rest, only if STILL below threshold AND the cache exceeds
+#      BAZEL_TRIGGER_GB (default 40). Each is fully regenerable.
 #
 # NEVER touches: git repos, Colima, ~/.cache/cargo-target, active work.
-# (The Go build cache is regenerable and cleared only as the step-8 last resort.)
+# (Go build cache and stale Bazel execroots are regenerable, cleared only as the
+#  step-8 / step-9 last resort.)
 
 set -u
 THRESHOLD_GB=${DISK_EMERGENCY_THRESHOLD_GB:-4}
@@ -112,6 +118,28 @@ if [ "${after_cheap:-99999}" -lt "$THRESHOLD_GB" ] && command -v go >/dev/null 2
         else
             log "  Go build cache ${gc_gb:-?} GB (< ${GO_CACHE_TRIGGER_GB:-40} GB trigger) — left intact"
         fi
+    fi
+fi
+
+# 9. Last resort: stale Bazel execroots (see header). Keep the newest output
+#    base, remove the rest. Only when still below threshold after the Go step
+#    and the cache exceeds BAZEL_TRIGGER_GB. Every execroot is regenerable.
+after_go=$(avail_gb)
+bazel_root=~/Library/Caches/bazel/_bazel_rch
+if [ "${after_go:-99999}" -lt "$THRESHOLD_GB" ] && [ -d "$bazel_root" ]; then
+    bz_gb=$(/usr/bin/du -sg "$bazel_root" 2>/dev/null | /usr/bin/awk '{print $1}')
+    if [ "${bz_gb:-0}" -ge "${BAZEL_TRIGGER_GB:-40}" ]; then
+        newest=$(/bin/ls -dt "$bazel_root"/*/ 2>/dev/null | /usr/bin/head -1)
+        for d in "$bazel_root"/*/; do
+            [ -d "$d" ] || continue
+            [ "$d" = "$newest" ] && continue
+            # Bazel marks its output tree read-only; make it writable first or
+            # rm cannot unlink the entries.
+            /bin/chmod -R u+w "$d" 2>/dev/null
+            /bin/rm -rf "$d" 2>/dev/null && log "  rm stale bazel execroot $(/usr/bin/basename "$d")"
+        done
+    else
+        log "  Bazel cache ${bz_gb:-?} GB (below ${BAZEL_TRIGGER_GB:-40} GB trigger), left intact"
     fi
 fi
 

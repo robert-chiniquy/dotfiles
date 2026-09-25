@@ -82,6 +82,9 @@ Reject or reclassify these common shapes:
 - local-worktree, stash, credential, or operator-state cleanup;
 - a research or design verb presented as implementation;
 - a language-facing change hidden inside a lint, fixture, or documentation task.
+- a task whose description leans on a vague verb ("wire it up", "add appropriate
+  tests", "similar to X", "investigate whether", "make sure it works") instead
+  of naming what changes, why, the exact file/symbol, and a falsifiable gate.
 
 Very small edits may cost less locally than remote setup. Group related
 micro-items by ownership surface, or classify them as local pebbles.

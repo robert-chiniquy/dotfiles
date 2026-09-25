@@ -37,7 +37,7 @@ Activates when a task will touch 50+ files, run longer than one agent session, o
 
 ## Spec gate
 
-No execution without a written, human-approved spec. Halt after producing the spec and await explicit approval before writing any code. In parallel mode, the spec is approved before spawning any instances; the approved spec is the canonical context injected into every instance.
+First start: write the spec and wait for approval. After the user hands an autonomous continuation prompt or an already-approved spec, execute to the stated done bar; halt only when fully blocked. Report at checkpoints. In parallel mode, the spec is approved before spawning any instances; the approved spec is the canonical context injected into every instance.
 
 Spec contents:
 - Task name, date, initiator

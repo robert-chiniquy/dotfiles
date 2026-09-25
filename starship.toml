@@ -79,40 +79,8 @@ disabled = true  # Using custom precmd in .zshrc (shows at 3s, more useful)
 
 [custom.accent]
 command = "$HOME/repo/dotfiles/bin/prompt-char"
-when = "true"
+shell = ["/bin/sh"]
+when = true
 format = ' $output'
 style = ""
-
-[custom.git_diff_line_count]
-disabled = true
-
-[custom.tokei_rust]
-disabled = true
-
-[custom.coding_hours]
-disabled = true
-
-[custom.phase]
-command = "echo $__current_phase"
-when = "test -n \"$__current_phase\""
-format = '[$output]($style) '
-style = "#444444"
-
-[custom.focus]
-command = "echo $__focus_time"
-when = "test -n \"$__focus_time\""
-format = '[$output]($style) '
-style = "#444444"
-
-[custom.momentum]
-command = "echo $__weekly_momentum"
-when = "test -n \"$__weekly_momentum\""
-format = '[$output]($style) '
-style = "#444444"
-
-[custom.spark]
-command = "echo $__momentum_spark"
-when = "test -n \"$__momentum_spark\""
-format = '[$output]($style)'
-style = "#333333"
 

@@ -41,7 +41,7 @@ trap cleanup EXIT HUP INT TERM
 
 "$TOKEN_REFRESH_PYTHON" "$TOKEN_REFRESH_COLLECTOR" \
   --format scorecard \
-  --top "$TOKEN_REFRESH_TOP" \
+  --top "${TOKEN_REFRESH_COLLECT_TOP:-30}" \
   --json-output "$TOKEN_REFRESH_REPORT_TMP" \
   > "$TOKEN_REFRESH_STATUS_TMP"
 
@@ -49,6 +49,27 @@ test -s "$TOKEN_REFRESH_STATUS_TMP"
 test -s "$TOKEN_REFRESH_REPORT_TMP"
 /usr/bin/grep -q '^# Weekly agent-token footprint$' "$TOKEN_REFRESH_STATUS_TMP"
 /usr/bin/python3 -m json.tool "$TOKEN_REFRESH_REPORT_TMP" >/dev/null
+
+# Exclude non-vault repos (occult family, lockbox, flashback, scorecard) from the
+# token chart(s) and relabel the vault repo, so the histogram is vault-only and
+# never says "occult" or "latchkey". Cap back to TOKEN_REFRESH_TOP rows.
+TOKEN_REFRESH_FILTERED_TMP=$(/usr/bin/mktemp "$TOKEN_REFRESH_STATUS_DIR/.weekly-agent-tokens-f.XXXXXX")
+/usr/bin/awk -v exclude="${TOKEN_REFRESH_EXCLUDE:-^(occult|lockbox|flashback|scorecard)}" -v limit="$TOKEN_REFRESH_TOP" \
+  -v rfrom="${TOKEN_REFRESH_RELABEL_FROM:-latchkey-project}" -v rto="${TOKEN_REFRESH_RELABEL_TO:-vault}" '
+  BEGIN { title = "## Chart: Tokens consumed per repository (millions)" }
+  $0 == title { in_chart = 1; kept = 0; print; next }
+  in_chart && /^## / && $0 != title { in_chart = 0 }
+  in_chart && /^\|/ && $0 !~ /repository/ && $0 !~ /^\| *-/ {
+    repo = $0; sub(/^\| */, "", repo); sub(/ *\|.*/, "", repo)
+    if (repo ~ exclude) next
+    if (kept >= limit) next
+    if (repo == rfrom) sub(rfrom, rto)
+    kept++; print; next
+  }
+  { print }
+' "$TOKEN_REFRESH_STATUS_TMP" > "$TOKEN_REFRESH_FILTERED_TMP"
+test -s "$TOKEN_REFRESH_FILTERED_TMP"
+/bin/mv -f "$TOKEN_REFRESH_FILTERED_TMP" "$TOKEN_REFRESH_STATUS_TMP"
 
 /usr/bin/awk '
   BEGIN { title = "## Chart: Tokens consumed per repository (millions)" }

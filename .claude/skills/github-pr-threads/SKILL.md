@@ -19,6 +19,7 @@ answers it. Pending/deferred/follow-up work is NOT addressed — stays open.
 ## Common Mistakes
 
 1. **Leaving fixed threads open** — after a fix push, MUST `Addressed in <sha>` + resolve without waiting to be asked.
+1a. **Addressing CHANGES_REQUESTED and not re-requesting** — after the replies and resolves, MUST re-request review. The sticky request does not lift itself.
 2. **Resolving without a pushed commit on this PR's branch** — never resolve on local-only or wrong-branch SHAs.
 3. **Resolving "related" work** — commit does Y while thread asked X → leave open.
 4. **Skipping the reply** — resolve alone is incomplete; reply format is required.
@@ -121,7 +122,10 @@ After any push that is meant to address review feedback:
 1. Confirm the fix commit is on the remote.
 2. Match open threads to that commit (or earlier commits on the branch).
 3. For each ADDRESSED thread: `Addressed in <sha>` + resolve.
-4. Optionally wait for bot re-review, then triage any new threads the same way.
+4. If the PR is CHANGES_REQUESTED and those threads were the request: re-request
+   review immediately (human/installable reviewer via the host API; bot/judge
+   via its workflow, or an already in-progress push-triggered run).
+5. Optionally wait for bot re-review, then triage any new threads the same way.
 
 Do not wait for the user to ask "resolve threads" when the fix is already
 pushed and the match is clear.

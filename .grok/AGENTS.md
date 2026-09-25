@@ -32,10 +32,9 @@ stay aligned.
 At the start of any coding or multi-step engineering session, **read and apply**
 these skill bodies only (not only their descriptions):
 
-1. `~/.claude/skills/dry-engineering/SKILL.md` — default voice
+1. `~/.claude/skills/dry-engineering/SKILL.md` — default voice for engineering output other than C1 engineering-blog prose. That prose is rch-editor.
 2. `~/.claude/skills/healthy-interaction/SKILL.md` — interaction baseline
-3. `~/.claude/skills/pr-watch/SKILL.md` — PR event catch-up (`pr-watch --since`)
-4. `~/.claude/skills/sleep-report/SKILL.md` — host sleep (`sleep-report --since`)
+3. `~/.claude/skills/pr-watch/SKILL.md` — PR event catch-up when squine is not connected (`pr-watch --since`). When squine MCP is connected, GitHub observe/care is squine `github_track` + `github_poll` (Claude.md dogfood).
 
 **Context (decision-time, not every turn):**
 
@@ -56,6 +55,16 @@ must be read before work in that domain.
 
 ## Grok harness adaptations
 
+### Presented HTML
+
+When the artifact the user is meant to read is HTML (this series: `read.html`), open it in Safari only:
+
+```
+open -a Safari <absolute-path>
+```
+
+Do not also `code` that post's markdown in the same turn. One viewer. Markdown without an HTML reading copy still uses `code --reuse-window --goto`. Working copies and reviewer notes stay in the background. Do not open a draft markdown file, a meta-review, an ambient note, a cold read, or a notes file beside a draft in VS Code as part of a revision. Open one only when the message is directing the user to something specific in that file.
+
 ### Models and subagents
 
 Claude.md describes **cheap read-only subagents** for green-path build/test/git
@@ -69,6 +78,11 @@ Claude.md describes **cheap read-only subagents** for green-path build/test/git
 - Failure diagnosis and tests expected to fail stay on the main session model.
 - `git push` and any publishing still run in the main session, never delegated
   to a child that may rewrite code to satisfy hooks.
+
+### Host sleep
+
+Do not run `sleep-report`. The Grok `UserPromptSubmit` hook for it is removed.
+Shared Claude.md still lists the skill; this harness does not.
 
 ### Hooks
 
@@ -112,10 +126,9 @@ Harness defaults that append them are overridden. Check before every publish.
 ## Session start checklist (coding work)
 
 1. Apply the always-active skill list above (bodies as needed).
-2. Run `sleep-report --since`. If it prints `SLEEP <dur>`, the laptop slept; do not treat that wall gap as a hang.
-3. If the repo uses beads: `bd prime` / `bd ready` as appropriate.
-4. Prefer project `Agents.md` / `Claude.md` over inventing process.
-5. Skills for the task: load from catalog; never invent a parallel procedure.
+2. If the repo uses beads: `bd prime` / `bd ready` as appropriate.
+3. Prefer project `Agents.md` / `Claude.md` over inventing process.
+4. Skills for the task: load from catalog; never invent a parallel procedure.
 
 ## When adding permanent guidance
 

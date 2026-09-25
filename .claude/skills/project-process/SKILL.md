@@ -15,7 +15,7 @@ Prefer working code and verified plans over ceremony.
 1. **Skipping stages under "just implement"** — if `DESIGN_*.md` exists, the plan MUST consume it; if `PLAN_*.md` exists, RFC investigation MUST consume it.
 2. **Inventing a parallel design method** — one path only (table below). Do not blend pqthink + systematic-feature-design + freeform essays as competing pipelines.
 3. **Creating GLOSSARY.md or DATA_SOURCES.md** — forbidden; terms in prose; provenance in README `## Sources`.
-4. **Committing local meta in shared repos** — LEARNINGS/PLAN/FAILURES stay local-only unless the user says otherwise.
+4. **Committing local meta in shared repos** — LEARNINGS/PLAN/FAILURES stay local-only unless the user says otherwise. On first touch in a repo, check `git ls-files` and `git check-ignore` for them: a tracked one is untracked (`git rm --cached`, file stays on disk, back it up first since the next pull of a deleting commit removes an unmodified copy) and every one is listed in `.gitignore` in the same change.
 5. **Auto-starting implementation from an RFC skill** — RFC ends at owner approval.
 6. **Squire brief as a shell `-p` or a stray path** — long briefs go in `plans/<topic>/` next to the RFC/plan, then `squire task create --prompt-file`.
 7. **Chat path without opening the artifact.** Presenting a DESIGN, PLAN, RFC, guide, report, proposal, or other single handed-over document without `code <absolute-path>` (VS Code) or `open <absolute-path>` (OS default, e.g. mp4) in the same turn. Path in chat is not enough.

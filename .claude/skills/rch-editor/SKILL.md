@@ -19,6 +19,8 @@ C1 engineering-blog prose. Dry-engineering does not govern this register. The pu
 - An unfixed C1 production defect named as a present fact.
 - Sentences added to meet a word count. Length is a readout.
 - A sentence copied from a skill or from a sibling post.
+- A narrated trace of calls (`one job locks A then B; the other locks B then A; Unlock runs only after both Locks return`). Put the calls in a code block. Prose states only what the block cannot show: which position is speaking, and the consequence. A runtime walk is that block, a labeled stand-in, or the series Q&A. Do not improvise a narrator walking the trace. Which position speaks is the irony skill.
+- Two locks with an empty critical section. The body between the second lock and the unlock has to use a real resource, a read or a write of the thing those locks protect. An empty body reads as a code error.
 
 ## Classes
 

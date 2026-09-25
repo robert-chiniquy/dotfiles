@@ -58,4 +58,3 @@ agent_context_update() {
 } >/dev/null 2>&1
 
 autoload -Uz add-zsh-hook
-add-zsh-hook precmd agent_context_update

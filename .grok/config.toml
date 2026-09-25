@@ -7,7 +7,7 @@ fork_secondary_model = "grok-build"
 yolo = false
 compact_mode = true
 permission_mode = "always-approve"
-theme = "groknight"
+theme = "tokyonight"
 keep_text_selection = "word_select"
 remember_tool_approvals = true
 screen_mode = "fullscreen"
@@ -16,7 +16,8 @@ collapsed_edit_blocks = true
 combine_queued_prompts = true
 
 [models]
-default = "grok-composer-2.5-fast"
+default = "grok-4.7"
+default_reasoning_effort = "xhigh"
 
 [marketplace]
 official_marketplace_auto_installed = true
@@ -44,3 +45,32 @@ enabled = true
 [mcp_servers.slack.env]
 SLACK_MCP_XOXB_TOKEN = "${SLACK_MCP_XOXB_TOKEN}"
 SLACK_MCP_TEAM_ID = "T01B7BY5ULB"
+
+[mcp_servers.notion]
+url = "https://mcp.notion.com/mcp"
+enabled = true
+
+[mcp_servers.squine]
+command = "/Users/rch/go/bin/squine"
+args = ["mcp"]
+enabled = true
+startup_timeout_sec = 60
+
+[consent.answers.enterprise-tos-2026-08]
+version = 1
+account = "robert.chiniquy@conductorone.com"
+acked = true
+
+[model.tone-critic]
+model = "qwen2.5:14b"
+base_url = "http://127.0.0.1:11434/v1"
+name = "tone-critic"
+description = "Local Ollama critic for series TONE"
+api_backend = "chat_completions"
+api_key = "ollama"
+context_window = 32768
+max_completion_tokens = 8192
+temperature = 0.2
+
+[plugins]
+enabled = ["explanatory-output-style"]

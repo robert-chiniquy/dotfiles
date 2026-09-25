@@ -19,6 +19,11 @@ of questions, and never several questions in one call.
   decide without re-reading source material. Put the recommended
   option first with "(Recommended)" in its label and the reason in its
   description.
+- A question that rests on a design doc, plan, RFC, or tracker item
+  gives the material's full absolute path (or the exact tracker
+  command, e.g. `bd show <id>`) in the question or the message
+  immediately before it, plus enough inline summary to decide without
+  leaving the conversation.
 - Multi-select only for genuinely non-exclusive choices. The tool adds
   "Other" automatically — never add a catch-all option yourself.
 - After the final answer, restate all decisions compactly and proceed

@@ -69,6 +69,13 @@ branch, or success criteria, and the review costs more than it saves.
   files or state.
 - Missing success criterion — without a verification gate the subagent
   reports "done" when it stops, not when the work is correct.
+- Vague task with no concrete anchor: "wire it up", "add appropriate
+  tests", "similar to X", "investigate whether", "make sure it works". A
+  dispatched task states what changes, why, exactly where (file/symbol),
+  and a falsifiable success criterion; any of these phrases means the task
+  is not finished being written. Fix: resolve the vague part into a named
+  call path / test case / symbol, or move the open part to an explicit
+  question.
 - Haiku on a read-only task without a "do NOT modify files" guard —
   Haiku "fixes" code unprompted.
 - Missing "do NOT commit/push" guard when that authority was not

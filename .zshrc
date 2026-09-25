@@ -113,7 +113,21 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
   _cal_marker=~/.cache/next-event
   if _file_older_than "$_cal_marker" 900; then
     (
-      event=$(osascript -e '
+      if command -v icalBuddy &>/dev/null; then
+        # icalBuddy reads the calendar store via EventKit: fast, and it never
+        # launches Calendar.app (unlike `tell application "Calendar"`).
+        _raw=$(icalBuddy -n -b "" -nc -nrd -eep "notes,location,url,attendees" -po "datetime,title" -tf "%H:%M" -df "" -ps "|@|" -li 1 eventsToday+1 2>/dev/null | head -1)
+        if [[ -n "$_raw" ]]; then
+          _t=${_raw%%@*}; _t=${_t%% -*}; _title=${_raw#*@}
+          _mtg=$(( 10#${_t%%:*} * 60 + 10#${_t#*:} ))
+          _nowm=$(( 10#$(date +%H) * 60 + 10#$(date +%M) ))
+          _diff=$(( _mtg - _nowm ))
+          if (( _diff >= 0 )); then event="$_title in ${_diff}m"; else event=""; fi
+        else
+          event=""
+        fi
+      else
+        event=$(osascript -e '
         set now to current date
         set later to now + (2 * 60 * 60)
         tell application "Calendar"
@@ -135,6 +149,7 @@ if [[ -z "$_GREETED" && -o interactive ]]; then
           end if
         end tell
       ' 2>/dev/null)
+      fi
       echo "$event" > "$_cal_marker"
     ) &!
   fi
@@ -1308,6 +1323,10 @@ ulimit -n 10240
 # Sourced after the direnv hook so PROMPT_ACCENT is current on each chpwd.
 export TAB_COLOR_AUTO=1
 [[ -r "$HOME/repo/dotfiles/.config/zsh/tab-color.zsh" ]] && source "$HOME/repo/dotfiles/.config/zsh/tab-color.zsh"
+
+# On cd, offer resumable agent sessions rooted here (direnv-style). Edit --days
+# in this file to change the recency window.
+[[ -r "$HOME/repo/dotfiles/.config/zsh/agent-picker.zsh" ]] && source "$HOME/repo/dotfiles/.config/zsh/agent-picker.zsh"
 
 # Added by codebase-memory-mcp install
 export PATH="/opt/homebrew/sbin:$PATH"

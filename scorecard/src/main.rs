@@ -229,8 +229,22 @@ fn seg_trunc(segs: Vec<Seg>, w: usize) -> Vec<Seg> {
     }
     out
 }
+fn hyperlinks_enabled() -> bool {
+    if cfg!(test) {
+        return true;
+    }
+    match std::env::var("SCORECARD_HYPERLINKS").ok().as_deref() {
+        Some("always") | Some("1") => true,
+        Some("never") | Some("0") => false,
+        _ => std::io::IsTerminal::is_terminal(&std::io::stdout()),
+    }
+}
 fn osc8(url: &str, text: &str) -> String {
-    format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", url, text)
+    if hyperlinks_enabled() {
+        format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", url, text)
+    } else {
+        text.to_string()
+    }
 }
 fn render_field(text: &str, budget: usize, base: &str) -> String {
     let segs = seg_trunc(parse_links(text), budget);
@@ -1920,7 +1934,7 @@ type: histogram
 
         let caption_row = rendered
             .lines()
-            .find(|line| line.contains("CHART Tokens per repository"))
+            .find(|line| line.contains("Tokens per repository"))
             .unwrap();
         let image_row = rendered
             .lines()

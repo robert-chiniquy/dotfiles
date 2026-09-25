@@ -81,13 +81,24 @@ skill bodies**, not only this index.
 | editor-diff-cycle | User edits a draft; isolate by section and whole-piece structure; generalize off the source draft into a named series-wide persona |
 | talks-diff-cycle | User edits a talk deck; isolate by yaml cluster and whole-deck walk; propose rch-editor Talks rules; write only after confirmation |
 | rch-editor | Author's voice for C1 engineering-blog posts: ethos first, spoken host, one walk, gist is latest published draft, C1 feature screenshot or flashback gif |
+| poetic-meter | Sentence stress, variation, continuity, and voice for C1 engineering-blog prose. Modeled on Fussell, Poetic Meter and Poetic Form (1965; revised 1979). Not a verse exercise. |
+| occult-theory | Bring forward a static reading of a whole aggregate, and the open space between systems, ontologies, and categories. The wayfinder stays in the skill. The skill does not name a vendor. Do not give that reading to the product with a direct verb, and do not add a disclaimer. A new formal term gets one sentence of what it is. Never names the private research system in a draft. |
+| series-review | Once across the live C1 engineering-blog drafts: order, continuity, progression, related topics, common elements, allocation. Does not restyle a post. |
+| irony | Which position speaks in a C1 engineering-blog draft. Not sarcasm. Intent is required and includes prior failure modes. Source: occult IRONY-COMPRESSED.md |
+| ambient-research | Field around a C1 engineering-blog draft, plus an ongoing local index. Traverses repositories through the project and project-process notes: README Sources, LEARNINGS, project.md, project_graph. Not fact-checking and not trend chasing. |
+| meta-reviewer | Drift governor after the other blog reviewers. The text must still be about the subject that made it worth writing. Source: occult META_REVIEWER-COMPRESSED.md |
 | research-voice | Lab-note cadence on C1 exhibits; review lens over rch-editor drafts (claim-size, query direction; does not overturn ethos/scene) |
 | fact-review | Factually untrue operational claims: actor cannot produce the effect |
+| triviality-rejector | Rejects a draft whose result is a textbook or Wikipedia example in product nouns. A concrete listing is not a result. Does not invent the missing result. |
+| blog-writer | The one writer for a C1 engineering-blog draft. Starts from the outline and sources. Does not extend an example a triviality note rejected. Does not review. |
+| blog-iteration | Outer loop: deeper sources, one writer, the review fleet, start-over when a draft has nothing to report. The parent dispatches and does not write or review. |
+| blog-tournament | Parallel A/B over writer and reviewer lists for one post. Parent judges the pages. A keep is not the score. Winner meets one new challenger. |
 | section-title-review | H1/H2/H3 cadence and progress; numbered sequences keep one template |
 | why-review | Operational sentences that say what X does but not why; default is miss; after-state in the same beat |
 | series-corpus-researcher | Local C1/occult code plus GitHub since 2025-10, adjacent to live and published blog posts |
 | progressive-story | Instruction-manual order: WHY, then HOW from design issues, then the surprising use; magic trick is a closed class |
-| blog-review-fleet | Every post, every iteration: section titles, missing referents, why, progressive-story, information-flow, rch-editor, research-voice, fact-review, then scale-review |
+| blog-review-fleet | Every post, every iteration: section titles, missing referents, why, progressive-story, information-flow, rch-editor, poetic-meter, occult-theory, irony, ambient-research, research-voice, fact-review, triviality-rejector, blog-writing-guide, then meta-reviewer, then series-review once, then scale-review |
+| blog-writing-guide | Sentry engineering-blog skill as a C1 fleet reviewer (diagrams, no this-post-is, headings as claims). Upstream https://github.com/getsentry/skills/blob/main/skills/blog-writing-guide/SKILL.md |
 | subagent-prompt-review | Before Agent() / squire dispatch / scheduled remote agents |
 | agent-worktree-status | Background agent worktree liveness |
 | agent-verify-workflows | Explicit web workflow verification |

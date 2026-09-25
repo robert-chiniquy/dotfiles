@@ -9,7 +9,6 @@
       "Bash(go:*)",
       "Bash(make:*)",
       "Bash(npm:*)",
-      "Bash(npx:*)",
       "Bash(deno:*)",
       "Bash(cargo:*)",
       "Bash(rustc:*)",
@@ -18,8 +17,6 @@
       "Bash(kubectl:*)",
       "Bash(terraform:*)",
       "Bash(curl:*)",
-      "Bash(bash:*)",
-      "Bash(zsh:*)",
       "Bash(chmod:*)",
       "Bash(mkdir:*)",
       "Bash(cp:*)",
@@ -27,7 +24,6 @@
       "Bash(ln:*)",
       "Bash(touch:*)",
       "Bash(open:*)",
-      "Bash(xargs:*)",
       "Bash(timeout:*)",
       "Bash(sqlite3:*)",
       "Bash(unzip:*)",
@@ -126,9 +122,39 @@
       "mcp__codebase-memory-mcp__list_projects",
       "mcp__codebase-memory-mcp__detect_changes"
     ],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "auto"
   },
   "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "matcher": "",
@@ -166,6 +192,24 @@
             "command": "~/.claude/hooks/cbm-code-discovery-gate"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -185,6 +229,54 @@
             "command": "~/.claude/hooks/large-transcript-warn"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/rch/.config/iterm2/cc-status"
+          }
+        ]
       }
     ]
   },
@@ -199,7 +291,8 @@
     "pyright-lsp@claude-plugins-official": false,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true
+    "typescript-lsp@claude-plugins-official": true,
+    "typesafe@typesafe-ai": true
   },
   "extraKnownMarketplaces": {
     "claude-hud": {
@@ -207,8 +300,15 @@
         "source": "github",
         "repo": "jarrodwatts/claude-hud"
       }
+    },
+    "typesafe-ai": {
+      "source": {
+        "source": "github",
+        "repo": "typesafe-ai/skills"
+      }
     }
   },
+  "feedbackDrafts": "off",
   "spinnerVerbs": {
     "mode": "replace",
     "verbs": [
@@ -216,10 +316,58 @@
     ]
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
+  "modelSettings": {
+    "claude-fable-5": {
+      "effortLevel": "xhigh"
+    },
+    "claude-opus-4-8": {
+      "effortLevel": "high"
+    }
+  },
+  "autoCompactWindow": 600000,
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "editorMode": "normal",
   "verbose": true,
-  "remoteControlAtStartup": true
+  "remoteControlAtStartup": true,
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Bash(squire env info:*) in ~/repo/latchkey-project",
+      "Bash(bd list:*) in ~/repo/latchkey-project",
+      "Bash(bd ready) in ~/repo/latchkey-project",
+      "Bash(bd stats) in ~/repo/latchkey-project"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Bash(.claude/skills/latchkey-cli-test-harness/run-prod-admin-flow.sh:*) in ~/repo/latchkey-project"
+    ],
+    "environment": [
+      "### Org-wide",
+      "**Organization**: ductone (GitHub org for the origin remote, github.com/ductone/latchkey-project)",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: assume private unless the remote host and repo name indicate otherwise, or a visibility check in the transcript shows public (gh visibility check not queryable here)",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: 1Password (op:// references) used for credential injection in this repo's latchkey-cli-test-harness skill; local fallback via gitignored latchkey.env or shell env vars",
+      "**Default / protected branches**: main (default branch per repo facts); protection/rulesets not queryable here (gh lookup unavailable)",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: Twingate required to reach d2 (per-developer dev boxes) per this repo's skill docs; squire tunnels used for ephemeral dev environments",
+      "**Source control**: The trusted repo (github.com/ductone/latchkey-project) and its remote only — as scoped by Trusted repo and Repository visibility entries above",
+      "**Trusted internal domains**: *.d2.ductone.com (per-developer dev boxes, e.g. c1dev.<handle>.d2.ductone.com), *.squire.ductone.com (ephemeral squire dev environments)",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: c1 (backend/tenant API service referenced throughout this repo's skills), Support dashboard (ConductorOne support dashboard for tenant diagnostics)",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: secret_access/vault contents (client-encrypted secrets), device keys and delivery keys, 1Password credential references, .beads-credential-key, latchkey.env and other gitignored env files — share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (e.g. matches `prod-db`, not `producer`); this repo's own skill docs reference production/customer c1 tenants and a prod-admin-flow script (.claude/skills/latchkey-cli-test-harness/run-prod-admin-flow.sh) as sensitive",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (Latchkey/Multipass vault system architecture, protocol design, CLI test harness work, security auditing)",
+      "**Trusted repo**: github.com/ductone/latchkey-project (this repo's working directory and its origin remote)",
+      "**Org-specific CLIs**: squire (ephemeral remote dev environment tool), bd (local beads issue tracker), lk (latchkey CLI wrapper script in this repo)",
+      "**Routine under this repo's `.claude/skills/` and `reports/` prefixes**: security-audit report generation, orient sweeps, and CLI test harness runs are routine operations scoped to this repo"
+    ]
+  }
 }

@@ -97,6 +97,7 @@ These are the mistakes that show up most often in review:
 | No TODOs without tickets | New TODOs reference a tracking number or explain why they exist |
 | No secrets | No API keys, tokens, passwords, or internal URLs |
 | .gitignore current | Generated files (binaries, build output) are ignored |
+| Non-ASCII in authored text | Commit message and PR body are plain ASCII: no em/en-dash, curly quotes, or ellipsis characters |
 
 ### Language-Specific: Go
 
@@ -140,3 +141,4 @@ Fix all FAILs before proceeding.
 - [ ] Common Mistakes checked against this run?
 - [ ] Required outputs exist (PR/branch/status)?
 - [ ] No trailers in published text?
+- [ ] Non-ASCII gate clean? Pipe the commit message and PR body through `rg -n '[^\x00-\x7F]'`; any hit is a banned character (em/en-dash, curly quote, ellipsis) to replace with ASCII (`--`, straight quotes, `...`) before publishing.

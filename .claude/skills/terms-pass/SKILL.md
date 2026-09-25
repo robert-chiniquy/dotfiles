@@ -7,7 +7,7 @@ description: One-at-a-time TERMS.md gloss pass for a multi-post series. Compile 
 
 One list of unclear words for a whole series. The user picks each word. Drafts wait until remaining OPEN terms are picked, or the user says apply.
 
-Canonical file for the C1 engineering blog: `/Users/rch/repo/research/equational-reasoning/_series/TERMS.md`. Any series with `_series/` uses `_series/TERMS.md`. Never a per-post `TERMS.md`.
+Canonical file is the series `_series/TERMS.md`, one per series, never a per-post `TERMS.md` (the `_series/` convention: `/Users/rch/.claude/skills/rch-editor/references/series-gist-workflow.md`). Current series: `/Users/rch/repo/research/equational-reasoning/_series/TERMS.md`.
 
 Question protocol is `questioning-the-user`. Metaphor / named-group / failure-mode rules live in that series `TONE.md` (53–55 here). Do not copy them into TERMS.
 

@@ -224,8 +224,8 @@ Repo Pattern rather than reading a path off this table.
 | `latchkey-proto` | Canonical proto schemas for V4 API + models + service contracts. |
 | `latchkey-mls-core` | MLS adapter + OpenMLS shim. |
 | `latchkey-client-sdk` | Rust SDK consumed by every native client. |
-| `latchkey-client-shells` | CLI binary + shell scaffolds. |
-| `latchkey-desktop` | Tauri 2.x desktop client. |
+| `multipass-cli` | CLI binary + shell scaffolds. |
+| `multipass-desktop` | Tauri 2.x desktop client. |
 | `c1` | The C1 monorepo (image-provided; resolve the path). |
 
 "Add a CLI command" almost always touches the SDK and may touch the proto.
@@ -260,7 +260,7 @@ on that repo. Do not git-bundle inject.
 
 ## Monitoring Agent Progress
 
-Prefer the task surface, fall back to ssh probes:
+Drive work with in-env agent prompts (`squire task create` / `squire attach -p`). `squire ssh` is locate/probe only:
 
 ```bash
 squire task list --env <env>                       # states, newest first

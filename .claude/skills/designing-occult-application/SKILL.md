@@ -54,6 +54,26 @@ Full treatment: `references/GUIDE.md`. Worked example (squine):
     `resp_array2` / `resp_array3` are three concrete arities of RESP `*N`, not
     an array. Write `resp_array(items)` and constrain command arity on that
     vector. Same trick as `w1`/`w4`.
+12. **JSON as the object model.** `J.put(J.object(), ...)` records standing in
+    for domain terms. JSON is a wire format and a data payload only. Domain
+    terms use the engine's userspace constructor idiom (tagged vectors with
+    accessor equations, as in `userspace/tool_service`); a separate wire
+    module lowers them to JSON at the last hop and raises replies from it.
+    Caller payloads that are JSON by contract (a state blob) stay opaque.
+    A bare `∃ ctor;` with no equation lints as `callable-no-meaning`.
+13. **One `Run` per turn.** Depositing a request, calling `Runtime.Run` on
+    the source, and reading the result (from the return or from an output
+    native) is per-request re-evaluation, the debt Cells, streams, and turns
+    names; `FrameRunner` and the actor are the same thing per frame. The
+    host runs one program for the process: a recursive session loop whose
+    input is a blocking host io native (re-entered on every demand, like
+    `std.io` `read_line`) and whose output is a host io native, with a
+    host-produced observation on its own rendezvous cell written before the
+    message that reads it. A loop over a rendezvous cell does not work: a
+    cell is latest-value inside one evaluation. Measured in occult-jev at
+    4.4 ms per message over 2000 messages with the module count flat
+    (`occult/io_pump_test.go`). Build that fixture before proposing any
+    per-turn form.
 
 ## Before finishing
 
