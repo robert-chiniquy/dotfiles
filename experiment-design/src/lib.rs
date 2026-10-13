@@ -6,16 +6,23 @@
 //! Values are read only from fenced YAML blocks and GitHub tables, through a
 //! YAML library and a CommonMark parser.
 
+mod decide;
 mod experiment;
 mod markdown;
+mod neighbors;
 mod protocol;
 mod round;
 mod stats;
 
-pub use experiment::{
-    check, load_protocol, load_round, round_numbers, round_path, CheckReport, ExperimentError,
-    RoundSummary, PROTOCOL_FILE,
+pub use decide::{
+    decide, ComparisonRecord, Context, DecideError, Decision, DecisionRecord, Steps, StepsWord,
+    VerdictKind, VerdictRecord, COUNTING_MAX_RUNS,
 };
+pub use experiment::{
+    check, decide_round, load_decisions, load_protocol, load_round, round_numbers, round_path,
+    section, CheckReport, ExperimentError, RoundSummary, DECISIONS_FILE, PROTOCOL_FILE, START,
+};
+pub use neighbors::{finest_neighbors, relation, Neighbor, Relation};
 pub use protocol::{
     Attribute, Budget, ConfigError, Configuration, Direction, Factor, FactorId, FactorKind, Level,
     Objective, ObjectiveKind, Place, Problem, Protocol, ProtocolError, ReasonableMoves, Threshold,

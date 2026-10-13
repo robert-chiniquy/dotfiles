@@ -1,15 +1,16 @@
 //! `experiment-design` command line: `check` validates an experiment
-//! directory.
+//! directory, `decide` reads a filled round and appends its decision.
 
 use std::io::{self, Write as _};
 use std::path::PathBuf;
 
+use anyhow::Context as _;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
     name = "experiment-design",
-    about = "Protocol checks for an experiment directory"
+    about = "Protocol checks and round decisions for an experiment directory"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -20,6 +21,8 @@ struct Cli {
 enum Command {
     /// Validate PROTOCOL.md and parse every ROUND_<n>.md present.
     Check { dir: PathBuf },
+    /// Decide round <round> from ROUND_<round>.md and append it to DECISIONS.md.
+    Decide { dir: PathBuf, round: u32 },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -47,6 +50,11 @@ fn main() -> anyhow::Result<()> {
                     r.number, r.runs, r.pending, r.dropped
                 )?;
             }
+        }
+        Command::Decide { dir, round } => {
+            let decision = experiment_design::decide_round(&dir, round)?;
+            let text = experiment_design::section(&decision).context("serializing the decision")?;
+            out.write_all(text.as_bytes())?;
         }
     }
     Ok(())
