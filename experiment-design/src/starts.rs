@@ -19,9 +19,6 @@ mod tests;
 /// configuration is listed to pick starts.
 pub const MAX_CONFIGURATIONS: usize = 1_000_000;
 
-/// Default m of the stop rule (design item 35).
-pub const STOP_AFTER_KNOWN_BASINS: usize = 3;
-
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum StartsError {
     #[error("the factors give more than {MAX_CONFIGURATIONS} configurations; starts are picked from a full list")]

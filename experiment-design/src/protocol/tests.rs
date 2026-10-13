@@ -54,6 +54,22 @@ fn alpha_and_coverage_default_when_absent() {
 }
 
 #[test]
+fn stop_m_defaults_to_three_and_reads_when_given() {
+    assert_eq!(Protocol::from_yaml(BASE).unwrap().stop_m, 3);
+    let p =
+        Protocol::from_yaml(&with("coverage_q: 0.2\n", "coverage_q: 0.2\nstop_m: 5\n")).unwrap();
+    assert_eq!(p.stop_m, 5);
+}
+
+#[test]
+fn rejects_stop_m_of_zero() {
+    assert_eq!(
+        problems(&with("coverage_q: 0.2\n", "coverage_q: 0.2\nstop_m: 0\n")),
+        vec![Problem::StopMZero]
+    );
+}
+
+#[test]
 fn rejects_missing_delta() {
     assert_eq!(
         problems(&with("delta: 0.5\n", "")),

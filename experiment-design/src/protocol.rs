@@ -204,12 +204,17 @@ pub struct Protocol {
     pub baseline: Configuration,
     pub reasonable_moves: ReasonableMoves,
     pub guardrails: Vec<String>,
+    /// m of the multi-start stop rule (design item 35): stop adding starts
+    /// once the last m starts all ended in known basins. At least 1.
+    pub stop_m: usize,
 }
 
 /// Default error rate for one comparison (design item 7).
 pub const DEFAULT_ALPHA: f64 = 0.05;
 /// Default frontier coverage (design item 60).
 pub const DEFAULT_COVERAGE_Q: f64 = 0.2;
+/// Default m of the multi-start stop rule (design item 35).
+pub const DEFAULT_STOP_M: usize = 3;
 
 impl Protocol {
     /// Parse `PROTOCOL.md` text: exactly one fenced YAML block.
@@ -415,6 +420,9 @@ pub enum Problem {
     AlphaOutOfRange(f64),
     #[error("coverage_q must be strictly between 0 and 1, got {0}")]
     CoverageOutOfRange(f64),
+    /// With m = 0 the stop rule would hold before any start ran.
+    #[error("stop_m must be at least 1")]
+    StopMZero,
     #[error("objective kind number needs a direction (higher or lower)")]
     DirectionMissing,
     #[error("direction applies only to objective kind number")]
@@ -532,6 +540,7 @@ struct RawProtocol {
     delta: Option<f64>,
     alpha: Option<f64>,
     coverage_q: Option<f64>,
+    stop_m: Option<usize>,
     budget: Option<RawBudget>,
     #[serde(default)]
     blocks: Vec<Scalar>,
@@ -691,6 +700,10 @@ fn validate(raw: RawProtocol) -> Result<Protocol, ProtocolError> {
     if !(coverage_q > 0.0 && coverage_q < 1.0) {
         problems.push(Problem::CoverageOutOfRange(coverage_q));
     }
+    let stop_m = raw.stop_m.unwrap_or(DEFAULT_STOP_M);
+    if stop_m == 0 {
+        problems.push(Problem::StopMZero);
+    }
 
     let budget = match raw.budget {
         None => {
@@ -827,6 +840,7 @@ fn validate(raw: RawProtocol) -> Result<Protocol, ProtocolError> {
                 baseline,
                 reasonable_moves,
                 guardrails: raw.guardrails,
+                stop_m,
             };
             if protocol.is_feasible(&protocol.baseline) {
                 Ok(protocol)

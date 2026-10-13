@@ -131,11 +131,7 @@ fn main() -> anyhow::Result<()> {
                 )?;
             }
             let ordered: Vec<&experiment_design::StartState> = states.values().collect();
-            let stop = experiment_design::stop_rule(
-                &search,
-                &ordered,
-                experiment_design::STOP_AFTER_KNOWN_BASINS,
-            );
+            let stop = experiment_design::stop_rule(&search, &ordered, p.stop_m);
             writeln!(
                 out,
                 "stop rule: {} ({})",

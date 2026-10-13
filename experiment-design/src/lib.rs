@@ -35,7 +35,7 @@ pub use power::{power, power_for_dir, PowerError, PowerReport, POWER};
 pub use protocol::{
     Attribute, Budget, ConfigError, Configuration, Direction, Factor, FactorId, FactorKind, Level,
     Objective, ObjectiveKind, Place, Problem, Protocol, ProtocolError, ReasonableMoves, Threshold,
-    ValueId, DEFAULT_ALPHA, DEFAULT_COVERAGE_Q,
+    ValueId, DEFAULT_ALPHA, DEFAULT_COVERAGE_Q, DEFAULT_STOP_M,
 };
 pub use report::{
     report, report_for_dir, Claims, NeighborTests, Report, ReportDisplay, SearchVerdict,
@@ -48,7 +48,7 @@ pub use sheet::{
 };
 pub use starts::{
     configurations, distance, next_starts, same_basin, skip_set, stop_rule, Pick, SkipReason,
-    StartsError, StopRule, MAX_CONFIGURATIONS, STOP_AFTER_KNOWN_BASINS,
+    StartsError, StopRule, MAX_CONFIGURATIONS,
 };
 pub use stats::{
     binomial, counting, frontier_sample_size, one_sample_t, rejects, separation_p, welch, Rule,

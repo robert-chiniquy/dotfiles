@@ -14,7 +14,7 @@ use crate::neighbors::finest_neighbors;
 use crate::protocol::{Configuration, Protocol};
 use crate::round::Purpose;
 use crate::search::{Search, StartState};
-use crate::starts::{same_basin, stop_rule, StopRule, STOP_AFTER_KNOWN_BASINS};
+use crate::starts::{same_basin, stop_rule, StopRule};
 use crate::stats::{Rule, Test};
 
 mod tests;
@@ -205,7 +205,7 @@ pub fn report(search: &Search) -> Result<Report, ExperimentError> {
                 .flatten(),
         });
     }
-    let stop = stop_rule(search, &ordered, STOP_AFTER_KNOWN_BASINS);
+    let stop = stop_rule(search, &ordered, p.stop_m);
     let any = |k: VerdictKind| starts.iter().any(|s| s.verdict == Some(k));
     // Decision 62: UNSAT accepts PLATEAU as well as LOCAL_OPTIMUM; both mean
     // no tested neighbor is better by δ.
@@ -394,8 +394,10 @@ impl fmt::Display for ReportDisplay<'_> {
             writeln!(f)?;
         }
         writeln!(f, "## Whole search\n")?;
-        let stop = format!(
-            "Stop rule (last {STOP_AFTER_KNOWN_BASINS} starts in known basins, or budget below one more start): {} ({}).",
+        let stop =
+            format!(
+            "Stop rule (last {} starts in known basins, or budget below one more start): {} ({}).",
+            p.stop_m,
             if r.stop.holds { "holds" } else { "does not hold" },
             r.stop.reason
         );

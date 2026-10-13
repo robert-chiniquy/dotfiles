@@ -22,7 +22,7 @@ use crate::protocol::{Configuration, Objective, Protocol, Threshold};
 use crate::rng::SplitMix64;
 use crate::round::{Arm, Header, Outcome, Purpose};
 use crate::search::{RoundEntry, Search, StartState};
-use crate::starts::{next_starts, stop_rule, STOP_AFTER_KNOWN_BASINS};
+use crate::starts::{next_starts, stop_rule};
 
 mod tests;
 
@@ -258,7 +258,7 @@ fn plan(search: &Search, req: &RoundRequest) -> Result<Plan, ExperimentError> {
         return Err(SheetError::StartNotNext { start, expected }.into());
     }
     let ordered: Vec<&StartState> = states.values().collect();
-    let stop = stop_rule(search, &ordered, STOP_AFTER_KNOWN_BASINS);
+    let stop = stop_rule(search, &ordered, p.stop_m);
     if stop.holds {
         return Err(SheetError::StopRule(stop.reason).into());
     }
