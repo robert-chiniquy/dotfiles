@@ -1,6 +1,9 @@
 #![cfg(test)]
 
-use super::{binomial, counting, frontier_sample_size, rejects, separation_p, welch, Test};
+use super::{
+    binomial, counting, frontier_sample_size, paired_t, rejects, separation_p, welch, StatsError,
+    Test,
+};
 
 #[test]
 fn three_against_three_separation_is_one_in_twenty() {
@@ -119,4 +122,23 @@ fn binomial_worse_ignores_delta_and_not_better_uses_it() {
 fn frontier_sample_is_14_for_q_02_and_29_for_q_01() {
     assert_eq!(frontier_sample_size(0.2, 0.05), 14);
     assert_eq!(frontier_sample_size(0.1, 0.05), 29);
+}
+
+#[test]
+fn paired_t_matches_the_t_distribution_with_blocks_minus_one_df() {
+    // Differences 1.0, 1.2, 0.8 against δ = 0.5: mean shift 0.5, sd 0.2,
+    // t = 4.330 on 2 df. For 2 df the upper tail is
+    // (1 - t / sqrt(t^2 + 2)) / 2 = 0.0247.
+    let p = paired_t(&[1.0, 1.2, 0.8], 0.5, Test::BeatsByDelta).unwrap();
+    assert!((p - 0.0247).abs() < 1e-3, "{p}");
+    // The same differences are not shown worse (lower tail against 0).
+    assert!(paired_t(&[1.0, 1.2, 0.8], 0.5, Test::Worse).unwrap() > 0.5);
+}
+
+#[test]
+fn paired_t_needs_two_blocks() {
+    assert_eq!(
+        paired_t(&[1.0], 0.5, Test::BeatsByDelta),
+        Err(StatsError::TooFewBlocks(1))
+    );
 }

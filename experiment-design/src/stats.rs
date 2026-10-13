@@ -35,6 +35,10 @@ pub enum Rule {
     Counting,
     /// Welch's t-test on δ-shifted data (design item 22).
     Welch,
+    /// Paired t-test on the per-block differences of block means, δ-shifted
+    /// (design items 17 and 22), used in place of Welch's test when the runs
+    /// of both arms can be paired by block.
+    PairedT,
     /// Exact binomial test on duel wins (design item 24).
     Binomial,
     /// One-sample t-test of the incumbent's mean against an absolute
@@ -47,6 +51,10 @@ pub enum StatsError {
     /// Welch's test estimates a variance per arm, which needs two runs.
     #[error("Welch's t-test needs at least 2 runs per arm, got {neighbor} and {incumbent}")]
     TooFewRuns { neighbor: usize, incumbent: usize },
+    /// A paired test estimates the spread of per-block differences, which
+    /// needs two blocks shared by both arms.
+    #[error("paired t-test needs at least 2 blocks with runs of both arms, got {0}")]
+    TooFewBlocks(usize),
     #[error("binomial test needs at least one duel")]
     NoDuels,
     /// 0.5 + δ outside (0, 1) leaves no binomial null to test.
@@ -139,6 +147,37 @@ pub fn welch(
     let df = (a + b).powi(2) / (a.powi(2) / (n1 - 1) as f64 + b.powi(2) / (n2 - 1) as f64);
     let t_dist =
         StudentsT::new(0.0, 1.0, df).map_err(|e| StatsError::Distribution(e.to_string()))?;
+    let t = diff / se;
+    Ok(if upper_tail {
+        t_dist.sf(t)
+    } else {
+        t_dist.cdf(t)
+    })
+}
+
+/// Paired t-test on `differences`, one per block: the neighbor's block mean
+/// minus the incumbent's block mean in the same block (design item 17).
+/// Pairing removes the block effect, which a large block-to-block shift
+/// would otherwise add to the spread of both arms. The δ shift and the tail
+/// follow the test as in `welch`; with zero spread p is the same limit.
+pub fn paired_t(differences: &[f64], delta: f64, test: Test) -> Result<f64, StatsError> {
+    let n = differences.len();
+    if n < 2 {
+        return Err(StatsError::TooFewBlocks(n));
+    }
+    let shift = match test {
+        Test::BeatsByDelta | Test::NotBetterByDelta | Test::MeetsThreshold => delta,
+        Test::Worse => 0.0,
+    };
+    let diff = mean(differences) - shift;
+    let se = (sample_variance(differences) / n as f64).sqrt();
+    let upper_tail = matches!(test, Test::BeatsByDelta | Test::MeetsThreshold);
+    if se == 0.0 {
+        let claimed = if upper_tail { diff > 0.0 } else { diff < 0.0 };
+        return Ok(if claimed { 0.0 } else { 1.0 });
+    }
+    let t_dist = StudentsT::new(0.0, 1.0, (n - 1) as f64)
+        .map_err(|e| StatsError::Distribution(e.to_string()))?;
     let t = diff / se;
     Ok(if upper_tail {
         t_dist.sf(t)

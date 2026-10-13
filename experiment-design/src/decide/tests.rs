@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use super::{decide, Context, DecideError, Decision, Steps, VerdictKind};
 use crate::protocol::Protocol;
 use crate::round::{Round, RoundError};
-use crate::stats::Test;
+use crate::stats::{self, Rule, Test};
 
 /// Twenty strains (frontier, not reasonable) and light hours (reasonable).
 /// At q = 0.2, α = 0.05 the frontier sample needs 14 of the 19 strain moves.
@@ -425,3 +425,106 @@ factors:
 baseline: {strain: s01, light: 15}
 reasonable_moves: [light]
 "#;
+
+/// Two strains and light, over three benches.
+const PLANTS_BLOCKED: &str = r#"
+version: 1
+objective: {kind: number, direction: higher}
+threshold: {absolute: 100}
+delta: 0.5
+budget: {runs: 100000}
+blocks: [b1, b2, b3]
+factors:
+  - {name: strain, kind: unordered, values: [s01, s02]}
+  - {name: light, kind: ordered, values: [12, 13, 14, 15, 16, 17, 18]}
+baseline: {strain: s01, light: 15}
+reasonable_moves: [light]
+"#;
+
+/// A round of incumbent s01/15 at the finest step from (block, light,
+/// result) rows, strain s01 throughout.
+fn blocked_round(p: &Protocol, rows: &[(&str, &str, f64)]) -> Round {
+    let mut md = String::from(
+        "```yaml\nround: 1\nstart: 1\nincumbent: s01/15\npurpose: reasonable_neighbors\nsteps: {light: 1}\n```\n\n| run | block | strain | light | result |\n|---|---|---|---|---|\n",
+    );
+    for (i, (b, l, x)) in rows.iter().enumerate() {
+        md.push_str(&format!("| r{i} | {b} | s01 | {l} | {x} |\n"));
+    }
+    Round::from_markdown(&md, p).unwrap()
+}
+
+#[test]
+fn paired_test_finds_a_difference_a_block_effect_hides_from_welch() {
+    // Synthetic data. Bench b2 reads about 20 above b1 and b3 about 40
+    // above b1. Within every bench, light 16 is about 1.0 above the
+    // incumbent at light 15, more than δ = 0.5; light 14 is about 5 below.
+    let p = Protocol::from_yaml(PLANTS_BLOCKED).unwrap();
+    let rows = [
+        ("b1", "15", 10.0),
+        ("b1", "15", 10.2),
+        ("b2", "15", 30.1),
+        ("b2", "15", 29.9),
+        ("b3", "15", 50.0),
+        ("b3", "15", 50.2),
+        ("b1", "16", 11.1),
+        ("b1", "16", 11.1),
+        ("b2", "16", 31.0),
+        ("b2", "16", 30.8),
+        ("b3", "16", 51.2),
+        ("b3", "16", 51.0),
+        ("b1", "14", 5.0),
+        ("b1", "14", 5.2),
+        ("b2", "14", 25.1),
+        ("b2", "14", 24.9),
+        ("b3", "14", 45.0),
+        ("b3", "14", 45.2),
+    ];
+    let d = run(&p, &blocked_round(&p, &rows), 0);
+    assert_eq!(d.record.rule, Rule::PairedT);
+    assert_eq!(d.record.move_to.as_deref(), Some("s01/16"));
+    // Unpaired, the 40-point spread across benches swamps the 1.0 gain.
+    let pick = |l: &str| -> Vec<f64> {
+        rows.iter()
+            .filter(|(_, x, _)| *x == l)
+            .map(|(_, _, v)| *v)
+            .collect()
+    };
+    let unpaired = stats::welch(&pick("16"), &pick("15"), 0.5, Test::BeatsByDelta).unwrap();
+    assert!(!stats::rejects(unpaired, p.alpha), "{unpaired}");
+}
+
+#[test]
+fn unpairable_round_falls_back_to_welch() {
+    // Light 14 ran only on b1, so not every arm shares two benches with the
+    // incumbent.
+    let p = Protocol::from_yaml(PLANTS_BLOCKED).unwrap();
+    let mut rows: Vec<(&str, &str, f64)> = Vec::new();
+    for (b, base) in [("b1", 10.0), ("b2", 10.0), ("b3", 10.0)] {
+        rows.extend([(b, "15", base), (b, "15", base + 0.2)]);
+        rows.extend([(b, "16", base - 3.0), (b, "16", base - 2.8)]);
+    }
+    for x in [5.0, 5.1, 5.2, 5.3, 5.4, 5.5] {
+        rows.push(("b1", "14", x));
+    }
+    let d = run(&p, &blocked_round(&p, &rows), 0);
+    assert_eq!(d.record.rule, Rule::Welch);
+}
+
+#[test]
+fn counting_rule_records_that_pairing_was_not_applied() {
+    let p = Protocol::from_yaml(PLANTS_BLOCKED).unwrap();
+    let rows = [
+        ("b1", "15", 10.0),
+        ("b2", "15", 10.1),
+        ("b3", "15", 10.2),
+        ("b1", "16", 5.0),
+        ("b2", "16", 5.1),
+        ("b3", "16", 5.2),
+        ("b1", "14", 5.0),
+        ("b2", "14", 5.1),
+        ("b3", "14", 5.2),
+    ];
+    let d = run(&p, &blocked_round(&p, &rows), 0);
+    assert_eq!(d.record.rule, Rule::Counting);
+    assert!(d.prose.contains("pairing was not applied"), "{}", d.prose);
+}

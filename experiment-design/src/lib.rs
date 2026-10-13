@@ -51,6 +51,6 @@ pub use starts::{
     StartsError, StopRule, MAX_CONFIGURATIONS,
 };
 pub use stats::{
-    binomial, counting, frontier_sample_size, one_sample_t, rejects, separation_p, welch, Rule,
-    StatsError, Test,
+    binomial, counting, frontier_sample_size, one_sample_t, paired_t, rejects, separation_p, welch,
+    Rule, StatsError, Test,
 };

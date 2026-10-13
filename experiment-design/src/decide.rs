@@ -12,8 +12,10 @@
 //! DUPLICATE (items 33, 58).
 //!
 //! Only the given round's runs enter any comparison, so drift between rounds
-//! cannot read as an effect (item 17). GUARDRAIL_HALT (item 30) is not
-//! decided here.
+//! cannot read as an effect (item 17). Past the counting rule's run count,
+//! comparisons are paired by block when every arm shares at least two blocks
+//! with the arm it is compared against (item 17), and the decision log's
+//! `rule` says which test ran. GUARDRAIL_HALT (item 30) is not decided here.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -181,18 +183,89 @@ pub struct Context<'a> {
     pub used_blocks: &'a BTreeSet<String>,
 }
 
+/// One arm's results, oriented so larger is better, with the block each
+/// came from as an index into the protocol's blocks.
+#[derive(Debug, Clone, Default)]
+struct Sample {
+    all: Vec<f64>,
+    by_block: BTreeMap<usize, Vec<f64>>,
+}
+
+impl Sample {
+    fn push(&mut self, p: &Protocol, block: Option<&String>, x: f64) {
+        self.all.push(x);
+        if let Some(b) = block.and_then(|b| p.blocks.iter().position(|pb| pb == b)) {
+            self.by_block.entry(b).or_default().push(x);
+        }
+    }
+
+    fn mean(&self) -> f64 {
+        self.all.iter().sum::<f64>() / self.all.len() as f64
+    }
+}
+
+/// Per-block differences of block means, `a` minus `b`, over the blocks
+/// where both arms have runs; `None` unless there are at least two such
+/// blocks (design item 17: comparisons are paired by block where the domain
+/// has blocks).
+fn block_differences(a: &Sample, b: &Sample) -> Option<Vec<f64>> {
+    let mean = |xs: &[f64]| xs.iter().sum::<f64>() / xs.len() as f64;
+    let d: Vec<f64> = a
+        .by_block
+        .iter()
+        .filter_map(|(k, xs)| b.by_block.get(k).map(|ys| mean(xs) - mean(ys)))
+        .collect();
+    (d.len() >= 2).then_some(d)
+}
+
+/// The decision log's record that pairing was possible and not applied:
+/// the counting rule is an exact test on the unpaired runs (design item 17
+/// asks for pairing; item 21 has no paired form here).
+fn pairing_note(rule: Rule, pairable: bool) -> &'static str {
+    if rule == Rule::Counting && pairable {
+        " The runs could be paired by block, but the counting rule is an unpaired exact test, so pairing was not applied."
+    } else {
+        ""
+    }
+}
+
 enum Evidence {
-    Values(Vec<f64>),
+    Values(Sample),
     Duels { wins: u64, duels: u64 },
 }
 
 impl Evidence {
     fn estimate(&self) -> f64 {
         match self {
-            Evidence::Values(xs) => xs.iter().sum::<f64>() / xs.len() as f64,
+            Evidence::Values(s) => s.mean(),
             Evidence::Duels { wins, duels } => *wins as f64 / *duels as f64,
         }
     }
+}
+
+/// The rule for a number comparison of `arms` against `control` (design
+/// items 17, 21, 22): counting when every arm has at most
+/// `COUNTING_MAX_RUNS` runs; otherwise a paired t-test when every arm can be
+/// paired with the control on at least two blocks, and Welch's test when
+/// any cannot. The second value says whether every arm could be paired,
+/// which the counting rule records as pairing not applied.
+fn number_rule<'a>(
+    control: &Sample,
+    arms: impl Iterator<Item = &'a Sample> + Clone,
+) -> (Rule, bool) {
+    let pairable = arms
+        .clone()
+        .all(|s| block_differences(s, control).is_some());
+    let small = control.all.len() <= COUNTING_MAX_RUNS
+        && arms.clone().all(|s| s.all.len() <= COUNTING_MAX_RUNS);
+    let rule = if small {
+        Rule::Counting
+    } else if pairable {
+        Rule::PairedT
+    } else {
+        Rule::Welch
+    };
+    (rule, pairable)
 }
 
 struct Tested {
@@ -206,10 +279,10 @@ fn gather(
     cx: &Context<'_>,
     round: &Round,
     steps: &StepMap,
-) -> Result<(Vec<f64>, Vec<Tested>), DecideError> {
+) -> Result<(Sample, Vec<Tested>), DecideError> {
     let p = cx.protocol;
     let mut by_config: BTreeMap<Configuration, Evidence> = BTreeMap::new();
-    let mut incumbent_values = Vec::new();
+    let mut incumbent_values = Sample::default();
     match &p.objective {
         Objective::Number { direction, .. } => {
             let sign = match direction {
@@ -221,15 +294,15 @@ fn gather(
                     continue;
                 };
                 if c == cx.incumbent {
-                    incumbent_values.push(sign * x);
-                } else if let Evidence::Values(xs) = by_config
+                    incumbent_values.push(p, run.block.as_ref(), sign * x);
+                } else if let Evidence::Values(s) = by_config
                     .entry(c.clone())
-                    .or_insert_with(|| Evidence::Values(Vec::new()))
+                    .or_insert_with(|| Evidence::Values(Sample::default()))
                 {
-                    xs.push(sign * x);
+                    s.push(p, run.block.as_ref(), sign * x);
                 }
             }
-            if incumbent_values.is_empty() {
+            if incumbent_values.all.is_empty() {
                 return Err(DecideError::IncumbentNotRun(
                     p.show(cx.incumbent).to_string(),
                 ));
@@ -285,14 +358,22 @@ fn gather(
 /// Run one test. `Ok(None)` is the counting rule's "did not separate".
 fn run_test(
     rule: Rule,
-    incumbent: &[f64],
+    incumbent: &Sample,
     evidence: &Evidence,
     delta: f64,
     test: Test,
 ) -> Result<Option<f64>, StatsError> {
     match (rule, evidence) {
-        (Rule::Counting, Evidence::Values(xs)) => Ok(stats::counting(xs, incumbent, delta, test)),
-        (Rule::Welch, Evidence::Values(xs)) => stats::welch(xs, incumbent, delta, test).map(Some),
+        (Rule::Counting, Evidence::Values(s)) => {
+            Ok(stats::counting(&s.all, &incumbent.all, delta, test))
+        }
+        (Rule::Welch, Evidence::Values(s)) => {
+            stats::welch(&s.all, &incumbent.all, delta, test).map(Some)
+        }
+        (Rule::PairedT, Evidence::Values(s)) => {
+            let d = block_differences(s, incumbent).unwrap_or_default();
+            stats::paired_t(&d, delta, test).map(Some)
+        }
         (Rule::Binomial, Evidence::Duels { wins, duels }) => {
             stats::binomial(*wins, *duels, delta, test).map(Some)
         }
@@ -320,21 +401,17 @@ fn search_round(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Deci
     let dropped: Vec<&crate::round::Run> = round.runs.iter().filter(|r| r.is_dropped()).collect();
     let (incumbent_values, tested) = gather(cx, round, header_steps)?;
 
-    let rule = match p.objective {
-        Objective::Preference => Rule::Binomial,
-        _ => {
-            let small = incumbent_values.len() <= COUNTING_MAX_RUNS
-                && tested.iter().all(|t| match &t.evidence {
-                    Evidence::Values(xs) => xs.len() <= COUNTING_MAX_RUNS,
-                    Evidence::Duels { .. } => true,
-                });
-            if small {
-                Rule::Counting
-            } else {
-                Rule::Welch
-            }
-        }
+    let (rule, pairable) = match p.objective {
+        Objective::Preference => (Rule::Binomial, false),
+        _ => number_rule(
+            &incumbent_values,
+            tested.iter().filter_map(|t| match &t.evidence {
+                Evidence::Values(s) => Some(s),
+                Evidence::Duels { .. } => None,
+            }),
+        ),
     };
+    let pairing_note = pairing_note(rule, pairable);
     let alpha = p.alpha;
     let mut comparisons = Vec::new();
     let mut record = |t: &Tested, test: Test, pv: Option<f64>| -> bool {
@@ -382,7 +459,7 @@ fn search_round(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Deci
 
     let mut steps = Steps::Word(StepsWord::Unchanged);
     let mut verdict = None;
-    let mut coverage_note = String::new();
+    let mut coverage_note = pairing_note.to_string();
 
     if let Some(best) = best {
         if budget_spent {
@@ -401,7 +478,7 @@ fn search_round(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Deci
             Some(&best.config),
             steps,
             verdict,
-            String::new(),
+            pairing_note.to_string(),
         );
         return Ok(decision);
     }
@@ -432,7 +509,7 @@ fn search_round(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Deci
             None,
             steps,
             verdict,
-            String::new(),
+            pairing_note.to_string(),
         ));
     }
 
@@ -596,8 +673,8 @@ fn confirm(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Decision,
         return Err(DecideError::ConfirmationUnsupported);
     }
     let sign = p.orientation();
-    let mut inc = Vec::new();
-    let mut base = Vec::new();
+    let mut inc = Sample::default();
+    let mut base = Sample::default();
     for run in &round.runs {
         let Arm::Single(c) = &run.arm else {
             return Err(DecideError::NotInConfirmation(run.id.clone()));
@@ -614,38 +691,37 @@ fn confirm(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Decision,
             continue;
         };
         if c == cx.incumbent {
-            inc.push(sign * x);
+            inc.push(p, run.block.as_ref(), sign * x);
         } else if *c == p.baseline {
-            base.push(sign * x);
+            base.push(p, run.block.as_ref(), sign * x);
         } else {
             return Err(DecideError::NotInConfirmation(run.id.clone()));
         }
     }
-    if inc.is_empty() {
+    if inc.all.is_empty() {
         return Err(DecideError::IncumbentNotRun(
             p.show(cx.incumbent).to_string(),
         ));
     }
-    let (rule, pv, against) = match p.threshold {
+    let (rule, pv, against, pairing_note) = match p.threshold {
         Threshold::Absolute(t) => (
             Rule::OneSampleT,
-            Some(stats::one_sample_t(&inc, sign * t)?),
+            Some(stats::one_sample_t(&inc.all, sign * t)?),
             format!("the threshold {t}"),
+            "",
         ),
         Threshold::MarginOverBaseline(m) => {
-            if base.is_empty() {
+            if base.all.is_empty() {
                 return Err(DecideError::BaselineNotRun);
             }
-            let rule = if inc.len() <= COUNTING_MAX_RUNS && base.len() <= COUNTING_MAX_RUNS {
-                Rule::Counting
-            } else {
-                Rule::Welch
-            };
+            let (rule, pairable) = number_rule(&base, std::iter::once(&inc));
+            let note = pairing_note(rule, pairable);
             let ev = Evidence::Values(inc.clone());
             (
                 rule,
                 run_test(rule, &base, &ev, m, Test::MeetsThreshold)?,
                 format!("the baseline by the margin {m}"),
+                note,
             )
         }
     };
@@ -683,6 +759,7 @@ fn confirm(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Decision,
         rule_words(rule),
         p.alpha
     );
+    prose.push_str(pairing_note);
     for run in &dropped {
         let _ = write!(
             prose,
@@ -709,6 +786,7 @@ fn rule_words(rule: Rule) -> &'static str {
     match rule {
         Rule::Counting => "the counting rule (complete separation, exact)",
         Rule::Welch => "Welch's t-test on δ-shifted results",
+        Rule::PairedT => "a paired t-test on δ-shifted per-block differences of block means",
         Rule::Binomial => "an exact binomial test on duel wins",
         Rule::OneSampleT => "a one-sample t-test against the threshold",
     }
