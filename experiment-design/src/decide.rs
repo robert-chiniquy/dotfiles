@@ -262,21 +262,23 @@ fn gather(
         }
         Objective::PassRate => return Err(DecideError::PassRateUnsupported),
     }
-    if by_config.is_empty() {
+    let mut tested = Vec::new();
+    for (config, evidence) in by_config {
+        if !p.is_feasible(&config) {
+            return Err(DecideError::Infeasible(p.show(&config).to_string()));
+        }
+        match relation(p, cx.incumbent, &config, steps) {
+            Some(_) => tested.push(Tested { config, evidence }),
+            // The baseline is the control of every round (design item 10),
+            // not a neighbor: it is never a move candidate unless it is also
+            // one move from the incumbent.
+            None if config == p.baseline => {}
+            None => return Err(DecideError::NotANeighbor(p.show(&config).to_string())),
+        }
+    }
+    if tested.is_empty() {
         return Err(DecideError::NoNeighbors);
     }
-    let tested = by_config
-        .into_iter()
-        .map(|(config, evidence)| {
-            if !p.is_feasible(&config) {
-                return Err(DecideError::Infeasible(p.show(&config).to_string()));
-            }
-            match relation(p, cx.incumbent, &config, steps) {
-                None => Err(DecideError::NotANeighbor(p.show(&config).to_string())),
-                Some(_) => Ok(Tested { config, evidence }),
-            }
-        })
-        .collect::<Result<Vec<_>, _>>()?;
     Ok((incumbent_values, tested))
 }
 
@@ -452,7 +454,9 @@ fn search_round(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Deci
     }
 
     // Coverage (design items 59, 60): every reasonable neighbor tested, and
-    // at least min(n, remainder) of the rest of the frontier sampled.
+    // at least min(n, remainder) of the rest of the frontier sampled. The
+    // baseline runs in every round whether drawn or not, so it is not part
+    // of the sample and does not count toward it.
     let is_tested = |c: &Configuration| tested.iter().any(|t| &t.config == c);
     let all: Vec<_> = finest_neighbors(p, cx.incumbent).collect();
     let untested_reasonable: Vec<String> = all
@@ -462,7 +466,7 @@ fn search_round(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Deci
         .collect();
     let remainder: Vec<_> = all
         .iter()
-        .filter(|n| !p.reasonable_moves.includes(n.factor))
+        .filter(|n| !p.reasonable_moves.includes(n.factor) && n.config != p.baseline)
         .collect();
     let sampled = remainder.iter().filter(|n| is_tested(&n.config)).count();
     let required = remainder.len().min(frontier_n as usize);

@@ -38,8 +38,18 @@ fn round(protocol: &Protocol, arms: &[(&str, &str, f64)]) -> Round {
 /// the incumbent at 10.0 to 10.2, and three runs of each listed (strain,
 /// light) at the given level.
 fn round_at(protocol: &Protocol, arms: &[(&str, &str, f64)], light_step: usize) -> Round {
+    round_from(protocol, ("s01", "15"), arms, light_step)
+}
+
+/// `round_at` with the incumbent (strain, light) given.
+fn round_from(
+    protocol: &Protocol,
+    (inc_strain, inc_light): (&str, &str),
+    arms: &[(&str, &str, f64)],
+    light_step: usize,
+) -> Round {
     let mut md = format!(
-        "```yaml\nround: 1\nstart: 1\nincumbent: s01/15\npurpose: reasonable_neighbors\nsteps: {{light: {light_step}}}\n```\n\n"
+        "```yaml\nround: 1\nstart: 1\nincumbent: {inc_strain}/{inc_light}\npurpose: reasonable_neighbors\nsteps: {{light: {light_step}}}\n```\n\n"
     );
     md.push_str("| run | strain | light | result |\n|---|---|---|---|\n");
     let mut k = 0;
@@ -48,7 +58,7 @@ fn round_at(protocol: &Protocol, arms: &[(&str, &str, f64)], light_step: usize) 
         md.push_str(&format!("| r{k} | {s} | {l} | {x} |\n"));
     };
     for x in [10.0, 10.1, 10.2] {
-        row("s01", "15", x);
+        row(inc_strain, inc_light, x);
     }
     for (s, l, base) in arms {
         for d in [0.0, 0.1, 0.2] {
@@ -315,6 +325,77 @@ fn move_picks_best_estimate_among_neighbors_that_beat_by_delta() {
     );
     assert_eq!(d.record.move_to.as_deref(), Some("s01/16"));
     assert_eq!(d.record.verdict, None);
+}
+
+#[test]
+fn baseline_control_is_not_a_move_candidate_unless_a_neighbor() {
+    // Incumbent s02/12: the baseline s01/15 differs on both factors, so it
+    // is the round's control, not a neighbor, even though it measures far
+    // above the incumbent.
+    let p = plants(2);
+    let inc = p.parse_config("s02/12").unwrap();
+    let cx = Context {
+        incumbent: &inc,
+        ..context(&p, 0)
+    };
+    let r = round_from(
+        &p,
+        ("s02", "12"),
+        &[("s02", "13", 5.0), ("s01", "15", 20.0)],
+        1,
+    );
+    let d = decide(&cx, &r).unwrap();
+    assert_eq!(d.record.move_to, None);
+    assert!(
+        d.record.comparisons.iter().all(|c| c.neighbor != "s01/15"),
+        "{:?}",
+        d.record.comparisons
+    );
+    // From s01/16 the baseline is one light step away: a neighbor, and it
+    // moves.
+    let inc = p.parse_config("s01/16").unwrap();
+    let cx = Context {
+        incumbent: &inc,
+        ..context(&p, 0)
+    };
+    let r = round_from(
+        &p,
+        ("s01", "16"),
+        &[("s01", "17", 5.0), ("s01", "15", 20.0)],
+        1,
+    );
+    assert_eq!(
+        decide(&cx, &r).unwrap().record.move_to.as_deref(),
+        Some("s01/15")
+    );
+}
+
+#[test]
+fn baseline_control_does_not_count_toward_frontier_sample() {
+    // Incumbent s02/15 among twenty strains: its 19 strain moves include
+    // s01/15, the baseline, which runs as the control whether drawn or not.
+    // The sample is drawn from the other 18 and needs n = 14 of them.
+    let p = plants(20);
+    let inc = p.parse_config("s02/15").unwrap();
+    let cx = Context {
+        incumbent: &inc,
+        ..context(&p, 0)
+    };
+    let tested = |drawn: std::ops::RangeInclusive<usize>| {
+        let s = strains(drawn);
+        let mut a = arms(&s);
+        a.extend([("s02", "14", 5.0), ("s02", "16", 5.0), ("s01", "15", 5.0)]);
+        decide(&cx, &round_from(&p, ("s02", "15"), &a, 1))
+            .unwrap()
+            .record
+            .verdict
+    };
+    // 13 drawn plus the baseline is 14 tested, but only 13 drawn.
+    assert_eq!(tested(3..=15), None);
+    assert_eq!(
+        tested(3..=16).map(|v| v.kind),
+        Some(VerdictKind::LocalOptimum)
+    );
 }
 
 #[test]

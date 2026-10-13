@@ -1,6 +1,8 @@
 //! The next run sheet, `ROUND_<n>.md` (design items 16, 37, 55): the
 //! incumbent and every feasible reasonable neighbor at the current steps,
-//! replicated, assigned to blocks with the incumbent in every block, and
+//! plus the baseline as the control when it is not the incumbent (design
+//! item 10), replicated, assigned to blocks with the incumbent and the
+//! baseline in every block, and
 //! shuffled within each block from a seed the header records. After a round
 //! with no move at the finest steps, the sheet adds a seeded sample of n
 //! neighbors from the rest of the frontier and measures the reasonable
@@ -377,8 +379,10 @@ pub fn next_round(
     };
     let mut frontier = None;
     if plan.purpose == Purpose::FrontierSample {
+        // The baseline runs in every round anyway, so it is not drawn: the
+        // sample stays a random draw from the neighbors it could miss.
         let remainder: Vec<Configuration> = finest_neighbors(p, inc)
-            .filter(|n| !p.reasonable_moves.includes(n.factor))
+            .filter(|n| !p.reasonable_moves.includes(n.factor) && n.config != p.baseline)
             .map(|n| n.config)
             .collect();
         let n = p.frontier_sample_size();
@@ -393,6 +397,11 @@ pub fn next_round(
     }
     if arms.is_empty() && !confirming {
         return Err(SheetError::NoNeighbors.into());
+    }
+    // The baseline is the control in every round (design item 10), so a
+    // threshold stated as a margin over it can be estimated from any round.
+    if p.baseline != *inc && !arms.contains(&p.baseline) {
+        arms.push(p.baseline.clone());
     }
 
     let runs = lay_out(
@@ -441,7 +450,8 @@ pub fn next_round(
 /// Rows grouped by block in the order given, shuffled within each block.
 /// Every arm gets `replicates` runs spread over the blocks in turn; the
 /// incumbent gets at least one run in every block, so each block can pair
-/// every arm in it with the incumbent (design item 16). For a preference
+/// every arm in it with the incumbent (design item 16), and so does the
+/// baseline, the control of every round (design item 10). For a preference
 /// objective each row is a duel of a neighbor with the incumbent, the side
 /// each is shown on drawn at random.
 fn lay_out(
@@ -454,11 +464,18 @@ fn lay_out(
     number: u32,
 ) -> Vec<PlannedRun> {
     let n_blocks = blocks.len().max(1);
+    let reps = |a: &Configuration| {
+        if *a == p.baseline {
+            replicates.max(n_blocks)
+        } else {
+            replicates
+        }
+    };
     let mut groups: Vec<Vec<Arm>> = vec![Vec::new(); n_blocks];
     match p.objective {
         Objective::Preference => {
             for a in arms {
-                for j in 0..replicates {
+                for j in 0..reps(a) {
                     let (left, right) = if rng.below(2) == 0 {
                         (incumbent.clone(), a.clone())
                     } else {
@@ -473,7 +490,7 @@ fn lay_out(
                 groups[j % n_blocks].push(Arm::Single(incumbent.clone()));
             }
             for a in arms {
-                for j in 0..replicates {
+                for j in 0..reps(a) {
                     groups[j % n_blocks].push(Arm::Single(a.clone()));
                 }
             }

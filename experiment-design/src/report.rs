@@ -35,8 +35,14 @@ pub struct NeighborTests {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Claims {
     pub reasonable: Vec<NeighborTests>,
+    /// The baseline's tests when it is a neighbor outside the reasonable
+    /// moves: it runs in every round as the control (design item 10), so it
+    /// is tested like a reasonable neighbor and is not part of the sample.
+    pub baseline: Option<NeighborTests>,
+    /// Sampled neighbors outside the reasonable moves.
     pub frontier: Vec<NeighborTests>,
-    /// Neighbors outside the reasonable moves at the finest step.
+    /// Neighbors outside the reasonable moves at the finest step, the
+    /// baseline excluded.
     pub frontier_total: usize,
     pub frontier_n: u32,
     pub seed: Option<u64>,
@@ -141,11 +147,19 @@ fn claims(search: &Search, st: &StartState, d: &DecisionRecord) -> Claims {
                 .all(|f| p.reasonable_moves.includes(f))
         })
     };
-    let (reasonable, frontier): (Vec<NeighborTests>, Vec<NeighborTests>) = by_neighbor
+    let (reasonable, mut frontier): (Vec<NeighborTests>, Vec<NeighborTests>) = by_neighbor
         .into_values()
         .partition(|t| reasonable_of(&t.neighbor));
+    // The baseline runs in every round, so when it is a neighbor outside the
+    // reasonable moves it is tested without being drawn; it is kept out of
+    // the sample and its count.
+    let baseline_id = p.show(&p.baseline).to_string();
+    let baseline = frontier
+        .iter()
+        .position(|t| t.neighbor == baseline_id)
+        .map(|i| frontier.remove(i));
     let frontier_total = finest_neighbors(p, &st.incumbent)
-        .filter(|n| !p.reasonable_moves.includes(n.factor))
+        .filter(|n| !p.reasonable_moves.includes(n.factor) && n.config != p.baseline)
         .count();
     let seed = search
         .entry(d.round)
@@ -153,6 +167,7 @@ fn claims(search: &Search, st: &StartState, d: &DecisionRecord) -> Claims {
         .flatten();
     Claims {
         reasonable,
+        baseline,
         frontier,
         frontier_total,
         frontier_n: p.frontier_sample_size(),
@@ -337,6 +352,15 @@ impl fmt::Display for ReportDisplay<'_> {
                     writeln!(
                         f,
                         "- {}: not better by delta {}, worse {}",
+                        t.neighbor,
+                        p_text(t.not_better_p),
+                        p_text(t.worse_p)
+                    )?;
+                }
+                if let Some(t) = &c.baseline {
+                    writeln!(
+                        f,
+                        "\nThe baseline is a neighbor outside the reasonable moves and ran in every round as the control, so it was tested like a reasonable neighbor and is held to the same claim; it is not part of the sample below.\n- {}: not better by delta {}, worse {}",
                         t.neighbor,
                         p_text(t.not_better_p),
                         p_text(t.worse_p)

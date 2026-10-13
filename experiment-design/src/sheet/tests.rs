@@ -252,3 +252,66 @@ fn failed_confirmation_resumes_the_search() {
     assert_eq!(new.header.purpose, Purpose::FrontierSample);
     assert_eq!(new.header.round, 3);
 }
+
+/// The search after start 1 moved from the baseline s01/15 to s02/12 at a
+/// light step of 2, so the baseline is no longer one move away.
+fn after_move_away(p: &Protocol) -> Search {
+    let mut s = after_no_move_at_finest(p);
+    let light = p.factor_id("light").unwrap();
+    s.rounds[0].header.steps = Some([(light, 2)].into_iter().collect());
+    if let Some(d) = s.rounds[0].decision.as_mut() {
+        d.move_to = Some("s02/12".to_string());
+    }
+    s
+}
+
+#[test]
+fn baseline_runs_in_every_block_of_every_round() {
+    // One replicate per arm over two benches: the baseline, the control of
+    // every round, still runs on both, like the incumbent.
+    let p = plants(3, 1000);
+    let mut r = req(5);
+    r.replicates = Some(1);
+    let new = next_round(&after_move_away(&p), &r, None).unwrap();
+    assert_eq!(new.header.incumbent, p.parse_config("s02/12").unwrap());
+    for b in ["bench1", "bench2"] {
+        assert!(
+            new.runs
+                .iter()
+                .any(|run| run.block.as_deref() == Some(b)
+                    && run.arm == Arm::Single(p.baseline.clone())),
+            "no baseline run in {b}"
+        );
+    }
+}
+
+#[test]
+fn margin_over_baseline_is_confirmed_from_the_rounds_baseline_runs() {
+    // Margin 1.0 over the baseline. The incumbent s02/12 measured 8 to 8.2
+    // and the baseline, run as the control in the same round, 6 to 6.2.
+    let p = Protocol::from_yaml(
+        r#"
+version: 1
+objective: {kind: number, direction: higher}
+threshold: {margin_over_baseline: 1.0}
+delta: 0.5
+budget: {runs: 100000}
+blocks: [bench1, bench2]
+factors:
+  - {name: strain, kind: unordered, values: [s01, s02, s03]}
+  - {name: light, kind: ordered, values: [12, 13, 14, 15, 16, 17, 18]}
+baseline: {strain: s01, light: 15}
+reasonable_moves: [light]
+"#,
+    )
+    .unwrap();
+    let mut s = after_no_move_at_finest(&p);
+    s.rounds[0].header.incumbent = p.parse_config("s02/12").unwrap();
+    let md = "| run | block | strain | light | result |\n|---|---|---|---|---|\n| r1 | bench1 | s02 | 12 | 8 |\n| r2 | bench1 | s02 | 12 | 8.1 |\n| r3 | bench1 | s02 | 12 | 8.2 |\n| r4 | bench1 | s01 | 15 | 6 |\n| r5 | bench1 | s01 | 15 | 6.1 |\n| r6 | bench1 | s01 | 15 | 6.2 |\n";
+    s.rounds[0].round = Round::from_markdown(md, &p).unwrap();
+    let new = next_round(&s, &req(4), None).unwrap();
+    assert_eq!(new.header.purpose, Purpose::Confirmation);
+    let got = configs(&new);
+    assert!(got.contains(&p.baseline), "{got:?}");
+    assert!(got.contains(&p.parse_config("s02/12").unwrap()));
+}
