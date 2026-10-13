@@ -2,7 +2,7 @@
 name = "experiment-design"
 version = "0.1.0"
 edition = "2021"
-description = "Statistics tool for the experiment-design skill: protocol checks and round decisions."
+description = "Statistics tool for the experiment-design skill: protocol checks, run sheets, round decisions, and search reports."
 
 [lib]
 name = "experiment_design"

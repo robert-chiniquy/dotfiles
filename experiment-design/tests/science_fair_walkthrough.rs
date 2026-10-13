@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use experiment_design::{
-    check, decide_round, load_decisions, power_for_dir, write_next_round, ExperimentError, Purpose,
-    RoundRequest, Rule, SheetError, Test, VerdictKind,
+    check, decide_round, distance, load_decisions, power_for_dir, write_next_round,
+    ExperimentError, Purpose, RoundRequest, Rule, Search, SheetError, Test, VerdictKind,
 };
 
 const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/science_fair");
@@ -141,6 +141,38 @@ fn plateau_ends_the_start() {
         ),
         "{err:?}"
     );
+}
+
+#[test]
+fn second_start_begins_farthest_from_the_baseline() {
+    let dir = copy_fixture("second_start");
+    decide_round(&dir, 1).unwrap();
+    decide_round(&dir, 2).unwrap();
+    let req = RoundRequest {
+        start: Some(2),
+        seed: Some(5),
+        blocks: Some(vec!["saturday".into()]),
+        ..RoundRequest::default()
+    };
+    let (_, new) = write_next_round(&dir, &req).unwrap();
+    assert_eq!(new.header.start, 2);
+    assert_eq!(new.header.round, 3);
+    // Every factor differs from light/dart/no: distance 3, the largest.
+    let search = Search::load(&dir).unwrap();
+    let p = &search.protocol;
+    assert_eq!(distance(p, &p.baseline, &new.header.incumbent), 3.0);
+    // A third start may not skip ahead of the second.
+    let skip = RoundRequest {
+        start: Some(4),
+        ..req
+    };
+    assert!(matches!(
+        write_next_round(&dir, &skip),
+        Err(ExperimentError::Sheet(SheetError::StartNotNext {
+            start: 4,
+            expected: 3
+        }))
+    ));
 }
 
 #[test]

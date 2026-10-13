@@ -6,19 +6,24 @@
 //! The current steps come from the round header (item 37). A tested
 //! configuration must be one move from the incumbent at those steps.
 //!
+//! A confirmation round (phase 5) is decided by the threshold test and
+//! gives SOLVED (item 26) when it rejects. A search round whose incumbent
+//! ends within one finest step of an earlier start's incumbent gives
+//! DUPLICATE (items 33, 58).
+//!
 //! Only the given round's runs enter any comparison, so drift between rounds
-//! cannot read as an effect (item 17). SOLVED (item 26, phase 5),
-//! GUARDRAIL_HALT (item 30), and DUPLICATE (item 58, multi-start) are not
+//! cannot read as an effect (item 17). GUARDRAIL_HALT (item 30) is not
 //! decided here.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
 
 use crate::neighbors::{finest_neighbors, relation, StepMap};
-use crate::protocol::{Configuration, Direction, Objective, Protocol};
-use crate::round::{Arm, Header, Outcome, Round, Side};
+use crate::protocol::{Configuration, Direction, Objective, Protocol, Threshold};
+use crate::round::{Arm, Header, Outcome, Purpose, Round, Side};
+use crate::starts::same_basin;
 use crate::stats::{self, Rule, StatsError, Test};
 
 mod tests;
@@ -56,9 +61,27 @@ pub enum Steps {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum VerdictKind {
+    /// The incumbent passed the confirmation round (verdict 26).
+    Solved,
     LocalOptimum,
     Plateau,
     Budget,
+    /// The start's incumbent came within one finest step of an earlier
+    /// start's incumbent on every factor (items 33, 58).
+    Duplicate,
+}
+
+/// The name as the design and the decision log write it.
+impl std::fmt::Display for VerdictKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            VerdictKind::Solved => "SOLVED",
+            VerdictKind::LocalOptimum => "LOCAL_OPTIMUM",
+            VerdictKind::Plateau => "PLATEAU",
+            VerdictKind::Budget => "BUDGET",
+            VerdictKind::Duplicate => "DUPLICATE",
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -126,6 +149,17 @@ pub enum DecideError {
     DuelWithoutIncumbent(String),
     #[error("pass_rate objectives are not supported by this tool yet")]
     PassRateUnsupported,
+    /// A confirmation round runs only the incumbent and the baseline.
+    #[error("run {0} in a confirmation round is neither the incumbent nor the baseline")]
+    NotInConfirmation(String),
+    /// Phase 5 needs a block the search did not use.
+    #[error("confirmation run {run} is in block {block:?}, which an earlier round used")]
+    BlockNotFresh { run: String, block: String },
+    #[error("a confirmation against a margin over the baseline needs baseline runs in the round")]
+    BaselineNotRun,
+    /// The threshold test for a preference objective is not implemented.
+    #[error("confirmation rounds support only a number objective")]
+    ConfirmationUnsupported,
     #[error(transparent)]
     Stats(#[from] StatsError),
 }
@@ -139,6 +173,12 @@ pub struct Context<'a> {
     pub incumbent: &'a Configuration,
     /// Runs used by this round and every earlier one.
     pub runs_spent: u64,
+    /// The current incumbent of every start numbered below this round's,
+    /// with its start number, for DUPLICATE (item 33).
+    pub earlier_incumbents: &'a [(u32, Configuration)],
+    /// Blocks named by runs in earlier rounds; a confirmation round must
+    /// use none of them (phase 5).
+    pub used_blocks: &'a BTreeSet<String>,
 }
 
 enum Evidence {
@@ -261,13 +301,20 @@ fn run_test(
 }
 
 pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> {
-    let p = cx.protocol;
     let header = round.header.as_ref().ok_or(DecideError::HeaderMissing)?;
-    let header_steps = header.steps.as_ref().ok_or(DecideError::StepsMissing)?;
     let pending: Vec<String> = round.pending().map(|r| r.id.clone()).collect();
     if !pending.is_empty() {
         return Err(DecideError::Pending(pending));
     }
+    match header.purpose {
+        Purpose::Confirmation => confirm(cx, header, round),
+        Purpose::ReasonableNeighbors | Purpose::FrontierSample => search_round(cx, header, round),
+    }
+}
+
+fn search_round(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Decision, DecideError> {
+    let p = cx.protocol;
+    let header_steps = header.steps.as_ref().ok_or(DecideError::StepsMissing)?;
     let dropped: Vec<&crate::round::Run> = round.runs.iter().filter(|r| r.is_dropped()).collect();
     let (incumbent_values, tested) = gather(cx, round, header_steps)?;
 
@@ -349,7 +396,7 @@ pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> 
             rule,
             comparisons,
             &dropped,
-            Some(p.show(&best.config).to_string()),
+            Some(&best.config),
             steps,
             verdict,
             String::new(),
@@ -488,18 +535,45 @@ fn finish(
     rule: Rule,
     comparisons: Vec<ComparisonRecord>,
     dropped: &[&crate::round::Run],
-    move_to: Option<String>,
+    move_to: Option<&Configuration>,
     steps: Steps,
-    verdict: Option<VerdictRecord>,
-    note: String,
+    mut verdict: Option<VerdictRecord>,
+    mut note: String,
 ) -> Decision {
+    let p = cx.protocol;
+    // DUPLICATE (items 33, 58): the incumbent after this round is in a
+    // basin an earlier start already reached, so this start stops. It
+    // replaces any other verdict of the round.
+    let now = move_to.unwrap_or(cx.incumbent);
+    if let Some((earlier, other)) = cx
+        .earlier_incumbents
+        .iter()
+        .find(|(_, c)| same_basin(p, now, c))
+    {
+        let _ = write!(
+            note,
+            " {} is within one finest step on every factor of start {earlier}'s incumbent {}: the same basin.",
+            p.show(now),
+            p.show(other)
+        );
+        verdict = Some(VerdictRecord {
+            kind: VerdictKind::Duplicate,
+            incumbent: p.show(now).to_string(),
+            delta: p.delta,
+            alpha: p.alpha,
+            coverage_q: p.coverage_q,
+            frontier_n: p.frontier_sample_size(),
+            not_shown_worse: Vec::new(),
+            unresolved: Vec::new(),
+        });
+    }
     let record = DecisionRecord {
         round: header.round,
         start: header.start,
         rule,
         comparisons,
         dropped_runs: dropped.iter().map(|r| r.id.clone()).collect(),
-        move_to,
+        move_to: move_to.map(|c| p.show(c).to_string()),
         steps,
         verdict,
     };
@@ -507,11 +581,132 @@ fn finish(
     Decision { record, prose }
 }
 
+/// Phase 5 (verdict 26): the incumbent, and the baseline beside it, in a
+/// block no earlier round used. For an absolute threshold a one-sample
+/// t-test rejects "the incumbent is below the threshold"; for a margin over
+/// the baseline the round's comparison rule rejects "the incumbent does
+/// not beat the baseline by the margin". SOLVED when it rejects at α.
+fn confirm(cx: &Context<'_>, header: &Header, round: &Round) -> Result<Decision, DecideError> {
+    let p = cx.protocol;
+    if !matches!(p.objective, Objective::Number { .. }) {
+        return Err(DecideError::ConfirmationUnsupported);
+    }
+    let sign = p.orientation();
+    let mut inc = Vec::new();
+    let mut base = Vec::new();
+    for run in &round.runs {
+        let Arm::Single(c) = &run.arm else {
+            return Err(DecideError::NotInConfirmation(run.id.clone()));
+        };
+        if let Some(b) = &run.block {
+            if cx.used_blocks.contains(b) {
+                return Err(DecideError::BlockNotFresh {
+                    run: run.id.clone(),
+                    block: b.clone(),
+                });
+            }
+        }
+        let Some(Outcome::Measured(x)) = run.outcome else {
+            continue;
+        };
+        if c == cx.incumbent {
+            inc.push(sign * x);
+        } else if *c == p.baseline {
+            base.push(sign * x);
+        } else {
+            return Err(DecideError::NotInConfirmation(run.id.clone()));
+        }
+    }
+    if inc.is_empty() {
+        return Err(DecideError::IncumbentNotRun(
+            p.show(cx.incumbent).to_string(),
+        ));
+    }
+    let (rule, pv, against) = match p.threshold {
+        Threshold::Absolute(t) => (
+            Rule::OneSampleT,
+            Some(stats::one_sample_t(&inc, sign * t)?),
+            format!("the threshold {t}"),
+        ),
+        Threshold::MarginOverBaseline(m) => {
+            if base.is_empty() {
+                return Err(DecideError::BaselineNotRun);
+            }
+            let rule = if inc.len() <= COUNTING_MAX_RUNS && base.len() <= COUNTING_MAX_RUNS {
+                Rule::Counting
+            } else {
+                Rule::Welch
+            };
+            let ev = Evidence::Values(inc.clone());
+            (
+                rule,
+                run_test(rule, &base, &ev, m, Test::MeetsThreshold)?,
+                format!("the baseline by the margin {m}"),
+            )
+        }
+    };
+    let reject = pv.is_some_and(|x| stats::rejects(x, p.alpha));
+    let incumbent = p.show(cx.incumbent).to_string();
+    let verdict = reject.then(|| VerdictRecord {
+        kind: VerdictKind::Solved,
+        incumbent: incumbent.clone(),
+        delta: p.delta,
+        alpha: p.alpha,
+        coverage_q: p.coverage_q,
+        frontier_n: p.frontier_sample_size(),
+        not_shown_worse: Vec::new(),
+        unresolved: Vec::new(),
+    });
+    let dropped: Vec<&crate::round::Run> = round.runs.iter().filter(|r| r.is_dropped()).collect();
+    let record = DecisionRecord {
+        round: header.round,
+        start: header.start,
+        rule,
+        comparisons: vec![ComparisonRecord {
+            neighbor: incumbent.clone(),
+            test: Test::MeetsThreshold,
+            p: pv,
+            reject,
+        }],
+        dropped_runs: dropped.iter().map(|r| r.id.clone()).collect(),
+        move_to: None,
+        steps: Steps::Word(StepsWord::Unchanged),
+        verdict,
+    };
+    let mut prose = format!(
+        "Round {} is the confirmation of {incumbent} in a fresh block, tested against {against} with {}, α = {}.",
+        header.round,
+        rule_words(rule),
+        p.alpha
+    );
+    for run in &dropped {
+        let _ = write!(
+            prose,
+            " Run {} was dropped (no result; note: {}).",
+            run.id, run.notes
+        );
+    }
+    let p_text = pv.map_or_else(
+        || "no complete separation".to_string(),
+        |x| format!("p = {x}"),
+    );
+    if reject {
+        let _ = write!(prose, " It rejects ({p_text}). Verdict SOLVED.");
+    } else {
+        let _ = write!(
+            prose,
+            " It does not reject ({p_text}); the start is not solved and continues from its last search round."
+        );
+    }
+    Ok(Decision { record, prose })
+}
+
 fn rule_words(rule: Rule) -> &'static str {
     match rule {
         Rule::Counting => "the counting rule (complete separation, exact)",
         Rule::Welch => "Welch's t-test on δ-shifted results",
         Rule::Binomial => "an exact binomial test on duel wins",
+        Rule::OneSampleT => "a one-sample t-test against the threshold",
     }
 }
 
@@ -584,6 +779,8 @@ fn reading(
                     v.unresolved.join(", ")
                 );
             }
+            VerdictKind::Duplicate => s.push_str(" Verdict DUPLICATE: this start stops."),
+            VerdictKind::Solved => s.push_str(" Verdict SOLVED."),
         }
     }
     s

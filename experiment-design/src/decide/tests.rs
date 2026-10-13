@@ -1,5 +1,7 @@
 #![cfg(test)]
 
+use std::collections::BTreeSet;
+
 use super::{decide, Context, DecideError, Decision, Steps, VerdictKind};
 use crate::protocol::Protocol;
 use crate::round::{Round, RoundError};
@@ -56,24 +58,28 @@ fn round_at(protocol: &Protocol, arms: &[(&str, &str, f64)], light_step: usize) 
     Round::from_markdown(&md, protocol).unwrap()
 }
 
-fn run(protocol: &Protocol, r: &Round, runs_spent: u64) -> Decision {
-    let cx = Context {
+static NO_BLOCKS: BTreeSet<String> = BTreeSet::new();
+
+/// Context at the baseline with no earlier start and no used block.
+fn context(protocol: &Protocol, runs_spent: u64) -> Context<'_> {
+    Context {
         protocol,
         incumbent: &protocol.baseline,
         runs_spent,
-    };
-    decide(&cx, r).unwrap()
+        earlier_incumbents: &[],
+        used_blocks: &NO_BLOCKS,
+    }
+}
+
+fn run(protocol: &Protocol, r: &Round, runs_spent: u64) -> Decision {
+    decide(&context(protocol, runs_spent), r).unwrap()
 }
 
 #[test]
 fn decide_errors_without_step_header() {
     let p = plants(2);
     let arms = [("s02", "15", 5.0), ("s01", "14", 5.0), ("s01", "16", 5.0)];
-    let cx = Context {
-        protocol: &p,
-        incumbent: &p.baseline,
-        runs_spent: 0,
-    };
+    let cx = context(&p, 0);
     let mut r = round(&p, &arms);
     if let Some(h) = r.header.as_mut() {
         h.steps = None;
@@ -98,14 +104,89 @@ fn neighbor_off_the_header_step_is_rejected() {
     // Header step 2: light 14 is one position away, not one step.
     let p = plants(2);
     let r = round_at(&p, &[("s02", "15", 5.0), ("s01", "14", 5.0)], 2);
+    assert!(matches!(
+        decide(&context(&p, 0), &r),
+        Err(DecideError::NotANeighbor(c)) if c == "s01/14"
+    ));
+}
+
+#[test]
+fn duplicate_when_incumbents_are_within_one_finest_step_on_every_factor() {
+    let p = plants(2);
+    let arms = [("s02", "15", 5.0), ("s01", "14", 5.0), ("s01", "16", 5.0)];
+    // An earlier start sits at s01/16: one light position away, same strain.
+    let near = [(1, p.parse_config("s01/16").unwrap())];
     let cx = Context {
-        protocol: &p,
-        incumbent: &p.baseline,
-        runs_spent: 0,
+        earlier_incumbents: &near,
+        ..context(&p, 0)
+    };
+    let v = decide(&cx, &round(&p, &arms))
+        .unwrap()
+        .record
+        .verdict
+        .unwrap();
+    assert_eq!(v.kind, VerdictKind::Duplicate);
+    assert_eq!(v.incumbent, "s01/15");
+    // Two positions away, or another strain, is a different basin.
+    for other in ["s01/17", "s02/15"] {
+        let far = [(1, p.parse_config(other).unwrap())];
+        let cx = Context {
+            earlier_incumbents: &far,
+            ..context(&p, 0)
+        };
+        let d = decide(&cx, &round(&p, &arms)).unwrap();
+        assert_ne!(
+            d.record.verdict.map(|v| v.kind),
+            Some(VerdictKind::Duplicate),
+            "{other}"
+        );
+    }
+}
+
+/// A confirmation round of the incumbent s01/15 with the given results.
+fn confirmation(p: &Protocol, results: &[f64]) -> Round {
+    let mut md = String::from(
+        "```yaml\nround: 2\nstart: 1\nincumbent: s01/15\npurpose: confirmation\n```\n\n| run | strain | light | result |\n|---|---|---|---|\n",
+    );
+    for (i, x) in results.iter().enumerate() {
+        md.push_str(&format!("| c{i} | s01 | 15 | {x} |\n"));
+    }
+    Round::from_markdown(&md, p).unwrap()
+}
+
+#[test]
+fn solved_requires_the_confirmation_test_to_reject() {
+    // Threshold 100. Mean 102 with sd 1 over 3 runs: t = 3.46, df 2,
+    // p = 0.037, rejects at 0.05.
+    let p = plants(2);
+    let d = run(&p, &confirmation(&p, &[101.0, 102.0, 103.0]), 0);
+    let c = &d.record.comparisons[0];
+    assert_eq!((c.test, c.reject), (Test::MeetsThreshold, true));
+    assert_eq!(d.record.verdict.unwrap().kind, VerdictKind::Solved);
+    // Mean 101 with sd 2: the estimate is above the threshold, but the
+    // test does not reject, so no SOLVED.
+    let d = run(&p, &confirmation(&p, &[99.0, 101.0, 103.0]), 0);
+    assert!(!d.record.comparisons[0].reject);
+    assert_eq!(d.record.verdict, None);
+}
+
+#[test]
+fn confirmation_in_a_used_block_is_rejected() {
+    let p = Protocol::from_yaml(&PLANTS_LOWER.replace(
+        "budget: {runs: 100000}",
+        "budget: {runs: 100000}\nblocks: [b1, b2]",
+    ))
+    .unwrap();
+    let md = "```yaml\nround: 2\nstart: 1\nincumbent: s01/15\npurpose: confirmation\n```\n\n| run | block | strain | light | result |\n|---|---|---|---|---|\n| c1 | b1 | s01 | 15 | 0.1 |\n| c2 | b1 | s01 | 15 | 0.2 |\n";
+    let r = Round::from_markdown(md, &p).unwrap();
+    let used: BTreeSet<String> = ["b1".to_string()].into_iter().collect();
+    let cx = Context {
+        used_blocks: &used,
+        ..context(&p, 0)
     };
     assert!(matches!(
         decide(&cx, &r),
-        Err(DecideError::NotANeighbor(c)) if c == "s01/14"
+        Err(DecideError::BlockNotFresh { block, .. }) if block == "b1"
     ));
 }
 

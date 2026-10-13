@@ -6,10 +6,10 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
-use crate::decide::{self, Context, DecideError, Decision, DecisionRecord};
+use crate::decide::{self, Context, DecideError, Decision, DecisionRecord, VerdictKind};
 use crate::markdown;
-use crate::protocol::{ConfigError, Protocol, ProtocolError};
-use crate::round::{Round, RoundError};
+use crate::protocol::{ConfigError, Configuration, Protocol, ProtocolError};
+use crate::round::{Purpose, Round, RoundError};
 use crate::search::Search;
 
 pub const PROTOCOL_FILE: &str = "PROTOCOL.md";
@@ -63,7 +63,7 @@ pub enum ExperimentError {
     MissingDecision(u32),
     /// A start ends at its first verdict; only a confirmation round may
     /// follow LOCAL_OPTIMUM or PLATEAU (phase 5).
-    #[error("start {start} ended with verdict {verdict:?}; round {round} cannot continue it")]
+    #[error("start {start} ended with verdict {verdict}; round {round} cannot continue it")]
     StartEnded {
         round: u32,
         start: u32,
@@ -75,6 +75,8 @@ pub enum ExperimentError {
     Power(#[source] crate::power::PowerError),
     #[error("writing the next round")]
     Sheet(#[source] crate::sheet::SheetError),
+    #[error("choosing starts")]
+    Starts(#[source] crate::starts::StartsError),
     #[error("ROUND_{0}.md does not exist")]
     RoundMissing(u32),
     /// Start, incumbent, and steps are read from the header (design item
@@ -240,7 +242,13 @@ pub fn decide_round(dir: &Path, n: u32) -> Result<Decision, ExperimentError> {
             if let Some(m) = st.undecided.first() {
                 return Err(ExperimentError::MissingDecision(*m));
             }
-            if let Some(verdict) = st.verdict {
+            // A start ends at its verdict, except that the incumbent of a
+            // LOCAL_OPTIMUM or PLATEAU may still be confirmed (phase 5).
+            let confirmable = matches!(
+                st.verdict,
+                Some(VerdictKind::LocalOptimum | VerdictKind::Plateau)
+            ) && header.purpose == Purpose::Confirmation;
+            if let Some(verdict) = st.verdict.filter(|_| !confirmable) {
                 return Err(ExperimentError::StartEnded {
                     round: n,
                     start: s,
@@ -276,10 +284,18 @@ pub fn decide_round(dir: &Path, n: u32) -> Result<Decision, ExperimentError> {
         });
     }
 
+    let earlier_incumbents: Vec<(u32, Configuration)> = states
+        .values()
+        .filter(|st| st.start < s)
+        .map(|st| (st.start, st.incumbent.clone()))
+        .collect();
+    let used_blocks = search.blocks_before(n);
     let cx = Context {
         protocol,
         incumbent: &incumbent,
         runs_spent: search.runs_through(n),
+        earlier_incumbents: &earlier_incumbents,
+        used_blocks: &used_blocks,
     };
     let decision = decide::decide(&cx, &entry.round)
         .map_err(|source| ExperimentError::Decide { round: n, source })?;

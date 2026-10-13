@@ -13,10 +13,12 @@ mod markdown;
 mod neighbors;
 mod power;
 mod protocol;
+mod report;
 mod rng;
 mod round;
 mod search;
 mod sheet;
+mod starts;
 mod stats;
 
 pub use decide::{
@@ -35,11 +37,20 @@ pub use protocol::{
     Objective, ObjectiveKind, Place, Problem, Protocol, ProtocolError, ReasonableMoves, Threshold,
     ValueId, DEFAULT_ALPHA, DEFAULT_COVERAGE_Q,
 };
+pub use report::{
+    report, report_for_dir, Claims, NeighborTests, Report, ReportDisplay, SearchVerdict,
+    StartReport,
+};
 pub use round::{Arm, Header, Outcome, Purpose, Round, RoundError, Run, Side};
 pub use search::{RoundEntry, Search, StartState};
 pub use sheet::{
     next_round, write_next_round, FrontierSample, NewRound, PlannedRun, RoundRequest, SheetError,
 };
+pub use starts::{
+    configurations, distance, next_starts, same_basin, skip_set, stop_rule, Pick, SkipReason,
+    StartsError, StopRule, MAX_CONFIGURATIONS, STOP_AFTER_KNOWN_BASINS,
+};
 pub use stats::{
-    binomial, counting, frontier_sample_size, rejects, separation_p, welch, Rule, StatsError, Test,
+    binomial, counting, frontier_sample_size, one_sample_t, rejects, separation_p, welch, Rule,
+    StatsError, Test,
 };

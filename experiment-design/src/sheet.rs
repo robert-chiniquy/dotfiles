@@ -18,10 +18,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::decide::{Steps, VerdictKind};
 use crate::experiment::{round_path, ExperimentError, NOISE_FILE};
 use crate::neighbors::{finest_neighbors, neighbors_at, StepMap};
-use crate::protocol::{Configuration, Objective, Protocol};
+use crate::protocol::{Configuration, Objective, Protocol, Threshold};
 use crate::rng::SplitMix64;
-use crate::round::{Arm, Header, Purpose};
+use crate::round::{Arm, Header, Outcome, Purpose};
 use crate::search::{RoundEntry, Search, StartState};
+use crate::starts::{next_starts, stop_rule, STOP_AFTER_KNOWN_BASINS};
 
 mod tests;
 
@@ -73,7 +74,7 @@ pub enum SheetError {
         "round {0} of this start has no decision yet; decide it before writing the next round"
     )]
     UndecidedRound(u32),
-    #[error("start {start} ended with verdict {verdict:?}; begin the next start with --start")]
+    #[error("start {start} ended with verdict {verdict}; begin the next start with --start")]
     StartEnded { start: u32, verdict: VerdictKind },
     #[error("start {start} cannot begin; the next new start is {expected}")]
     StartNotNext { start: u32, expected: u32 },
@@ -93,6 +94,17 @@ pub enum SheetError {
     PassRateUnsupported,
     #[error("serializing the round header")]
     Header(#[source] serde_saphyr::ser::Error),
+    /// Design item 35.
+    #[error("no new start: {0}")]
+    StopRule(String),
+    #[error("no feasible configuration is left to start from")]
+    NoStartCandidate,
+    /// Phase 5 needs a block the search did not use; the protocol's blocks
+    /// are all used.
+    #[error("every protocol block has been used; a confirmation round needs a fresh one")]
+    NoFreshBlock,
+    #[error("block {0:?} was used by an earlier round; a confirmation round needs a fresh one")]
+    BlockNotFresh(String),
 }
 
 impl From<SheetError> for ExperimentError {
@@ -107,29 +119,57 @@ struct Plan {
     incumbent: Configuration,
     purpose: Purpose,
     steps: StepMap,
+    notes: Vec<String>,
 }
 
-/// The latest round of `st` and its decision.
-fn last_entry<'a>(search: &'a Search, st: &StartState) -> Option<&'a RoundEntry> {
-    st.rounds.last().and_then(|n| search.entry(*n))
-}
-
-/// Steps after an entry's decision: the header's steps with the decision's
-/// changes applied.
-fn steps_after(search: &Search, e: &RoundEntry) -> Result<StepMap, SheetError> {
-    let mut steps = e
-        .header
-        .steps
-        .clone()
-        .ok_or(SheetError::StepsMissing(e.number))?;
-    if let Some(Steps::Set(changed)) = e.decision.as_ref().map(|d| &d.steps) {
-        for (name, s) in changed {
-            if let Some(f) = search.protocol.factor_id(name) {
-                steps.insert(f, *s);
+/// Whether the incumbent's estimate in `e` meets the threshold, which
+/// sends it to a confirmation round (phase 5). False, with a note, when the
+/// round cannot say.
+fn meets_threshold(
+    p: &Protocol,
+    e: &RoundEntry,
+    inc: &Configuration,
+    notes: &mut Vec<String>,
+) -> bool {
+    if !matches!(p.objective, Objective::Number { .. }) {
+        return false;
+    }
+    let sign = p.orientation();
+    let mean_of = |c: &Configuration| {
+        let xs: Vec<f64> = e
+            .round
+            .runs
+            .iter()
+            .filter(|r| r.arm == Arm::Single(c.clone()))
+            .filter_map(|r| match r.outcome {
+                Some(Outcome::Measured(x)) => Some(sign * x),
+                _ => None,
+            })
+            .collect();
+        (!xs.is_empty()).then(|| xs.iter().sum::<f64>() / xs.len() as f64)
+    };
+    let Some(m) = mean_of(inc) else {
+        return false;
+    };
+    match p.threshold {
+        Threshold::Absolute(t) => m >= sign * t,
+        Threshold::MarginOverBaseline(margin) => {
+            if *inc == p.baseline {
+                return margin <= 0.0;
+            }
+            match mean_of(&p.baseline) {
+                Some(b) => m - b >= margin,
+                None => {
+                    notes.push(format!(
+                        "Round {} did not measure the baseline, so whether {} meets the margin over it is not estimated and no confirmation round is written.",
+                        e.number,
+                        p.show(inc)
+                    ));
+                    false
+                }
             }
         }
     }
-    Ok(steps)
 }
 
 fn continue_start(search: &Search, st: &StartState) -> Result<Plan, SheetError> {
@@ -137,18 +177,50 @@ fn continue_start(search: &Search, st: &StartState) -> Result<Plan, SheetError> 
     if let Some(n) = st.undecided.first() {
         return Err(SheetError::UndecidedRound(*n));
     }
+    let entries: Vec<&RoundEntry> = st.rounds.iter().filter_map(|n| search.entry(*n)).collect();
+    let Some(last) = entries.last() else {
+        return Err(SheetError::UndecidedRound(0));
+    };
+    // The search continues from the latest search round; a confirmation
+    // round that did not pass leaves the search where it was, and the same
+    // estimate is not sent to confirmation twice.
+    let after_confirmation = last.header.purpose == Purpose::Confirmation;
+    let Some(last_search) = entries
+        .iter()
+        .rev()
+        .find(|e| e.header.purpose != Purpose::Confirmation)
+    else {
+        return Err(SheetError::UndecidedRound(0));
+    };
+    let steps = steps_after(search, last_search)?;
+    let mut notes = Vec::new();
+    let confirmable = matches!(
+        st.verdict,
+        None | Some(VerdictKind::LocalOptimum | VerdictKind::Plateau)
+    );
+    if confirmable
+        && !after_confirmation
+        && meets_threshold(p, last_search, &st.incumbent, &mut notes)
+    {
+        return Ok(Plan {
+            start: st.start,
+            incumbent: st.incumbent.clone(),
+            purpose: Purpose::Confirmation,
+            steps,
+            notes,
+        });
+    }
     if let Some(verdict) = st.verdict {
         return Err(SheetError::StartEnded {
             start: st.start,
             verdict,
         });
     }
-    let Some(last) = last_entry(search, st) else {
-        return Err(SheetError::UndecidedRound(0));
-    };
-    let steps = steps_after(search, last)?;
-    let moved = last.decision.as_ref().is_some_and(|d| d.move_to.is_some());
-    let was_finest = last
+    let moved = last_search
+        .decision
+        .as_ref()
+        .is_some_and(|d| d.move_to.is_some());
+    let was_finest = last_search
         .header
         .steps
         .as_ref()
@@ -167,6 +239,7 @@ fn continue_start(search: &Search, st: &StartState) -> Result<Plan, SheetError> 
         incumbent: st.incumbent.clone(),
         purpose,
         steps,
+        notes,
     })
 }
 
@@ -181,15 +254,52 @@ fn plan(search: &Search, req: &RoundRequest) -> Result<Plan, ExperimentError> {
         return Ok(continue_start(search, st)?);
     }
     let expected = states.keys().max().map_or(1, |m| m + 1);
-    if start != expected || start != 1 {
+    if start != expected {
         return Err(SheetError::StartNotNext { start, expected }.into());
+    }
+    let ordered: Vec<&StartState> = states.values().collect();
+    let stop = stop_rule(search, &ordered, STOP_AFTER_KNOWN_BASINS);
+    if stop.holds {
+        return Err(SheetError::StopRule(stop.reason).into());
+    }
+    let pick = next_starts(search, 1)?
+        .into_iter()
+        .next()
+        .ok_or(SheetError::NoStartCandidate)?;
+    let mut notes = Vec::new();
+    if !pick.skipped.is_empty() {
+        notes.push(format!(
+            "Start {start} at {} (distance {:.3} from the nearest start); {} farther candidate(s) skipped because a measured configuration one move away was better or a search already ran from them (design item 34).",
+            p.show(&pick.config),
+            pick.distance,
+            pick.skipped.len()
+        ));
     }
     Ok(Plan {
         start,
-        incumbent: p.baseline.clone(),
+        incumbent: pick.config,
         purpose: Purpose::ReasonableNeighbors,
         steps: p.initial_steps(),
+        notes,
     })
+}
+
+/// Steps after an entry's decision: the header's steps with the decision's
+/// changes applied.
+fn steps_after(search: &Search, e: &RoundEntry) -> Result<StepMap, SheetError> {
+    let mut steps = e
+        .header
+        .steps
+        .clone()
+        .ok_or(SheetError::StepsMissing(e.number))?;
+    if let Some(Steps::Set(changed)) = e.decision.as_ref().map(|d| &d.steps) {
+        for (name, s) in changed {
+            if let Some(f) = search.protocol.factor_id(name) {
+                steps.insert(f, *s);
+            }
+        }
+    }
+    Ok(steps)
 }
 
 fn clock_seed() -> u64 {
@@ -224,23 +334,47 @@ pub fn next_round(
     if replicates == 0 {
         return Err(SheetError::ReplicatesZero.into());
     }
-    let blocks = match &req.blocks {
-        Some(bs) => {
-            if let Some(b) = bs.iter().find(|b| !p.blocks.contains(b)) {
-                return Err(SheetError::UnknownBlock(b.clone()).into());
+    if let Some(b) = req.blocks.iter().flatten().find(|b| !p.blocks.contains(b)) {
+        return Err(SheetError::UnknownBlock(b.clone()).into());
+    }
+    let confirming = plan.purpose == Purpose::Confirmation;
+    let blocks = if confirming {
+        // Phase 5: a block the search has not used.
+        let used = search.blocks_before(u32::MAX);
+        match &req.blocks {
+            Some(bs) => {
+                if let Some(b) = bs.iter().find(|b| used.contains(*b)) {
+                    return Err(SheetError::BlockNotFresh(b.clone()).into());
+                }
+                bs.clone()
             }
-            bs.clone()
+            None if p.blocks.is_empty() => Vec::new(),
+            None => vec![p
+                .blocks
+                .iter()
+                .find(|b| !used.contains(*b))
+                .cloned()
+                .ok_or(SheetError::NoFreshBlock)?],
         }
-        None => p.blocks.clone(),
+    } else {
+        req.blocks.clone().unwrap_or_else(|| p.blocks.clone())
     };
     let seed = req.seed.unwrap_or_else(clock_seed);
     let mut rng = SplitMix64::new(seed);
 
     let inc = &plan.incumbent;
-    let mut arms: Vec<Configuration> = neighbors_at(p, inc, &plan.steps)
-        .filter(|n| p.reasonable_moves.includes(n.factor))
-        .map(|n| n.config)
-        .collect();
+    let mut arms: Vec<Configuration> = if confirming {
+        // The baseline beside the incumbent (phase 5).
+        [p.baseline.clone()]
+            .into_iter()
+            .filter(|b| b != inc)
+            .collect()
+    } else {
+        neighbors_at(p, inc, &plan.steps)
+            .filter(|n| p.reasonable_moves.includes(n.factor))
+            .map(|n| n.config)
+            .collect()
+    };
     let mut frontier = None;
     if plan.purpose == Purpose::FrontierSample {
         let remainder: Vec<Configuration> = finest_neighbors(p, inc)
@@ -257,7 +391,7 @@ pub fn next_round(
         });
         arms.extend(sampled);
     }
-    if arms.is_empty() {
+    if arms.is_empty() && !confirming {
         return Err(SheetError::NoNeighbors.into());
     }
 
@@ -271,7 +405,7 @@ pub fn next_round(
         search.next_round_number(),
     );
 
-    let mut notes = Vec::new();
+    let mut notes = plan.notes;
     if let Some(batch) = p.budget.batch {
         if runs.len() as u64 > batch {
             notes.push(format!(

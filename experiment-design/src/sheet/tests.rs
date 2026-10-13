@@ -191,3 +191,64 @@ fn written_sheet_reads_back_with_its_header() {
     assert_eq!(back.runs.len(), new.runs.len());
     assert!(back.runs.iter().all(|r| r.is_pending()));
 }
+
+/// The search after one round at the finest step where the incumbent
+/// s01/15 measured 6, 6.1, 6.2 on bench1 and no neighbor moved.
+fn after_round_meeting(p: &Protocol) -> Search {
+    let mut s = after_no_move_at_finest(p);
+    let md = "| run | block | strain | light | result |\n|---|---|---|---|---|\n| r1 | bench1 | s01 | 15 | 6 |\n| r2 | bench1 | s01 | 15 | 6.1 |\n| r3 | bench1 | s01 | 15 | 6.2 |\n";
+    s.rounds[0].round = Round::from_markdown(md, p).unwrap();
+    s
+}
+
+/// Three strains, threshold `t`.
+fn plants_threshold(t: f64) -> Protocol {
+    Protocol::from_yaml(&format!(
+        r#"
+version: 1
+objective: {{kind: number, direction: higher}}
+threshold: {{absolute: {t}}}
+delta: 0.5
+budget: {{runs: 100000, batch: 1000}}
+blocks: [bench1, bench2]
+factors:
+  - {{name: strain, kind: unordered, values: [s01, s02, s03]}}
+  - {{name: light, kind: ordered, values: [12, 13, 14, 15, 16, 17, 18]}}
+baseline: {{strain: s01, light: 15}}
+reasonable_moves: [light]
+"#
+    ))
+    .unwrap()
+}
+
+#[test]
+fn estimate_at_the_threshold_gets_a_confirmation_round_in_a_fresh_block() {
+    let p = plants_threshold(6.0);
+    let new = next_round(&after_round_meeting(&p), &req(4), None).unwrap();
+    assert_eq!(new.header.purpose, Purpose::Confirmation);
+    assert!(new
+        .runs
+        .iter()
+        .all(|r| r.block.as_deref() == Some("bench2") && r.arm == Arm::Single(p.baseline.clone())));
+    // Below the threshold the search goes on to the frontier sample.
+    let p = plants_threshold(7.0);
+    let new = next_round(&after_round_meeting(&p), &req(4), None).unwrap();
+    assert_eq!(new.header.purpose, Purpose::FrontierSample);
+}
+
+#[test]
+fn failed_confirmation_resumes_the_search() {
+    let p = plants_threshold(6.0);
+    let mut s = after_round_meeting(&p);
+    let mut confirm = s.rounds[0].clone();
+    confirm.number = 2;
+    confirm.header.round = 2;
+    confirm.header.purpose = Purpose::Confirmation;
+    if let Some(d) = confirm.decision.as_mut() {
+        d.round = 2;
+    }
+    s.rounds.push(confirm);
+    let new = next_round(&s, &req(4), None).unwrap();
+    assert_eq!(new.header.purpose, Purpose::FrontierSample);
+    assert_eq!(new.header.round, 3);
+}

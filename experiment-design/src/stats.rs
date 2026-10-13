@@ -21,6 +21,10 @@ pub enum Test {
     NotBetterByDelta,
     /// N is worse than I. Null: N − I ≥ 0.
     Worse,
+    /// Phase 5 (verdict 26): the incumbent meets the threshold. Null: it is
+    /// below an absolute threshold, or does not beat the baseline by the
+    /// margin.
+    MeetsThreshold,
 }
 
 /// The comparison rule a round used (recorded in the decision log).
@@ -33,6 +37,9 @@ pub enum Rule {
     Welch,
     /// Exact binomial test on duel wins (design item 24).
     Binomial,
+    /// One-sample t-test of the incumbent's mean against an absolute
+    /// threshold (phase 5, verdict 26).
+    OneSampleT,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq)]
@@ -78,8 +85,9 @@ pub fn counting(neighbor: &[f64], incumbent: &[f64], delta: f64, test: Test) -> 
     let i_min = incumbent.iter().copied().fold(f64::INFINITY, f64::min);
     let i_max = incumbent.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let separated = match test {
-        // Every N run minus δ above every I run.
-        Test::BeatsByDelta => n_min - delta > i_max,
+        // Every N run minus δ above every I run. For a margin threshold the
+        // caller passes the margin as δ and the baseline as I.
+        Test::BeatsByDelta | Test::MeetsThreshold => n_min - delta > i_max,
         // Every N run below every I run plus δ.
         Test::NotBetterByDelta => n_max < i_min + delta,
         // Every N run below every I run.
@@ -116,14 +124,14 @@ pub fn welch(
         });
     }
     let shift = match test {
-        Test::BeatsByDelta | Test::NotBetterByDelta => delta,
+        Test::BeatsByDelta | Test::NotBetterByDelta | Test::MeetsThreshold => delta,
         Test::Worse => 0.0,
     };
     let diff = mean(neighbor) - shift - mean(incumbent);
     let a = sample_variance(neighbor) / n1 as f64;
     let b = sample_variance(incumbent) / n2 as f64;
     let se = (a + b).sqrt();
-    let upper_tail = matches!(test, Test::BeatsByDelta);
+    let upper_tail = matches!(test, Test::BeatsByDelta | Test::MeetsThreshold);
     if se == 0.0 {
         let claimed = if upper_tail { diff > 0.0 } else { diff < 0.0 };
         return Ok(if claimed { 0.0 } else { 1.0 });
@@ -146,7 +154,7 @@ pub fn binomial(wins: u64, duels: u64, delta: f64, test: Test) -> Result<f64, St
         return Err(StatsError::NoDuels);
     }
     let p0 = match test {
-        Test::BeatsByDelta | Test::NotBetterByDelta => 0.5 + delta,
+        Test::BeatsByDelta | Test::NotBetterByDelta | Test::MeetsThreshold => 0.5 + delta,
         Test::Worse => 0.5,
     };
     if !(p0 > 0.0 && p0 < 1.0) {
@@ -155,7 +163,7 @@ pub fn binomial(wins: u64, duels: u64, delta: f64, test: Test) -> Result<f64, St
     let dist = Binomial::new(p0, duels).map_err(|e| StatsError::Distribution(e.to_string()))?;
     Ok(match test {
         // P(X ≥ wins); statrs `sf(x)` is P(X > x).
-        Test::BeatsByDelta => {
+        Test::BeatsByDelta | Test::MeetsThreshold => {
             if wins == 0 {
                 1.0
             } else {
@@ -178,4 +186,26 @@ pub fn frontier_sample_size(q: f64, alpha: f64) -> u32 {
         miss *= 1.0 - q;
     }
     n
+}
+
+/// One-sided one-sample t-test rejecting "the mean is at or below
+/// `threshold`", on values oriented so larger is better (phase 5, absolute
+/// threshold). With zero spread, p is 0 when every value is above the
+/// threshold and 1 otherwise, the limit as the spread goes to zero.
+pub fn one_sample_t(values: &[f64], threshold: f64) -> Result<f64, StatsError> {
+    let n = values.len();
+    if n < 2 {
+        return Err(StatsError::TooFewRuns {
+            neighbor: n,
+            incumbent: n,
+        });
+    }
+    let diff = mean(values) - threshold;
+    let se = (sample_variance(values) / n as f64).sqrt();
+    if se == 0.0 {
+        return Ok(if diff > 0.0 { 0.0 } else { 1.0 });
+    }
+    let t_dist = StudentsT::new(0.0, 1.0, (n - 1) as f64)
+        .map_err(|e| StatsError::Distribution(e.to_string()))?;
+    Ok(t_dist.sf(diff / se))
 }

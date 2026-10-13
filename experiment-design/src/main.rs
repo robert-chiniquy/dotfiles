@@ -42,6 +42,16 @@ enum Command {
     },
     /// Decide round <round> from ROUND_<round>.md and append it to DECISIONS.md.
     Decide { dir: PathBuf, round: u32 },
+    /// The starts begun so far and the next ones by greedy farthest-point
+    /// selection, with the stop rule.
+    Starts {
+        dir: PathBuf,
+        /// How many new starts to list.
+        #[arg(long, default_value_t = 1)]
+        count: usize,
+    },
+    /// Per-start and whole-search verdicts.
+    Report { dir: PathBuf },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -105,6 +115,60 @@ fn main() -> anyhow::Result<()> {
             let decision = experiment_design::decide_round(&dir, round)?;
             let text = experiment_design::section(&decision).context("serializing the decision")?;
             out.write_all(text.as_bytes())?;
+        }
+        Command::Starts { dir, count } => {
+            let search = experiment_design::Search::load(&dir)?;
+            let p = &search.protocol;
+            let states = search.starts()?;
+            for st in states.values() {
+                writeln!(
+                    out,
+                    "start {}: {} (begun; verdict {})",
+                    st.start,
+                    p.show(&st.point),
+                    st.verdict
+                        .map_or_else(|| "none yet".to_string(), |v| v.to_string())
+                )?;
+            }
+            let ordered: Vec<&experiment_design::StartState> = states.values().collect();
+            let stop = experiment_design::stop_rule(
+                &search,
+                &ordered,
+                experiment_design::STOP_AFTER_KNOWN_BASINS,
+            );
+            writeln!(
+                out,
+                "stop rule: {} ({})",
+                if stop.holds { "holds" } else { "does not hold" },
+                stop.reason
+            )?;
+            let next = states.keys().max().map_or(1, |m| m + 1);
+            for (i, pick) in experiment_design::next_starts(&search, count)?
+                .iter()
+                .enumerate()
+            {
+                writeln!(
+                    out,
+                    "next start {}: {} (distance {:.3} from the nearest start)",
+                    next + i as u32,
+                    p.show(&pick.config),
+                    pick.distance
+                )?;
+                for (c, why) in &pick.skipped {
+                    writeln!(out, "  skipped {}: {why:?}", p.show(c))?;
+                }
+            }
+        }
+        Command::Report { dir } => {
+            let (search, report) = experiment_design::report_for_dir(&dir)?;
+            write!(
+                out,
+                "{}",
+                experiment_design::ReportDisplay {
+                    protocol: &search.protocol,
+                    report: &report,
+                }
+            )?;
         }
     }
     Ok(())
