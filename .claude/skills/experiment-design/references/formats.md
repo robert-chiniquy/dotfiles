@@ -62,8 +62,9 @@ differ (attributed); summed over factors.
 
 ## ROUND_<n>.md
 
-Header: round, start, incumbent, purpose (reasonable neighbors, or frontier
-sample with its seed), guardrails. Then one table, rows in run order. The
+Header: round, start, incumbent, current step of each ordered factor,
+purpose (reasonable neighbors, or reasonable neighbors plus a frontier sample
+with its seed), guardrails. Then one table, rows in run order. The
 person running it fills in `result`, `time`, `notes`.
 
 | run | block | paper | fold | nose_clip | result | time | notes |

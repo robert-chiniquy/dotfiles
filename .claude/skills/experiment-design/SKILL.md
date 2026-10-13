@@ -78,9 +78,9 @@ Budget below phase 1 needs: report the smallest δ the budget can detect.
    - Some neighbor beats the incumbent by δ at α: the best of those becomes
      the incumbent.
    - None: halve steps above their finest step and recompute replicates.
-   - At finest steps with no move: one round on a random sample of n
-     neighbors from outside the reasonable moves (all of them if n or fewer),
-     seed recorded. A sampled neighbor that beats the incumbent by δ becomes
+   - At finest steps with no move: one round on the incumbent, every
+     reasonable neighbor again, and a random sample of n neighbors from
+     outside the reasonable moves (all of them if n or fewer), seed recorded. A sampled neighbor that beats the incumbent by δ becomes
      the incumbent; otherwise apply the verdict tests.
 5. Confirmation: a configuration at the threshold reruns in a fresh block
    with the baseline. One-sided test against the threshold at α.

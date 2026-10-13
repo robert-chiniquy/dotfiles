@@ -30,7 +30,9 @@ For neighbor N and incumbent I:
 Said to a student: "Every new throw went farther than every old throw, even
 after taking half a meter off each new one."
 
-## Numbers, larger n
+## Numbers, more than 5 runs in either arm
+
+The counting rule applies at 5 or fewer runs per arm.
 
 Shift by δ as above, then Welch's t-test; a paired t-test on block
 differences when runs are paired by block; a permutation test on skewed
