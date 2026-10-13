@@ -89,6 +89,20 @@ comparisons:
   - {neighbor: "light/dart/yes", test: beats_by_delta, p: null, reject: false}
 dropped_runs: []
 move: "light/glider/no"
-steps: unchanged
+steps: unchanged        # or a map from factor to new step, e.g. {light_hours: 2}
 verdict: null
+```
+
+A round that reaches a verdict writes it as a mapping:
+
+```yaml
+verdict:
+  kind: PLATEAU         # LOCAL_OPTIMUM | PLATEAU | BUDGET
+  incumbent: light/glider/no
+  delta: 0.5
+  alpha: 0.05
+  coverage_q: 0.2
+  frontier_n: 14
+  not_shown_worse: [light/glider/yes]
+  unresolved: []
 ```
