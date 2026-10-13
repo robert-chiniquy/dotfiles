@@ -147,6 +147,23 @@ impl Factor {
         !self.attributes.is_empty()
     }
 
+    /// Whether the search keeps a step size for this factor (design item
+    /// 15): ordered factors do; categories and attributed factors do not.
+    pub fn has_step(&self) -> bool {
+        self.kind.is_ordered() && !self.is_attributed()
+    }
+
+    /// Positions in the span: one less than the number of values.
+    pub fn span(&self) -> usize {
+        self.values.len().saturating_sub(1)
+    }
+
+    /// Initial step (design item 15): a quarter of the span, rounded to the
+    /// nearest whole number of finest steps, and at least one finest step.
+    pub fn initial_step(&self) -> usize {
+        ((self.span() + 2) / 4).max(1)
+    }
+
     pub fn value_id(&self, text: &str) -> Option<ValueId> {
         self.values.iter().position(|v| v == text).map(ValueId)
     }
@@ -216,6 +233,32 @@ impl Protocol {
 
     pub fn factor(&self, id: FactorId) -> &Factor {
         &self.factors[id.0]
+    }
+
+    pub fn factor_id(&self, name: &str) -> Option<FactorId> {
+        self.factors
+            .iter()
+            .position(|f| f.name == name)
+            .map(FactorId)
+    }
+
+    /// Initial step of every factor that keeps one (design item 15).
+    pub fn initial_steps(&self) -> crate::neighbors::StepMap {
+        self.factor_ids()
+            .filter(|f| self.factor(*f).has_step())
+            .map(|f| (f, self.factor(f).initial_step()))
+            .collect()
+    }
+
+    /// Oriented so that larger is better: −1 for a lower-is-better number.
+    pub fn orientation(&self) -> f64 {
+        match self.objective {
+            Objective::Number {
+                direction: Direction::Lower,
+                ..
+            } => -1.0,
+            _ => 1.0,
+        }
     }
 
     pub fn is_feasible(&self, config: &Configuration) -> bool {

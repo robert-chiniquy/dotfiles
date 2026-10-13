@@ -4,11 +4,130 @@
 //! A blank result cell means the run has not been made yet. A blank result
 //! with a note is a run that was attempted and yielded nothing usable (a
 //! spilled tray); the decision log lists it as dropped rather than losing it.
+//!
+//! The header is one fenced YAML block before the table: the round, the
+//! start, the incumbent, the purpose, the current step of every ordered
+//! factor, the seed of the run order and frontier sample, and the guardrails
+//! (design item 37). The decision reads the steps from it rather than
+//! inferring them from the moves present.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
 
 use crate::markdown::{self, Table};
+use crate::neighbors::StepMap;
 use crate::protocol::{ConfigError, Configuration, Objective, Protocol};
 
 mod tests;
+
+/// What a round is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Purpose {
+    /// The incumbent and every reasonable neighbor at the current steps
+    /// (design item 16).
+    ReasonableNeighbors,
+    /// At the finest steps after a round with no move: the incumbent, every
+    /// reasonable neighbor again, and a seeded sample of n from the rest of
+    /// the frontier (design items 59, 60, and the verdicts section).
+    FrontierSample,
+    /// Phase 5: the incumbent and the baseline in a block no earlier round
+    /// used (verdict 26).
+    Confirmation,
+}
+
+/// The header block as it is written in the file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawHeader {
+    round: u32,
+    start: u32,
+    incumbent: String,
+    purpose: Purpose,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    steps: Option<BTreeMap<String, usize>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    seed: Option<u64>,
+    #[serde(default)]
+    guardrails: Vec<String>,
+}
+
+/// A round header resolved against the protocol.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Header {
+    pub round: u32,
+    pub start: u32,
+    pub incumbent: Configuration,
+    pub purpose: Purpose,
+    /// `None` when the header has no `steps` entry. When present it names
+    /// every factor that keeps a step, and no other.
+    pub steps: Option<StepMap>,
+    pub seed: Option<u64>,
+    pub guardrails: Vec<String>,
+}
+
+impl Header {
+    /// The header as a YAML block body, steps keyed by factor name.
+    pub fn to_yaml(&self, protocol: &Protocol) -> Result<String, serde_saphyr::ser::Error> {
+        let raw = RawHeader {
+            round: self.round,
+            start: self.start,
+            incumbent: protocol.show(&self.incumbent).to_string(),
+            purpose: self.purpose,
+            steps: self.steps.as_ref().map(|m| {
+                m.iter()
+                    .map(|(f, s)| (protocol.factor(*f).name.clone(), *s))
+                    .collect()
+            }),
+            seed: self.seed,
+            guardrails: self.guardrails.clone(),
+        };
+        serde_saphyr::to_string(&raw)
+    }
+
+    fn from_yaml(yaml: &str, protocol: &Protocol) -> Result<Header, RoundError> {
+        let raw: RawHeader =
+            serde_saphyr::from_str(yaml).map_err(|e| RoundError::HeaderYaml(Box::new(e)))?;
+        let incumbent = protocol
+            .parse_config(&raw.incumbent)
+            .map_err(RoundError::HeaderIncumbent)?;
+        let steps = match raw.steps {
+            None => None,
+            Some(named) => {
+                let mut steps = StepMap::new();
+                for (name, step) in named {
+                    let f = protocol
+                        .factor_id(&name)
+                        .ok_or_else(|| RoundError::StepUnknownFactor(name.clone()))?;
+                    if !protocol.factor(f).has_step() {
+                        return Err(RoundError::StepNotOrdered(name));
+                    }
+                    if step == 0 {
+                        return Err(RoundError::StepZero(name));
+                    }
+                    steps.insert(f, step);
+                }
+                if let Some(f) = protocol
+                    .factor_ids()
+                    .find(|f| protocol.factor(*f).has_step() && !steps.contains_key(f))
+                {
+                    return Err(RoundError::StepMissing(protocol.factor(f).name.clone()));
+                }
+                Some(steps)
+            }
+        };
+        Ok(Header {
+            round: raw.round,
+            start: raw.start,
+            incumbent,
+            purpose: raw.purpose,
+            steps,
+            seed: raw.seed,
+            guardrails: raw.guardrails,
+        })
+    }
+}
 
 /// Which side of a duel won.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,6 +177,8 @@ impl Run {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Round {
+    /// `None` when the file has no YAML block.
+    pub header: Option<Header>,
     pub runs: Vec<Run>,
 }
 
@@ -95,15 +216,42 @@ pub enum RoundError {
     /// Design item 23 (exact test on two proportions) is not implemented.
     #[error("pass_rate objectives are not supported by this tool yet")]
     PassRateUnsupported,
+    /// A round file holds at most one YAML block, its header.
+    #[error("round file must contain at most one fenced yaml block (the header), found {0}")]
+    HeaderBlockCount(usize),
+    /// Boxed: the YAML error is large and this enum travels in every Result.
+    #[error("round header yaml")]
+    HeaderYaml(#[source] Box<serde_saphyr::Error>),
+    #[error("round header incumbent")]
+    HeaderIncumbent(#[source] ConfigError),
+    #[error("round header steps name {0:?}, which is not a factor")]
+    StepUnknownFactor(String),
+    /// Only ordered factors keep a step; categories and attributed factors
+    /// move to any allowed neighbor.
+    #[error("round header gives a step for factor {0}, which is not ordered")]
+    StepNotOrdered(String),
+    #[error("round header gives factor {0} a step of 0")]
+    StepZero(String),
+    /// A `steps` entry must cover every ordered factor, so that a decision
+    /// never has to guess one.
+    #[error("round header steps give no step for ordered factor {0}")]
+    StepMissing(String),
 }
 
 impl Round {
     pub fn from_markdown(markdown: &str, protocol: &Protocol) -> Result<Round, RoundError> {
+        let header = match markdown::yaml_blocks(markdown).as_slice() {
+            [] => None,
+            [one] => Some(Header::from_yaml(one, protocol)?),
+            other => return Err(RoundError::HeaderBlockCount(other.len())),
+        };
         let tables = markdown::tables(markdown);
-        match tables.as_slice() {
-            [table] => Round::from_table(table, protocol),
-            other => Err(RoundError::TableCount(other.len())),
-        }
+        let mut round = match tables.as_slice() {
+            [table] => Round::from_table(table, protocol)?,
+            other => return Err(RoundError::TableCount(other.len())),
+        };
+        round.header = header;
+        Ok(round)
     }
 
     pub fn from_table(table: &Table, protocol: &Protocol) -> Result<Round, RoundError> {
@@ -244,7 +392,7 @@ impl Round {
                 notes: notes_col.map(|c| row[c].clone()).unwrap_or_default(),
             });
         }
-        Ok(Round { runs })
+        Ok(Round { header: None, runs })
     }
 
     pub fn pending(&self) -> impl Iterator<Item = &Run> {

@@ -1,8 +1,8 @@
 #![cfg(test)]
 
-use super::{decide, Context, Decision, Steps, VerdictKind};
+use super::{decide, Context, DecideError, Decision, Steps, VerdictKind};
 use crate::protocol::Protocol;
-use crate::round::Round;
+use crate::round::{Round, RoundError};
 use crate::stats::Test;
 
 /// Twenty strains (frontier, not reasonable) and light hours (reasonable).
@@ -27,10 +27,19 @@ reasonable_moves: [light]
     Protocol::from_yaml(&yaml).unwrap()
 }
 
-/// A round table: three runs of the incumbent at 10.0 to 10.2, and three
-/// runs of each listed (strain, light) at the given level.
+/// A round at the finest light step.
 fn round(protocol: &Protocol, arms: &[(&str, &str, f64)]) -> Round {
-    let mut md = String::from("| run | strain | light | result |\n|---|---|---|---|\n");
+    round_at(protocol, arms, 1)
+}
+
+/// A round with a header giving light the step `light_step`, three runs of
+/// the incumbent at 10.0 to 10.2, and three runs of each listed (strain,
+/// light) at the given level.
+fn round_at(protocol: &Protocol, arms: &[(&str, &str, f64)], light_step: usize) -> Round {
+    let mut md = format!(
+        "```yaml\nround: 1\nstart: 1\nincumbent: s01/15\npurpose: reasonable_neighbors\nsteps: {{light: {light_step}}}\n```\n\n"
+    );
+    md.push_str("| run | strain | light | result |\n|---|---|---|---|\n");
     let mut k = 0;
     let mut row = |s: &str, l: &str, x: f64| {
         k += 1;
@@ -50,12 +59,54 @@ fn round(protocol: &Protocol, arms: &[(&str, &str, f64)]) -> Round {
 fn run(protocol: &Protocol, r: &Round, runs_spent: u64) -> Decision {
     let cx = Context {
         protocol,
-        round_number: 1,
-        start: 1,
         incumbent: &protocol.baseline,
         runs_spent,
     };
     decide(&cx, r).unwrap()
+}
+
+#[test]
+fn decide_errors_without_step_header() {
+    let p = plants(2);
+    let arms = [("s02", "15", 5.0), ("s01", "14", 5.0), ("s01", "16", 5.0)];
+    let cx = Context {
+        protocol: &p,
+        incumbent: &p.baseline,
+        runs_spent: 0,
+    };
+    let mut r = round(&p, &arms);
+    if let Some(h) = r.header.as_mut() {
+        h.steps = None;
+    }
+    assert!(matches!(decide(&cx, &r), Err(DecideError::StepsMissing)));
+    r.header = None;
+    assert!(matches!(decide(&cx, &r), Err(DecideError::HeaderMissing)));
+}
+
+#[test]
+fn step_header_without_ordered_factor_is_rejected() {
+    let p = plants(2);
+    let md = "```yaml\nround: 1\nstart: 1\nincumbent: s01/15\npurpose: reasonable_neighbors\nsteps: {}\n```\n\n| run | strain | light | result |\n|---|---|---|---|\n| r1 | s01 | 15 | 1 |\n";
+    assert!(matches!(
+        Round::from_markdown(md, &p),
+        Err(RoundError::StepMissing(f)) if f == "light"
+    ));
+}
+
+#[test]
+fn neighbor_off_the_header_step_is_rejected() {
+    // Header step 2: light 14 is one position away, not one step.
+    let p = plants(2);
+    let r = round_at(&p, &[("s02", "15", 5.0), ("s01", "14", 5.0)], 2);
+    let cx = Context {
+        protocol: &p,
+        incumbent: &p.baseline,
+        runs_spent: 0,
+    };
+    assert!(matches!(
+        decide(&cx, &r),
+        Err(DecideError::NotANeighbor(c)) if c == "s01/14"
+    ));
 }
 
 fn strains(range: std::ops::RangeInclusive<usize>) -> Vec<(String, &'static str, f64)> {
@@ -136,9 +187,10 @@ fn coarse_step_halves_instead_of_giving_a_verdict() {
     let p = plants(2);
     let d = run(
         &p,
-        &round(
+        &round_at(
             &p,
             &[("s02", "15", 5.0), ("s01", "13", 5.0), ("s01", "17", 5.0)],
+            2,
         ),
         0,
     );

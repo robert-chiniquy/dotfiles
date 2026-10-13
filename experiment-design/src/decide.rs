@@ -3,6 +3,9 @@
 //! the two neighbor tests, and the verdicts LOCAL_OPTIMUM, PLATEAU, and
 //! BUDGET (items 27 to 29) with frontier coverage (items 59, 60).
 //!
+//! The current steps come from the round header (item 37). A tested
+//! configuration must be one move from the incumbent at those steps.
+//!
 //! Only the given round's runs enter any comparison, so drift between rounds
 //! cannot read as an effect (item 17). SOLVED (item 26, phase 5),
 //! GUARDRAIL_HALT (item 30), and DUPLICATE (item 58, multi-start) are not
@@ -13,9 +16,9 @@ use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
 
-use crate::neighbors::{finest_neighbors, relation, Relation};
-use crate::protocol::{Configuration, Direction, FactorId, Objective, Protocol};
-use crate::round::{Arm, Outcome, Round, Side};
+use crate::neighbors::{finest_neighbors, relation, StepMap};
+use crate::protocol::{Configuration, Direction, Objective, Protocol};
+use crate::round::{Arm, Header, Outcome, Round, Side};
 use crate::stats::{self, Rule, StatsError, Test};
 
 mod tests;
@@ -107,8 +110,16 @@ pub enum DecideError {
     IncumbentNotRun(String),
     #[error("the round has no neighbor results to compare with the incumbent")]
     NoNeighbors,
-    #[error("{0} is not one move from the incumbent under the default neighbor rule")]
+    #[error("{0} is not one move from the incumbent at the steps in the round header")]
     NotANeighbor(String),
+    /// The round file has no header block, so its start, incumbent, and
+    /// steps are unknown.
+    #[error("the round file has no header block (round, start, incumbent, purpose, steps)")]
+    HeaderMissing,
+    /// The header has no `steps` entry. Steps are read from the header
+    /// (design item 37), never inferred from the moves in the table.
+    #[error("the round header has no steps entry; it must give the current step of every ordered factor (an empty map when there are none)")]
+    StepsMissing,
     #[error("{0} matches an infeasible combination")]
     Infeasible(String),
     #[error("run {0} is a duel that does not include the incumbent")]
@@ -123,8 +134,8 @@ pub enum DecideError {
 #[derive(Debug, Clone, Copy)]
 pub struct Context<'a> {
     pub protocol: &'a Protocol,
-    pub round_number: u32,
-    pub start: u32,
+    /// The incumbent as the decision log derives it; the caller checks it
+    /// against the round header.
     pub incumbent: &'a Configuration,
     /// Runs used by this round and every earlier one.
     pub runs_spent: u64,
@@ -146,13 +157,16 @@ impl Evidence {
 
 struct Tested {
     config: Configuration,
-    relation: Relation,
     evidence: Evidence,
 }
 
 /// Collect each tested configuration's evidence, oriented so larger is
 /// better, and the incumbent's values (empty for a preference objective).
-fn gather(cx: &Context<'_>, round: &Round) -> Result<(Vec<f64>, Vec<Tested>), DecideError> {
+fn gather(
+    cx: &Context<'_>,
+    round: &Round,
+    steps: &StepMap,
+) -> Result<(Vec<f64>, Vec<Tested>), DecideError> {
     let p = cx.protocol;
     let mut by_config: BTreeMap<Configuration, Evidence> = BTreeMap::new();
     let mut incumbent_values = Vec::new();
@@ -217,15 +231,9 @@ fn gather(cx: &Context<'_>, round: &Round) -> Result<(Vec<f64>, Vec<Tested>), De
             if !p.is_feasible(&config) {
                 return Err(DecideError::Infeasible(p.show(&config).to_string()));
             }
-            match relation(p, cx.incumbent, &config) {
-                Relation::NotNeighbor => {
-                    Err(DecideError::NotANeighbor(p.show(&config).to_string()))
-                }
-                relation => Ok(Tested {
-                    config,
-                    relation,
-                    evidence,
-                }),
+            match relation(p, cx.incumbent, &config, steps) {
+                None => Err(DecideError::NotANeighbor(p.show(&config).to_string())),
+                Some(_) => Ok(Tested { config, evidence }),
             }
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -254,12 +262,14 @@ fn run_test(
 
 pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> {
     let p = cx.protocol;
+    let header = round.header.as_ref().ok_or(DecideError::HeaderMissing)?;
+    let header_steps = header.steps.as_ref().ok_or(DecideError::StepsMissing)?;
     let pending: Vec<String> = round.pending().map(|r| r.id.clone()).collect();
     if !pending.is_empty() {
         return Err(DecideError::Pending(pending));
     }
     let dropped: Vec<&crate::round::Run> = round.runs.iter().filter(|r| r.is_dropped()).collect();
-    let (incumbent_values, tested) = gather(cx, round)?;
+    let (incumbent_values, tested) = gather(cx, round, header_steps)?;
 
     let rule = match p.objective {
         Objective::Preference => Rule::Binomial,
@@ -335,6 +345,7 @@ pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> 
         }
         let decision = finish(
             cx,
+            header,
             rule,
             comparisons,
             &dropped,
@@ -346,26 +357,16 @@ pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> 
         return Ok(decision);
     }
 
-    // No move. A round still at a coarser step on some ordered factor halves
-    // that step (design item 18) before any verdict can be considered.
-    let coarse: BTreeMap<FactorId, usize> = tested
+    // No move. Every ordered factor whose step in the header is above its
+    // finest step halves (design item 18), and no verdict is considered
+    // until all of them are at the finest step.
+    let coarse: BTreeMap<String, usize> = header_steps
         .iter()
-        .filter_map(|t| match t.relation {
-            Relation::Coarse { factor, step } => Some((factor, step)),
-            _ => None,
-        })
-        .fold(BTreeMap::new(), |mut m, (f, s)| {
-            let e = m.entry(f).or_insert(s);
-            *e = (*e).max(s);
-            m
-        });
+        .filter(|(_, s)| **s > 1)
+        .map(|(f, s)| (p.factor(*f).name.clone(), s / 2))
+        .collect();
     if !coarse.is_empty() {
-        steps = Steps::Set(
-            coarse
-                .iter()
-                .map(|(f, s)| (p.factor(*f).name.clone(), (s / 2).max(1)))
-                .collect(),
-        );
+        steps = Steps::Set(coarse);
         if budget_spent {
             let unresolved = tested
                 .iter()
@@ -375,6 +376,7 @@ pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> 
         }
         return Ok(finish(
             cx,
+            header,
             rule,
             comparisons,
             &dropped,
@@ -468,6 +470,7 @@ pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> 
     }
     Ok(finish(
         cx,
+        header,
         rule,
         comparisons,
         &dropped,
@@ -481,6 +484,7 @@ pub fn decide(cx: &Context<'_>, round: &Round) -> Result<Decision, DecideError> 
 #[allow(clippy::too_many_arguments)]
 fn finish(
     cx: &Context<'_>,
+    header: &Header,
     rule: Rule,
     comparisons: Vec<ComparisonRecord>,
     dropped: &[&crate::round::Run],
@@ -490,8 +494,8 @@ fn finish(
     note: String,
 ) -> Decision {
     let record = DecisionRecord {
-        round: cx.round_number,
-        start: cx.start,
+        round: header.round,
+        start: header.start,
         rule,
         comparisons,
         dropped_runs: dropped.iter().map(|r| r.id.clone()).collect(),

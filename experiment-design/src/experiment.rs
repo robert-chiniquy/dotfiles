@@ -1,5 +1,6 @@
-//! One experiment directory: `PROTOCOL.md`, `ROUND_<n>.md`, and the
-//! append-only `DECISIONS.md` (design items 36 to 38).
+//! One experiment directory: `PROTOCOL.md`, the phase 1 runs in `NOISE.md`,
+//! `ROUND_<n>.md`, and the append-only `DECISIONS.md` (design items 36 to
+//! 38).
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write as _};
@@ -9,13 +10,13 @@ use crate::decide::{self, Context, DecideError, Decision, DecisionRecord};
 use crate::markdown;
 use crate::protocol::{ConfigError, Protocol, ProtocolError};
 use crate::round::{Round, RoundError};
+use crate::search::Search;
 
 pub const PROTOCOL_FILE: &str = "PROTOCOL.md";
 pub const DECISIONS_FILE: &str = "DECISIONS.md";
-
-/// Multi-start (design items 31 to 35) is not implemented; every round
-/// belongs to the single start from the baseline.
-pub const START: u32 = 1;
+/// Phase 1 runs of the baseline (design phase 1): one table in the round
+/// layout, every row the baseline.
+pub const NOISE_FILE: &str = "NOISE.md";
 
 /// Display gives the context only; the cause is the error's `source`, so a
 /// reporter that walks the chain prints each cause once.
@@ -47,9 +48,8 @@ pub enum ExperimentError {
         #[source]
         source: Box<serde_saphyr::Error>,
     },
-    #[error("{}: round {round} move", path.display())]
+    #[error("{DECISIONS_FILE}: round {round} move")]
     DecisionMove {
-        path: PathBuf,
         round: u32,
         #[source]
         source: ConfigError,
@@ -57,17 +57,55 @@ pub enum ExperimentError {
     /// DECISIONS.md is append-only; a round is decided once.
     #[error("round {0} is already decided in DECISIONS.md")]
     AlreadyDecided(u32),
-    /// The incumbent of round n follows from the decisions of rounds 1 to
-    /// n - 1, so none may be missing.
-    #[error("round {0} has no decision in DECISIONS.md; decide rounds in order")]
+    /// The incumbent of a start's round follows from the decisions of its
+    /// earlier rounds, so none may be missing.
+    #[error("round {0} has no decision in DECISIONS.md; decide a start's rounds in order")]
     MissingDecision(u32),
-    #[error("round {round} ended start {START} with verdict {verdict:?}; later rounds belong to a new start, which this tool does not run")]
+    /// A start ends at its first verdict; only a confirmation round may
+    /// follow LOCAL_OPTIMUM or PLATEAU (phase 5).
+    #[error("start {start} ended with verdict {verdict:?}; round {round} cannot continue it")]
     StartEnded {
         round: u32,
+        start: u32,
         verdict: decide::VerdictKind,
     },
     #[error("round numbers start at 1")]
     RoundZero,
+    #[error("{NOISE_FILE}")]
+    Power(#[source] crate::power::PowerError),
+    #[error("writing the next round")]
+    Sheet(#[source] crate::sheet::SheetError),
+    #[error("ROUND_{0}.md does not exist")]
+    RoundMissing(u32),
+    /// Start, incumbent, and steps are read from the header (design item
+    /// 37), so a round without one cannot be placed in the search.
+    #[error("ROUND_{0}.md has no header block (round, start, incumbent, purpose, steps)")]
+    HeaderMissing(u32),
+    #[error("ROUND_{file}.md has round {header} in its header")]
+    RoundNumberMismatch { file: u32, header: u32 },
+    /// The header names an incumbent the decision log does not lead to.
+    #[error("ROUND_{round}.md names incumbent {header}, but the decision log leads to {derived}")]
+    IncumbentMismatch {
+        round: u32,
+        header: String,
+        derived: String,
+    },
+    /// Starts are numbered in the order they begin, from 1.
+    #[error("ROUND_{round}.md begins start {start}, but the next new start is {expected}")]
+    StartNotNext {
+        round: u32,
+        start: u32,
+        expected: u32,
+    },
+    /// The baseline is always the first start (design item 31).
+    #[error(
+        "start 1 must begin at the baseline {baseline}, but ROUND_{round}.md begins it at {header}"
+    )]
+    FirstStartNotBaseline {
+        round: u32,
+        baseline: String,
+        header: String,
+    },
     #[error("round {round}")]
     Decide {
         round: u32,
@@ -188,62 +226,72 @@ pub fn decide_round(dir: &Path, n: u32) -> Result<Decision, ExperimentError> {
     if n == 0 {
         return Err(ExperimentError::RoundZero);
     }
-    let protocol = load_protocol(dir)?;
-    let decisions = load_decisions(dir)?;
-    if decisions.iter().any(|d| d.round == n) {
+    let search = Search::load(dir)?;
+    let protocol = &search.protocol;
+    let entry = search.entry(n).ok_or(ExperimentError::RoundMissing(n))?;
+    if entry.decision.is_some() {
         return Err(ExperimentError::AlreadyDecided(n));
     }
-
-    // The incumbent starts at the baseline and follows each recorded move.
-    let decisions_path = dir.join(DECISIONS_FILE);
-    let mut incumbent = protocol.baseline.clone();
-    for r in 1..n {
-        let d = decisions
-            .iter()
-            .find(|d| d.round == r)
-            .ok_or(ExperimentError::MissingDecision(r))?;
-        if let Some(v) = &d.verdict {
-            return Err(ExperimentError::StartEnded {
-                round: r,
-                verdict: v.kind,
-            });
+    let header = &entry.header;
+    let states = search.starts_before(n)?;
+    let s = header.start;
+    let incumbent = match states.get(&s) {
+        Some(st) => {
+            if let Some(m) = st.undecided.first() {
+                return Err(ExperimentError::MissingDecision(*m));
+            }
+            if let Some(verdict) = st.verdict {
+                return Err(ExperimentError::StartEnded {
+                    round: n,
+                    start: s,
+                    verdict,
+                });
+            }
+            st.incumbent.clone()
         }
-        if let Some(m) = &d.move_to {
-            incumbent =
-                protocol
-                    .parse_config(m)
-                    .map_err(|source| ExperimentError::DecisionMove {
-                        path: decisions_path.clone(),
-                        round: r,
-                        source,
-                    })?;
+        None => {
+            let expected = states.keys().max().map_or(1, |m| m + 1);
+            if s != expected {
+                return Err(ExperimentError::StartNotNext {
+                    round: n,
+                    start: s,
+                    expected,
+                });
+            }
+            if s == 1 && header.incumbent != protocol.baseline {
+                return Err(ExperimentError::FirstStartNotBaseline {
+                    round: n,
+                    baseline: protocol.show(&protocol.baseline).to_string(),
+                    header: protocol.show(&header.incumbent).to_string(),
+                });
+            }
+            header.incumbent.clone()
         }
-    }
-
-    let mut runs_spent = 0u64;
-    let mut current = None;
-    for r in 1..=n {
-        let round = load_round(dir, &protocol, r)?;
-        runs_spent += round.runs.len() as u64;
-        if r == n {
-            current = Some(round);
-        }
-    }
-    let Some(round) = current else {
-        return Err(ExperimentError::RoundZero);
     };
+    if incumbent != header.incumbent {
+        return Err(ExperimentError::IncumbentMismatch {
+            round: n,
+            header: protocol.show(&header.incumbent).to_string(),
+            derived: protocol.show(&incumbent).to_string(),
+        });
+    }
 
     let cx = Context {
-        protocol: &protocol,
-        round_number: n,
-        start: START,
+        protocol,
         incumbent: &incumbent,
-        runs_spent,
+        runs_spent: search.runs_through(n),
     };
-    let decision = decide::decide(&cx, &round)
+    let decision = decide::decide(&cx, &entry.round)
         .map_err(|source| ExperimentError::Decide { round: n, source })?;
-    append(&decisions_path, &decision)?;
+    append(&dir.join(DECISIONS_FILE), &decision)?;
     Ok(decision)
+}
+
+/// Phase 1 runs from `NOISE.md`.
+pub fn load_noise(dir: &Path, protocol: &Protocol) -> Result<Round, ExperimentError> {
+    let path = dir.join(NOISE_FILE);
+    let text = read(path.clone())?;
+    Round::from_markdown(&text, protocol).map_err(|source| ExperimentError::Round { path, source })
 }
 
 /// The markdown section appended for one decision.

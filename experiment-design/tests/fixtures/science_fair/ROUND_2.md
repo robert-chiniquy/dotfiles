@@ -3,6 +3,16 @@
 Synthetic data. Start 1, incumbent light/glider/no, re-measured. Purpose:
 reasonable neighbors. Guardrails: throw indoors only.
 
+```yaml
+round: 2
+start: 1
+incumbent: light/glider/no
+purpose: reasonable_neighbors
+steps: {}
+guardrails:
+  - throw indoors only
+```
+
 | run | block | paper | fold | nose_clip | result | time | notes |
 |---|---|---|---|---|---|---|---|
 | r2-01 | sunday | light | delta | no | 5.5 | 10:00 | |
