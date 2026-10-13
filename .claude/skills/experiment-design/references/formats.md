@@ -1,8 +1,10 @@
 # File layouts
 
 One directory per experiment. All files are markdown. Values a program reads
-are in one fenced YAML block or one markdown table per file; read them with a
-YAML library and a markdown parser with table support.
+are in fenced YAML blocks and markdown tables: `PROTOCOL.md` and each
+`DECISIONS.md` section have one YAML block, `NOISE.md` has one table, and a
+round file has one YAML header and one table. Read them with a YAML library
+and a markdown parser with table support.
 
 ## PROTOCOL.md
 
@@ -37,6 +39,7 @@ factors:
 infeasible: []
 baseline: {paper: light, fold: dart, nose_clip: "no"}
 reasonable_moves: all   # or a list of factor names whose one-step moves count
+stop_m: 3               # optional; new starts stop after this many land in known basins
 guardrails:
   - throw indoors only
 ```
@@ -62,10 +65,20 @@ differ (attributed); summed over factors.
 
 ## ROUND_<n>.md
 
-Header: round, start, incumbent, current step of each ordered factor,
-purpose (reasonable neighbors, or reasonable neighbors plus a frontier sample
-with its seed), guardrails. Then one table, rows in run order. The
-person running it fills in `result`, `time`, `notes`.
+A title, a sentence or two for the person running it, one YAML header, then
+one table with rows in run order. The person running it fills in `result`,
+`time`, `notes`.
+
+```yaml
+round: 2
+start: 1
+incumbent: light/glider/no
+purpose: reasonable_neighbors   # reasonable_neighbors | frontier_sample | confirmation
+steps: {}                       # current step per ordered factor, e.g. {light_hours: 2}
+seed: 8812                      # run order and frontier sample
+guardrails:
+  - throw indoors only
+```
 
 | run | block | paper | fold | nose_clip | result | time | notes |
 |---|---|---|---|---|---|---|---|
@@ -75,6 +88,16 @@ person running it fills in `result`, `time`, `notes`.
 For a preference objective, each row is one duel: columns `left`, `right`
 (configuration ids), and `winner`.
 
+## NOISE.md
+
+Phase 1 baseline runs, in the round table layout with no YAML header. These
+runs are not counted against the search budget's rounds.
+
+| run | block | paper | fold | nose_clip | result | time | notes |
+|---|---|---|---|---|---|---|---|
+| n1 | saturday | light | dart | no | 5.0 | 09:00 | |
+| n2 | sunday | light | dart | no | 4.8 | 09:00 | |
+
 ## DECISIONS.md
 
 Append one section per round; never edit earlier sections. Each holds a YAML
@@ -83,8 +106,9 @@ block and a few sentences reading it.
 ```yaml
 round: 1
 start: 1
-rule: counting
+rule: counting          # counting | welch | paired_t | binomial | one_sample_t
 comparisons:
+  # test: beats_by_delta | not_better_by_delta | worse | meets_threshold
   - {neighbor: "light/glider/no", test: beats_by_delta, p: 0.05, reject: true}
   - {neighbor: "light/dart/yes", test: beats_by_delta, p: null, reject: false}
 dropped_runs: []
@@ -97,7 +121,7 @@ A round that reaches a verdict writes it as a mapping:
 
 ```yaml
 verdict:
-  kind: PLATEAU         # LOCAL_OPTIMUM | PLATEAU | BUDGET
+  kind: PLATEAU         # SOLVED | LOCAL_OPTIMUM | PLATEAU | BUDGET | DUPLICATE
   incumbent: light/glider/no
   delta: 0.5
   alpha: 0.05

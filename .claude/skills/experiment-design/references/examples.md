@@ -50,7 +50,9 @@ No neighbor minus 0.5 clears 6.5, so no move. Verdict tests:
 Start 1 verdict: PLATEAU at 6.1 to 6.5 m, below the 8 m threshold. The nose
 clip neither helps nor hurts by half a meter, so the cheaper plane (no clip)
 is kept. Next: start 2 at the configuration farthest from the baseline,
-heavy/delta/yes (distance 3).
+heavy/glider/yes (distance 3; heavy/delta/yes ties at 3, and a tie goes to
+the configuration whose values come first in the protocol's value lists,
+where glider precedes delta).
 
 Said to a student: "From my best plane I tried every single change. Three
 were shorter on every throw. The paper clip was about the same."

@@ -34,9 +34,12 @@ after taking half a meter off each new one."
 
 The counting rule applies at 5 or fewer runs per arm.
 
-Shift by δ as above, then Welch's t-test; a paired t-test on block
-differences when runs are paired by block; a permutation test on skewed
-data.
+Shift by δ as above, then Welch's t-test; a permutation test on skewed
+data. When every arm in the round shares at least two blocks with the arm
+it is compared against, use a paired t-test on the per-block differences of
+block means instead (rule `paired_t`): it removes block-to-block shifts that
+would otherwise widen both arms' spread. The counting rule stays unpaired;
+the decision then records that pairing was not applied.
 
 ## Pass rates
 

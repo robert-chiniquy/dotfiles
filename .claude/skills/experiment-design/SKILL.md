@@ -73,8 +73,11 @@ Budget below phase 1 needs: report the smallest δ the budget can detect.
    configurations (distance in `references/formats.md`). Skip a candidate
    when a measured configuration near it is already better.
 4. Local search per start. Step per ordered factor starts at a quarter of its
-   span. Each round: incumbent plus every reasonable neighbor, replicated,
-   randomized, incumbent in every block, written as `ROUND_<n>.md`.
+   span. Each round: incumbent plus every reasonable neighbor, plus the
+   baseline as the control when it is not the incumbent, replicated,
+   randomized, incumbent and baseline in every block, written as
+   `ROUND_<n>.md`. The baseline is a move candidate only when it is also a
+   neighbor, and never counts toward the frontier sample.
    - Some neighbor beats the incumbent by δ at α: the best of those becomes
      the incumbent.
    - None: halve steps above their finest step and recompute replicates.
