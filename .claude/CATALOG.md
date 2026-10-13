@@ -78,6 +78,7 @@ skill bodies**, not only this index.
 | retcon | Before share: keep code, learnings, commit messages; strip author and clocks |
 | retcon-review | Reviewer persona: provenance leaks and missing work-local retcon derivatives |
 | skill-brevity | Authoring/editing skills: keep only necessary lines |
+| experiment-design | Any-domain experiment as a bounded search over factors: δ, threshold, rounds handed off as markdown run sheets, tested local-optimum, plateau, and UNSAT verdicts |
 | property-based-testing | PBT across languages |
 | using-vit | ATProto caps / beacons |
 | check-feature-flag-conflicts | FEATURE_FLAG_ID conflicts before adding flags |
