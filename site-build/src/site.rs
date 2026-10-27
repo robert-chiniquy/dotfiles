@@ -99,6 +99,19 @@ pub struct PageMeta {
     pub description: Option<String>,
     /// Directory of an exported slide deck, relative to the page's own URL.
     pub deck: Option<String>,
+    /// PNG shown above the title and used as the share image, relative to the
+    /// page's own URL. Links to the deck when there is one.
+    pub banner: Option<String>,
+}
+
+/// Width and height from a PNG's IHDR chunk.
+pub fn png_size(bytes: &[u8]) -> Result<(u32, u32), String> {
+    const SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
+    if bytes.len() < 24 || &bytes[..8] != SIGNATURE || &bytes[12..16] != b"IHDR" {
+        return Err("not a PNG".into());
+    }
+    let be = |b: &[u8]| u32::from_be_bytes([b[0], b[1], b[2], b[3]]);
+    Ok((be(&bytes[16..20]), be(&bytes[20..24])))
 }
 
 fn parse_yaml<T: for<'de> Deserialize<'de>>(yaml: &str, what: &str) -> Result<T, String> {
@@ -197,6 +210,8 @@ struct Head<'a> {
     title: &'a str,
     description: Option<&'a str>,
     path: &'a str,
+    /// Site path of the share image; the site's image when `None`.
+    image: Option<&'a str>,
     og_type: &'a str,
     extra: &'a str,
 }
@@ -216,7 +231,7 @@ fn render_head(h: &Head) -> String {
     if let Some(base) = &h.site.url {
         let base = base.trim_end_matches('/');
         let _ = writeln!(s, "<meta property=\"og:url\" content=\"{}{}\">", escape(base), escape(h.path));
-        if let Some(img) = &h.site.image {
+        if let Some(img) = h.image.or(h.site.image.as_deref()) {
             let _ = writeln!(s, "<meta property=\"og:image\" content=\"{}{}\">", escape(base), escape(img));
         }
     }
@@ -284,6 +299,7 @@ fn render_index(
         title: &site.title,
         description: site.description.as_deref(),
         path: "/",
+        image: None,
         og_type: "website",
         extra: head_extra,
     });
@@ -302,17 +318,35 @@ fn render_page(
     url: &str,
     head_extra: &str,
     deck_help: Option<&str>,
+    banner_size: Option<(u32, u32)>,
 ) -> Result<String, String> {
+    let banner_url = meta.banner.as_ref().map(|b| format!("{url}{b}"));
     let mut s = render_head(&Head {
         site,
         title: &meta.title,
         description: meta.description.as_deref(),
         path: url,
+        image: banner_url.as_deref(),
         og_type: "article",
         extra: head_extra,
     });
     let _ = writeln!(s, "<body class=\"page\">\n<main class=\"article\">");
     let _ = writeln!(s, "<nav class=\"article__nav\"><a href=\"/\">{}</a></nav>", escape(&site.title));
+    if let (Some(banner), Some((w, h))) = (&meta.banner, banner_size) {
+        let img = format!(
+            "<img src=\"{}\" width=\"{w}\" height=\"{h}\" alt=\"{}\">",
+            escape(banner),
+            escape(&meta.title)
+        );
+        match &meta.deck {
+            Some(d) => {
+                let _ = writeln!(s, "<a class=\"talk-banner\" href=\"{}\">{img}</a>", escape(d));
+            }
+            None => {
+                let _ = writeln!(s, "<p class=\"talk-banner\">{img}</p>");
+            }
+        }
+    }
     let _ = writeln!(s, "<header>\n<h1>{}</h1>", escape(&meta.title));
     let mut line = Vec::new();
     if let Some(d) = &meta.date {
@@ -325,20 +359,19 @@ fn render_page(
         let _ = writeln!(s, "<p class=\"article__meta\">{}</p>", line.join(" · "));
     }
     s.push_str("</header>\n");
-    s.push_str(&markdown(body));
     if let Some(deck) = &meta.deck {
         let help = deck_help.ok_or("`deck` is set but _partials/deck-help.md is missing")?;
-        let d = escape(deck);
         let _ = write!(
             s,
             "<section class=\"deck\" aria-label=\"Slides\">\n\
-             <div class=\"deck__frame\"><iframe src=\"{d}\" title=\"Slides: {}\" allow=\"fullscreen\" loading=\"lazy\"></iframe></div>\n\
-             <p class=\"deck__open\"><a href=\"{d}\">Open the slides in their own tab</a></p>\n\
+             <div class=\"deck__frame\"><iframe src=\"{}\" title=\"Slides: {}\" allow=\"fullscreen\" loading=\"lazy\"></iframe></div>\n\
              <div class=\"deck__help\">\n{}</div>\n</section>\n",
+            escape(deck),
             escape(&meta.title),
             markdown(help)
         );
     }
+    s.push_str(&markdown(body));
     s.push_str("</main>\n</body>\n</html>\n");
     Ok(s)
 }
@@ -400,7 +433,15 @@ pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
                 return Err(format!("{label}: deck `{deck}` has no {}; export the deck first", deck_index.display()));
             }
         }
-        let html = render_page(&site, &meta, &seg.body, &urls[rel], &head_extra, deck_help.as_deref())
+        let banner_size = match &meta.banner {
+            Some(b) => {
+                let path = dir.join(b);
+                let bytes = fs::read(&path).map_err(|e| format!("{label}: banner {}: {e}", path.display()))?;
+                Some(png_size(&bytes).map_err(|e| format!("{label}: banner {}: {e}", path.display()))?)
+            }
+            None => None,
+        };
+        let html = render_page(&site, &meta, &seg.body, &urls[rel], &head_extra, deck_help.as_deref(), banner_size)
             .map_err(|e| format!("{label}: {e}"))?;
         outputs.push((dir.join("index.html"), html));
     }
@@ -580,6 +621,48 @@ mod tests {
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(page.contains("<iframe src=\"deck/\""), "{page}");
         assert!(page.contains("Press <code>?</code>."), "{page}");
+    }
+
+    fn png_header(w: u32, h: u32) -> Vec<u8> {
+        let mut b = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
+        b.extend_from_slice(&w.to_be_bytes());
+        b.extend_from_slice(&h.to_be_bytes());
+        b
+    }
+
+    #[test]
+    fn png_size_reads_ihdr_and_rejects_other_files() {
+        assert_eq!(png_size(&png_header(1280, 800)).unwrap(), (1280, 800));
+        assert!(png_size(b"\xff\xd8\xff\xe0 not a png at all....").is_err());
+    }
+
+    #[test]
+    fn banner_links_to_deck_sets_share_image_and_deck_precedes_text() {
+        let root = tempdir("banner_links_to_deck");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(&src.join("index.md"), "---\ntitle: Site\nurl: https://example.org\n---\n").unwrap();
+        write(&src.join("talks/x.md"), "---\ntitle: X\ndeck: deck/\nbanner: banner.png\n---\nabstract\n").unwrap();
+        write(&src.join("_partials/deck-help.md"), "keys\n").unwrap();
+        write(&out.join("talks/x/deck/index.html"), "").unwrap();
+        fs::write(out.join("talks/x/banner.png"), png_header(1280, 800)).unwrap();
+        build(&src, &out).unwrap();
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        assert!(
+            page.contains("<a class=\"talk-banner\" href=\"deck/\"><img src=\"banner.png\" width=\"1280\" height=\"800\" alt=\"X\"></a>"),
+            "{page}"
+        );
+        assert!(page.contains("og:image\" content=\"https://example.org/talks/x/banner.png\""), "{page}");
+        assert!(page.find("class=\"deck\"").unwrap() < page.find("<p>abstract</p>").unwrap(), "{page}");
+    }
+
+    #[test]
+    fn missing_banner_fails() {
+        let root = tempdir("missing_banner_fails");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(&src.join("index.md"), "---\ntitle: Site\n---\n").unwrap();
+        write(&src.join("talks/x.md"), "---\ntitle: X\nbanner: banner.png\n---\n").unwrap();
+        let err = build(&src, &out).unwrap_err();
+        assert!(err.contains("banner"), "{err}");
     }
 
     #[test]

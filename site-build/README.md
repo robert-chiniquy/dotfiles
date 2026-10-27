@@ -84,11 +84,14 @@ Card: `title`, `image` with `image_alt` (empty string for decoration),
 
 Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
 `venue`, `topic`, `description`, `deck` (directory of an exported slide deck,
-relative to the page; framed in an iframe with a link and the
-`_partials/deck-help.md` text).
+relative to the page; framed in an iframe above the body, followed by the
+`_partials/deck-help.md` text), `banner` (a PNG relative to the page, shown
+above the title, linked to the deck when there is one, and used as the
+page's `og:image`).
 
 Unknown fields are errors. Nothing is written unless every file parses, every
-`page:` names a page, and every `deck` directory already has an `index.html`.
+`page:` names a page, every `deck` directory already has an `index.html`, and
+every `banner` is a PNG that exists.
 
 ## Build and install
 
