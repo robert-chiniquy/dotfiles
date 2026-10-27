@@ -21,9 +21,8 @@ site/
 
 Every `.md` under the source directory other than `index.md` is a page.
 Files and directories whose names start with `_` or `.` are skipped. A page
-appears on the index only when it sets `listed: true` (a row in the dated list
-below the cards) or a card names it with `page:`. Any other page is reachable
-by direct link only.
+appears on the index only when a card names it with `page:`. Any other page is
+reachable by direct link only.
 
 ## Segments
 
@@ -76,8 +75,8 @@ Abstract in markdown.
 
 Site: `title` (required), `description`, `url` (absolute, for `og:url` and
 the feed), `image` (site path, for `og:image`), `twitter` (handle without
-`@`), `lang` (default `en`), `author` (feed author; required once a page is
-`listed`).
+`@`), `lang` (default `en`), `author` (feed author; required once a page sets
+`feed`).
 
 Card: `title`, `image` with `image_alt` (empty string for decoration),
 `page` (source path of a page) or `link` (URL), `background` (CSS color),
@@ -86,15 +85,14 @@ Card: `title`, `image` with `image_alt` (empty string for decoration),
 
 Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
 `venue`, `topic`, `description`, `deck` (directory of an exported slide deck,
-relative to the page; framed in an iframe above the body, followed by the
-`_partials/deck-help.md` text), `banner` (a PNG relative to the page, shown
-above the title, linked to the deck when there is one, and used as the
-page's `og:image`), `listed` (put the page in the index's dated list below the
-cards, newest first, and in `<out>/feed.xml`, an Atom feed; needs `date`).
+relative to the page; framed in an iframe above the title, with the
+`_partials/deck-help.md` text below the title), `image` (share image for
+`og:image`, relative to the page), `feed` (put the page in
+`<out>/feed.xml`, an Atom feed, newest first; needs `date`).
 
 Unknown fields are errors. Nothing is written unless every file parses, every
 `page:` names a page, every `deck` directory already has an `index.html`, and
-every `banner` is a PNG that exists.
+every `image` exists.
 
 ## Build and install
 

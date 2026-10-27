@@ -64,7 +64,7 @@ pub struct SiteMeta {
     pub twitter: Option<String>,
     #[serde(default = "default_lang")]
     pub lang: String,
-    /// Feed author; required once any page is `listed`.
+    /// Feed author; required once any page sets `feed`.
     pub author: Option<String>,
 }
 
@@ -101,48 +101,24 @@ pub struct PageMeta {
     pub description: Option<String>,
     /// Directory of an exported slide deck, relative to the page's own URL.
     pub deck: Option<String>,
-    /// PNG shown above the title and used as the share image, relative to the
-    /// page's own URL. Links to the deck when there is one.
-    pub banner: Option<String>,
-    /// Put the page in the index's dated list and in the feed. Needs `date`.
+    /// Share image (`og:image`), relative to the page's own URL.
+    pub image: Option<String>,
+    /// Put the page in `feed.xml`. Needs `date`.
     #[serde(default)]
-    pub listed: bool,
+    pub feed: bool,
 }
 
-/// One row of the index's dated list and one feed entry.
+/// One feed entry.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Listed {
+pub struct FeedEntry {
     pub date: String,
     pub title: String,
     pub url: String,
-    pub venue: Option<String>,
     pub description: Option<String>,
 }
 
-fn render_list(items: &[Listed]) -> String {
-    if items.is_empty() {
-        return String::new();
-    }
-    let mut s = String::from("<ol class=\"dated\">\n");
-    for it in items {
-        let _ = write!(
-            s,
-            "<li><time datetime=\"{d}\">{d}</time> <a href=\"{}\">{}</a>",
-            escape(&it.url),
-            escape(&it.title),
-            d = escape(&it.date)
-        );
-        if let Some(v) = &it.venue {
-            let _ = write!(s, " <span class=\"dated__venue\">{}</span>", escape(v));
-        }
-        s.push_str("</li>\n");
-    }
-    s.push_str("</ol>\n");
-    s
-}
-
 /// Atom 1.0 (RFC 4287) for `items`, newest first.
-pub fn render_feed(site: &SiteMeta, base: &str, author: &str, items: &[Listed]) -> String {
+pub fn render_feed(site: &SiteMeta, base: &str, author: &str, items: &[FeedEntry]) -> String {
     let base = base.trim_end_matches('/');
     let updated = items.first().map(|i| i.date.as_str()).unwrap_or("1970-01-01");
     let mut s = String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n");
@@ -164,16 +140,6 @@ pub fn render_feed(site: &SiteMeta, base: &str, author: &str, items: &[Listed]) 
     }
     s.push_str("</feed>\n");
     s
-}
-
-/// Width and height from a PNG's IHDR chunk.
-pub fn png_size(bytes: &[u8]) -> Result<(u32, u32), String> {
-    const SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
-    if bytes.len() < 24 || &bytes[..8] != SIGNATURE || &bytes[12..16] != b"IHDR" {
-        return Err("not a PNG".into());
-    }
-    let be = |b: &[u8]| u32::from_be_bytes([b[0], b[1], b[2], b[3]]);
-    Ok((be(&bytes[16..20]), be(&bytes[20..24])))
 }
 
 fn parse_yaml<T: for<'de> Deserialize<'de>>(yaml: &str, what: &str) -> Result<T, String> {
@@ -354,7 +320,6 @@ fn render_index(
     site: &SiteMeta,
     cards: &[(Card, String)],
     pages: &BTreeMap<PathBuf, String>,
-    listed: &[Listed],
     head_extra: &str,
 ) -> Result<String, String> {
     let mut s = render_head(&Head {
@@ -371,9 +336,7 @@ fn render_index(
     for (card, body) in cards {
         s.push_str(&render_card(card, body, pages)?);
     }
-    s.push_str("</ul>\n");
-    s.push_str(&render_list(listed));
-    s.push_str("</main>\n</body>\n</html>\n");
+    s.push_str("</ul>\n</main>\n</body>\n</html>\n");
     Ok(s)
 }
 
@@ -384,15 +347,14 @@ fn render_page(
     url: &str,
     head_extra: &str,
     deck_help: Option<&str>,
-    banner_size: Option<(u32, u32)>,
 ) -> Result<String, String> {
-    let banner_url = meta.banner.as_ref().map(|b| format!("{url}{b}"));
+    let image_url = meta.image.as_ref().map(|i| format!("{url}{i}"));
     let mut s = render_head(&Head {
         site,
         title: &meta.title,
         description: meta.description.as_deref(),
         path: url,
-        image: banner_url.as_deref(),
+        image: image_url.as_deref(),
         og_type: "article",
         extra: head_extra,
     });
@@ -402,21 +364,20 @@ fn render_page(
         "<nav class=\"article__nav\"><a href=\"/\"><span aria-hidden=\"true\">←</span> {}</a></nav>",
         escape(&site.title)
     );
-    if let (Some(banner), Some((w, h))) = (&meta.banner, banner_size) {
-        let img = format!(
-            "<img src=\"{}\" width=\"{w}\" height=\"{h}\" alt=\"{}\">",
-            escape(banner),
-            escape(&meta.title)
-        );
-        match &meta.deck {
-            Some(d) => {
-                let _ = writeln!(s, "<a class=\"talk-banner\" href=\"{}\">{img}</a>", escape(d));
-            }
-            None => {
-                let _ = writeln!(s, "<p class=\"talk-banner\">{img}</p>");
-            }
+    // The deck is the page's only picture; it sits above the title.
+    let help = match &meta.deck {
+        Some(deck) => {
+            let help = deck_help.ok_or("`deck` is set but _partials/deck-help.md is missing")?;
+            let _ = writeln!(
+                s,
+                "<div class=\"deck__frame\"><iframe src=\"{}\" title=\"Slides: {}\" allow=\"fullscreen\"></iframe></div>",
+                escape(deck),
+                escape(&meta.title)
+            );
+            Some(help)
         }
-    }
+        None => None,
+    };
     let _ = writeln!(s, "<header>\n<h1>{}</h1>", escape(&meta.title));
     let mut line = Vec::new();
     if let Some(d) = &meta.date {
@@ -429,17 +390,8 @@ fn render_page(
         let _ = writeln!(s, "<p class=\"article__meta\">{}</p>", line.join(" · "));
     }
     s.push_str("</header>\n");
-    if let Some(deck) = &meta.deck {
-        let help = deck_help.ok_or("`deck` is set but _partials/deck-help.md is missing")?;
-        let _ = write!(
-            s,
-            "<section class=\"deck\" aria-label=\"Slides\">\n\
-             <div class=\"deck__frame\"><iframe src=\"{}\" title=\"Slides: {}\" allow=\"fullscreen\" loading=\"lazy\"></iframe></div>\n\
-             <div class=\"deck__help\">\n{}</div>\n</section>\n",
-            escape(deck),
-            escape(&meta.title),
-            markdown(help)
-        );
+    if let Some(help) = help {
+        let _ = write!(s, "<div class=\"deck__help\">\n{}</div>\n", markdown(help));
     }
     s.push_str(&markdown(body));
     s.push_str("</main>\n</body>\n</html>\n");
@@ -489,7 +441,7 @@ pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
     let urls: BTreeMap<PathBuf, String> = page_paths.iter().map(|p| (p.clone(), url_for(p))).collect();
 
     let mut pages = Vec::new();
-    let mut listed = Vec::new();
+    let mut feed = Vec::new();
     for rel in &page_paths {
         let label = rel.display().to_string();
         let segs = split_segments(&read(&src.join(rel))?).map_err(|e| format!("{label}: {e}"))?;
@@ -497,34 +449,33 @@ pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
             return Err(format!("{label}: a page has exactly one frontmatter block; use `***` for a thematic break"));
         };
         let meta: PageMeta = parse_yaml(&seg.yaml, &label)?;
-        if meta.listed {
-            let date = meta.date.clone().ok_or_else(|| format!("{label}: `listed` needs `date`"))?;
+        if meta.feed {
+            let date = meta.date.clone().ok_or_else(|| format!("{label}: `feed` needs `date`"))?;
             long_date(&date).map_err(|e| format!("{label}: {e}"))?;
-            listed.push(Listed {
+            feed.push(FeedEntry {
                 date,
                 title: meta.title.clone(),
                 url: urls[rel].clone(),
-                venue: meta.venue.clone(),
                 description: meta.description.clone(),
             });
         }
         pages.push((rel, label, meta, seg.body.clone()));
     }
     // Newest first; same-day pages by title.
-    listed.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.title.cmp(&b.title)));
+    feed.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.title.cmp(&b.title)));
 
     let mut outputs = Vec::new();
-    if !listed.is_empty() {
-        let base = site.url.as_deref().ok_or("index.md: listed pages need the site `url` for the feed")?;
-        let author = site.author.as_deref().ok_or("index.md: listed pages need the site `author` for the feed")?;
-        outputs.push((out.join("feed.xml"), render_feed(&site, base, author, &listed)));
+    if !feed.is_empty() {
+        let base = site.url.as_deref().ok_or("index.md: `feed` pages need the site `url`")?;
+        let author = site.author.as_deref().ok_or("index.md: `feed` pages need the site `author`")?;
+        outputs.push((out.join("feed.xml"), render_feed(&site, base, author, &feed)));
         let _ = writeln!(
             head_extra,
             "<link rel=\"alternate\" type=\"application/atom+xml\" href=\"/feed.xml\" title=\"{}\">",
             escape(&site.title)
         );
     }
-    outputs.push((out.join("index.html"), render_index(&site, &cards, &urls, &listed, &head_extra)?));
+    outputs.push((out.join("index.html"), render_index(&site, &cards, &urls, &head_extra)?));
     for (rel, label, meta, body) in &pages {
         let dir = out.join(page_stem(rel));
         if let Some(deck) = &meta.deck {
@@ -533,15 +484,13 @@ pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
                 return Err(format!("{label}: deck `{deck}` has no {}; export the deck first", deck_index.display()));
             }
         }
-        let banner_size = match &meta.banner {
-            Some(b) => {
-                let path = dir.join(b);
-                let bytes = fs::read(&path).map_err(|e| format!("{label}: banner {}: {e}", path.display()))?;
-                Some(png_size(&bytes).map_err(|e| format!("{label}: banner {}: {e}", path.display()))?)
+        if let Some(image) = &meta.image {
+            let path = dir.join(image);
+            if !path.is_file() {
+                return Err(format!("{label}: image {} does not exist", path.display()));
             }
-            None => None,
-        };
-        let html = render_page(&site, meta, body, &urls[*rel], &head_extra, deck_help.as_deref(), banner_size)
+        }
+        let html = render_page(&site, meta, body, &urls[*rel], &head_extra, deck_help.as_deref())
             .map_err(|e| format!("{label}: {e}"))?;
         outputs.push((dir.join("index.html"), html));
     }
@@ -723,65 +672,51 @@ mod tests {
         assert!(page.contains("Press <code>?</code>."), "{page}");
     }
 
-    fn png_header(w: u32, h: u32) -> Vec<u8> {
-        let mut b = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
-        b.extend_from_slice(&w.to_be_bytes());
-        b.extend_from_slice(&h.to_be_bytes());
-        b
-    }
-
     #[test]
-    fn png_size_reads_ihdr_and_rejects_other_files() {
-        assert_eq!(png_size(&png_header(1280, 800)).unwrap(), (1280, 800));
-        assert!(png_size(b"\xff\xd8\xff\xe0 not a png at all....").is_err());
-    }
-
-    #[test]
-    fn banner_links_to_deck_sets_share_image_and_deck_precedes_text() {
-        let root = tempdir("banner_links_to_deck");
+    fn deck_sits_above_the_title_and_is_the_only_picture() {
+        let root = tempdir("deck_above_title");
         let (src, out) = (root.join("src"), root.join("out"));
         write(&src.join("index.md"), "---\ntitle: Site\nurl: https://example.org\n---\n").unwrap();
-        write(&src.join("talks/x.md"), "---\ntitle: X\ndeck: deck/\nbanner: banner.png\n---\nabstract\n").unwrap();
+        write(&src.join("talks/x.md"), "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nabstract\n").unwrap();
         write(&src.join("_partials/deck-help.md"), "keys\n").unwrap();
         write(&out.join("talks/x/deck/index.html"), "").unwrap();
-        fs::write(out.join("talks/x/banner.png"), png_header(1280, 800)).unwrap();
+        write(&out.join("talks/x/deck/thumbnail.png"), "png").unwrap();
         build(&src, &out).unwrap();
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
-        assert!(
-            page.contains("<a class=\"talk-banner\" href=\"deck/\"><img src=\"banner.png\" width=\"1280\" height=\"800\" alt=\"X\"></a>"),
-            "{page}"
+        let (frame, title, help, text) = (
+            page.find("class=\"deck__frame\"").unwrap(),
+            page.find("<h1>X</h1>").unwrap(),
+            page.find("class=\"deck__help\"").unwrap(),
+            page.find("<p>abstract</p>").unwrap(),
         );
-        assert!(page.contains("og:image\" content=\"https://example.org/talks/x/banner.png\""), "{page}");
-        assert!(page.find("class=\"deck\"").unwrap() < page.find("<p>abstract</p>").unwrap(), "{page}");
+        assert!(frame < title && title < help && help < text, "{page}");
+        assert!(!page.contains("<img"), "the deck is the only picture: {page}");
+        assert!(page.contains("og:image\" content=\"https://example.org/talks/x/deck/thumbnail.png\""), "{page}");
     }
 
-    fn listed_site(root: &Path, site_extra: &str) -> (PathBuf, PathBuf) {
+    #[test]
+    fn missing_share_image_fails() {
+        let root = tempdir("missing_share_image");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(&src.join("index.md"), "---\ntitle: Site\n---\n").unwrap();
+        write(&src.join("talks/x.md"), "---\ntitle: X\nimage: nope.png\n---\n").unwrap();
+        let err = build(&src, &out).unwrap_err();
+        assert!(err.contains("nope.png"), "{err}");
+    }
+
+    fn feed_site(root: &Path, site_extra: &str) -> (PathBuf, PathBuf) {
         let (src, out) = (root.join("src"), root.join("out"));
         write(&src.join("index.md"), &format!("---\ntitle: Site\n{site_extra}---\n")).unwrap();
-        write(&src.join("talks/old.md"), "---\ntitle: Old\ndate: 2026-06-01\nvenue: V1\nlisted: true\n---\n").unwrap();
-        write(&src.join("talks/new.md"), "---\ntitle: New & Shiny\ndate: 2026-10-01\nlisted: true\ndescription: d\n---\n").unwrap();
+        write(&src.join("talks/old.md"), "---\ntitle: Old\ndate: 2026-06-01\nfeed: true\n---\n").unwrap();
+        write(&src.join("talks/new.md"), "---\ntitle: New & Shiny\ndate: 2026-10-01\nfeed: true\ndescription: d\n---\n").unwrap();
         write(&src.join("talks/hidden.md"), "---\ntitle: Hidden\ndate: 2026-12-01\n---\n").unwrap();
         (src, out)
     }
 
     #[test]
-    fn listed_pages_form_a_dated_list_newest_first_below_the_cards() {
-        let root = tempdir("listed_dated_list");
-        let (src, out) = listed_site(&root, "url: https://example.org\nauthor: A\n");
-        build(&src, &out).unwrap();
-        let index = fs::read_to_string(out.join("index.html")).unwrap();
-        assert!(index.find("class=\"cards\"").unwrap() < index.find("class=\"dated\"").unwrap(), "{index}");
-        let (new, old) = (index.find("New &amp; Shiny").unwrap(), index.find(">Old<").unwrap());
-        assert!(new < old, "{index}");
-        assert!(index.contains("<time datetime=\"2026-06-01\">2026-06-01</time> <a href=\"/talks/old/\">Old</a> <span class=\"dated__venue\">V1</span>"), "{index}");
-        assert!(!index.contains("Hidden"), "unlisted page leaked into the list");
-        assert!(index.contains("rel=\"alternate\" type=\"application/atom+xml\" href=\"/feed.xml\""), "{index}");
-    }
-
-    #[test]
-    fn feed_has_absolute_entry_links_and_newest_updated() {
+    fn feed_has_absolute_entry_links_newest_first() {
         let root = tempdir("feed_entries");
-        let (src, out) = listed_site(&root, "url: https://example.org/\nauthor: A\n");
+        let (src, out) = feed_site(&root, "url: https://example.org/\nauthor: A\n");
         build(&src, &out).unwrap();
         let feed = fs::read_to_string(out.join("feed.xml")).unwrap();
         assert!(feed.contains("<updated>2026-10-01T00:00:00Z</updated>\n<author>"), "{feed}");
@@ -790,45 +725,38 @@ mod tests {
         assert!(feed.contains("<summary>d</summary>"), "{feed}");
         assert!(!feed.contains("Hidden"), "{feed}");
         assert!(feed.find("/talks/new/").unwrap() < feed.find("/talks/old/").unwrap());
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(index.contains("href=\"/feed.xml\""), "{index}");
+        assert!(!index.contains("New &amp; Shiny"), "feed pages are not listed on the index: {index}");
     }
 
     #[test]
-    fn listed_without_url_or_author_fails() {
-        let root = tempdir("listed_needs_url");
-        let (src, out) = listed_site(&root, "author: A\n");
+    fn feed_without_url_or_author_fails() {
+        let root = tempdir("feed_needs_url");
+        let (src, out) = feed_site(&root, "author: A\n");
         assert!(build(&src, &out).unwrap_err().contains("url"));
-        let root = tempdir("listed_needs_author");
-        let (src, out) = listed_site(&root, "url: https://example.org\n");
+        let root = tempdir("feed_needs_author");
+        let (src, out) = feed_site(&root, "url: https://example.org\n");
         assert!(build(&src, &out).unwrap_err().contains("author"));
     }
 
     #[test]
-    fn listed_without_date_fails() {
-        let root = tempdir("listed_needs_date");
+    fn feed_without_date_fails() {
+        let root = tempdir("feed_needs_date");
         let (src, out) = (root.join("src"), root.join("out"));
         write(&src.join("index.md"), "---\ntitle: Site\nurl: https://e.org\nauthor: A\n---\n").unwrap();
-        write(&src.join("p.md"), "---\ntitle: P\nlisted: true\n---\n").unwrap();
-        assert!(build(&src, &out).unwrap_err().contains("`listed` needs `date`"));
+        write(&src.join("p.md"), "---\ntitle: P\nfeed: true\n---\n").unwrap();
+        assert!(build(&src, &out).unwrap_err().contains("`feed` needs `date`"));
     }
 
     #[test]
-    fn no_listed_pages_means_no_feed() {
+    fn no_feed_pages_means_no_feed() {
         let root = tempdir("no_feed");
         let (src, out) = (root.join("src"), root.join("out"));
         write(&src.join("index.md"), "---\ntitle: Site\n---\n").unwrap();
         build(&src, &out).unwrap();
         assert!(!out.join("feed.xml").exists());
         assert!(!fs::read_to_string(out.join("index.html")).unwrap().contains("feed.xml"));
-    }
-
-    #[test]
-    fn missing_banner_fails() {
-        let root = tempdir("missing_banner_fails");
-        let (src, out) = (root.join("src"), root.join("out"));
-        write(&src.join("index.md"), "---\ntitle: Site\n---\n").unwrap();
-        write(&src.join("talks/x.md"), "---\ntitle: X\nbanner: banner.png\n---\n").unwrap();
-        let err = build(&src, &out).unwrap_err();
-        assert!(err.contains("banner"), "{err}");
     }
 
     #[test]
