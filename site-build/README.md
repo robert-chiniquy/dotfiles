@@ -84,10 +84,10 @@ Card: `title`, `image` with `image_alt` (empty string for decoration),
 `link` need a `title` to carry the link.
 
 Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
-`venue`, `topic`, `description`, `deck` (directory of an exported slide deck,
-relative to the page; framed in an iframe above the title, with the
-`_partials/deck-help.md` text below the title), `image` (share image for
-`og:image`, relative to the page), `feed` (put the page in
+`venue`, `topic`, `description`, `image` (share image for `og:image`,
+relative to the page), `deck` (directory of an exported slide deck, relative
+to the page; needs `image`, which is then shown above the title as a link to
+the deck, with the `_partials/deck-help.md` text below the title), `feed` (put the page in
 `<out>/feed.xml`, an Atom feed, newest first; needs `date`).
 
 Unknown fields are errors. Nothing is written unless every file parses, every

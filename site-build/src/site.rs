@@ -364,14 +364,17 @@ fn render_page(
         "<nav class=\"article__nav\"><a href=\"/\"><span aria-hidden=\"true\">←</span> {}</a></nav>",
         escape(&site.title)
     );
-    // The deck is the page's only picture; it sits above the title.
+    // The page's one picture is the share image, above the title; with a
+    // deck it links to the deck, which opens as its own page.
     let help = match &meta.deck {
         Some(deck) => {
             let help = deck_help.ok_or("`deck` is set but _partials/deck-help.md is missing")?;
+            let image = meta.image.as_ref().ok_or("`deck` needs `image` for the picture that opens it")?;
             let _ = writeln!(
                 s,
-                "<div class=\"deck__frame\"><iframe src=\"{}\" title=\"Slides: {}\" allow=\"fullscreen\"></iframe></div>",
+                "<a class=\"deck__banner\" href=\"{}\"><img src=\"{}\" alt=\"Title slide of {}. Opens the slides.\"></a>",
                 escape(deck),
+                escape(image),
                 escape(&meta.title)
             );
             Some(help)
@@ -642,7 +645,7 @@ mod tests {
     fn deck_without_export_fails_and_writes_nothing() {
         let root = tempdir("deck_without_export_fails_and_writes_nothing");
         let (src, out) = (root.join("src"), root.join("out"));
-        write_site(&src, "---\ntitle: X\ndeck: deck/\n---\nbody\n");
+        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nbody\n");
         write(&src.join("_partials/deck-help.md"), "keys\n").unwrap();
         let err = build(&src, &out).unwrap_err();
         assert!(err.contains("export the deck first"), "{err}");
@@ -653,27 +656,45 @@ mod tests {
     fn deck_without_help_partial_fails() {
         let root = tempdir("deck_without_help_partial_fails");
         let (src, out) = (root.join("src"), root.join("out"));
-        write_site(&src, "---\ntitle: X\ndeck: deck/\n---\nbody\n");
+        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nbody\n");
         write(&out.join("talks/x/deck/index.html"), "").unwrap();
+        write(&out.join("talks/x/deck/thumbnail.png"), "png").unwrap();
         let err = build(&src, &out).unwrap_err();
         assert!(err.contains("deck-help.md"), "{err}");
     }
 
     #[test]
-    fn deck_renders_frame_and_help() {
-        let root = tempdir("deck_renders_frame_and_help");
+    fn deck_without_image_fails() {
+        // Fails if a deck page builds with nothing to click to open the deck.
+        let root = tempdir("deck_without_image_fails");
         let (src, out) = (root.join("src"), root.join("out"));
         write_site(&src, "---\ntitle: X\ndeck: deck/\n---\nbody\n");
+        write(&src.join("_partials/deck-help.md"), "keys\n").unwrap();
+        write(&out.join("talks/x/deck/index.html"), "").unwrap();
+        let err = build(&src, &out).unwrap_err();
+        assert!(err.contains("`deck` needs `image`"), "{err}");
+    }
+
+    #[test]
+    fn deck_renders_banner_link_and_help() {
+        let root = tempdir("deck_renders_banner_link_and_help");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nbody\n");
         write(&src.join("_partials/deck-help.md"), "Press `?`.\n").unwrap();
         write(&out.join("talks/x/deck/index.html"), "").unwrap();
+        write(&out.join("talks/x/deck/thumbnail.png"), "png").unwrap();
         build(&src, &out).unwrap();
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
-        assert!(page.contains("<iframe src=\"deck/\""), "{page}");
+        assert!(
+            page.contains("<a class=\"deck__banner\" href=\"deck/\"><img src=\"deck/thumbnail.png\""),
+            "{page}"
+        );
+        assert!(!page.contains("<iframe"), "the deck must not load on the page: {page}");
         assert!(page.contains("Press <code>?</code>."), "{page}");
     }
 
     #[test]
-    fn deck_sits_above_the_title_and_is_the_only_picture() {
+    fn banner_sits_above_the_title_and_is_the_only_picture() {
         let root = tempdir("deck_above_title");
         let (src, out) = (root.join("src"), root.join("out"));
         write(&src.join("index.md"), "---\ntitle: Site\nurl: https://example.org\n---\n").unwrap();
@@ -683,14 +704,14 @@ mod tests {
         write(&out.join("talks/x/deck/thumbnail.png"), "png").unwrap();
         build(&src, &out).unwrap();
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
-        let (frame, title, help, text) = (
-            page.find("class=\"deck__frame\"").unwrap(),
+        let (banner, title, help, text) = (
+            page.find("class=\"deck__banner\"").unwrap(),
             page.find("<h1>X</h1>").unwrap(),
             page.find("class=\"deck__help\"").unwrap(),
             page.find("<p>abstract</p>").unwrap(),
         );
-        assert!(frame < title && title < help && help < text, "{page}");
-        assert!(!page.contains("<img"), "the deck is the only picture: {page}");
+        assert!(banner < title && title < help && help < text, "{page}");
+        assert_eq!(page.matches("<img").count(), 1, "one picture per page: {page}");
         assert!(page.contains("og:image\" content=\"https://example.org/talks/x/deck/thumbnail.png\""), "{page}");
     }
 
