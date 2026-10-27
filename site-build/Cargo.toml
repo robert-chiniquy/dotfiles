@@ -1,0 +1,20 @@
+[package]
+name = "site-build"
+version = "0.1.0"
+edition = "2021"
+description = "Build a card index page and per-item pages from markdown with YAML frontmatter."
+
+[[bin]]
+name = "site-build"
+path = "src/main.rs"
+
+[dependencies]
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+serde = { version = "1", features = ["derive"] }
+serde_yml = "0.0.12"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
