@@ -333,7 +333,13 @@ fn render_card(card: &Card, body: &str, pages: &BTreeMap<PathBuf, String>) -> Re
         (None, Some(l)) => Some(l.clone()),
         (None, None) => None,
     };
-    let mut s = String::from("<li class=\"cards__item\">\n<article class=\"card\"");
+    // A card for a page links as a whole: the stylesheet stretches the title
+    // link over the card.
+    let mut s = String::from(if card.page.is_some() {
+        "<li class=\"cards__item\">\n<article class=\"card card--page\""
+    } else {
+        "<li class=\"cards__item\">\n<article class=\"card\""
+    });
     if let Some(bg) = &card.background {
         let _ = write!(s, " style=\"background-color: {}\"", escape(bg));
     }
@@ -665,6 +671,16 @@ mod tests {
         pages.insert(PathBuf::from("talks/x.md"), "/talks/x/".to_string());
         let card = Card { title: Some("T".into()), page: Some("talks/x.md".into()), ..Default::default() };
         assert!(render_card(&card, "", &pages).unwrap().contains("<a href=\"/talks/x/\">T</a>"));
+    }
+
+    #[test]
+    fn only_page_cards_link_as_a_whole() {
+        let mut pages = BTreeMap::new();
+        pages.insert(PathBuf::from("talks/x.md"), "/talks/x/".to_string());
+        let page = Card { title: Some("T".into()), page: Some("talks/x.md".into()), ..Default::default() };
+        assert!(render_card(&page, "", &pages).unwrap().contains("<article class=\"card card--page\">"));
+        let link = Card { title: Some("T".into()), link: Some("https://example.com".into()), ..Default::default() };
+        assert!(render_card(&link, "", &pages).unwrap().contains("<article class=\"card\">"));
     }
 
     #[test]
