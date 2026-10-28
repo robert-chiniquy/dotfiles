@@ -132,6 +132,36 @@ pub struct PageMeta {
     /// Put the page in `feed.xml`. Needs `date`.
     #[serde(default)]
     pub feed: bool,
+    /// A YouTube video URL; the page embeds its player above the body.
+    pub youtube: Option<String>,
+}
+
+/// The video id in a YouTube URL: `youtube.com/watch?v=ID`, `youtu.be/ID`,
+/// `youtube.com/embed/ID`, or `youtube.com/live/ID`.
+pub fn youtube_id(url: &str) -> Result<String, String> {
+    let rest = url.split_once("://").map_or(url, |(_, r)| r);
+    let (host, path) = rest.split_once('/').unwrap_or((rest, ""));
+    let host = host.trim_start_matches("www.").trim_start_matches("m.");
+    let id = match host {
+        "youtu.be" => path.split(['?', '#']).next(),
+        "youtube.com" | "youtube-nocookie.com" => {
+            if let Some(query) = path.strip_prefix("watch?") {
+                query.split('&').find_map(|kv| kv.strip_prefix("v="))
+            } else {
+                ["embed/", "live/", "shorts/"]
+                    .iter()
+                    .find_map(|p| path.strip_prefix(p))
+                    .and_then(|r| r.split(['?', '#', '/']).next())
+            }
+        }
+        _ => None,
+    };
+    match id {
+        Some(id) if id.len() == 11 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') => {
+            Ok(id.to_string())
+        }
+        _ => Err(format!("`youtube` is not a YouTube video URL: {url}")),
+    }
 }
 
 /// One feed entry.
@@ -526,6 +556,15 @@ fn render_page(
     s.push_str("</header>\n");
     if let Some(help) = help {
         let _ = write!(s, "<div class=\"deck__help\">\n{}</div>\n", markdown(help));
+    }
+    if let Some(url) = &meta.youtube {
+        // The no-cookie host sets no cookies until the viewer presses play.
+        let _ = writeln!(
+            s,
+            "<div class=\"video\"><iframe src=\"https://www.youtube-nocookie.com/embed/{}\" title=\"Video: {}\" allow=\"encrypted-media; picture-in-picture; fullscreen\" allowfullscreen loading=\"lazy\" referrerpolicy=\"strict-origin-when-cross-origin\"></iframe></div>",
+            youtube_id(url)?,
+            escape(&meta.title)
+        );
     }
     s.push_str(&markdown(body));
     s.push_str("</main>\n</body>\n</html>\n");
@@ -978,6 +1017,47 @@ mod tests {
         ] {
             assert!(page.contains(tag), "missing {tag} in {page}");
         }
+    }
+
+    #[test]
+    fn youtube_id_reads_every_url_form() {
+        for url in [
+            "https://www.youtube.com/watch?v=uKf0AR-aV6g",
+            "https://youtube.com/watch?feature=share&v=uKf0AR-aV6g&t=10",
+            "https://m.youtube.com/watch?v=uKf0AR-aV6g",
+            "https://youtu.be/uKf0AR-aV6g?si=x",
+            "https://www.youtube.com/embed/uKf0AR-aV6g",
+            "https://www.youtube.com/live/uKf0AR-aV6g?si=x",
+        ] {
+            assert_eq!(youtube_id(url).as_deref(), Ok("uKf0AR-aV6g"), "{url}");
+        }
+    }
+
+    #[test]
+    fn youtube_id_rejects_other_hosts_and_bad_ids() {
+        for url in [
+            "https://vimeo.com/12345678901",
+            "https://www.youtube.com/watch?v=short",
+            "https://www.youtube.com/@channel",
+            "https://youtu.be/uKf0AR-aV6g\"><script>",
+        ] {
+            assert!(youtube_id(url).is_err(), "{url}");
+        }
+    }
+
+    #[test]
+    fn page_with_youtube_embeds_the_player_before_the_body() {
+        let root = tempdir("page_youtube");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: T\nyoutube: https://youtu.be/uKf0AR-aV6g\n---\nAfter the video.\n");
+        build(&src, &out).unwrap();
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        let player = page
+            .find("<iframe src=\"https://www.youtube-nocookie.com/embed/uKf0AR-aV6g\" title=\"Video: T\"")
+            .unwrap_or_else(|| panic!("{page}"));
+        assert!(player < page.find("After the video.").unwrap(), "{page}");
+        write_site(&src, "---\ntitle: T\nyoutube: https://example.com/v\n---\n");
+        assert!(build(&src, &out).unwrap_err().contains("not a YouTube video URL"));
     }
 
     #[test]

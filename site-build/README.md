@@ -94,7 +94,9 @@ Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
 page) with `image_alt`, `deck` (directory of an exported slide deck, relative
 to the page; needs `image`, which is then shown above the title as a link to
 the deck, with the `_partials/deck-help.md` text below the title), `feed` (put the page in
-`<out>/feed.xml`, an Atom feed, newest first; needs `date`).
+`<out>/feed.xml`, an Atom feed, newest first; needs `date`), `youtube` (a
+YouTube video URL; its player is embedded from youtube-nocookie.com above the
+body, styled by the `.video` class).
 
 ## Link previews
 
