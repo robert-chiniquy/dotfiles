@@ -68,6 +68,21 @@ pub struct SiteMeta {
     pub lang: String,
     /// Feed author; required once any page sets `feed`.
     pub author: Option<String>,
+    /// Heading of the header at the top of every page. The header is drawn
+    /// only when this is set.
+    pub name: Option<String>,
+    /// Markdown under the name. Needs `name`.
+    pub bio: Option<String>,
+    /// Profiles elsewhere, in order, shown as one row of words. Needs `name`.
+    #[serde(default)]
+    pub links: Vec<ProfileLink>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProfileLink {
+    pub label: String,
+    pub url: String,
 }
 
 fn default_lang() -> String {
@@ -387,13 +402,42 @@ fn render_index(
         labels: &[],
         extra: head_extra,
     });
-    let _ = writeln!(s, "<body>\n<h1 class=\"visually-hidden\">{}</h1>\n<main>", escape(&site.title));
+    match render_site_header(site, true) {
+        Some(header) => {
+            let _ = write!(s, "<body>\n{header}<main>\n");
+        }
+        None => {
+            let _ = writeln!(s, "<body>\n<h1 class=\"visually-hidden\">{}</h1>\n<main>", escape(&site.title));
+        }
+    }
     s.push_str("<ul class=\"cards\">\n");
     for (card, body) in cards {
         s.push_str(&render_card(card, body, pages)?);
     }
     s.push_str("</ul>\n</main>\n</body>\n</html>\n");
     Ok(s)
+}
+
+/// The name, bio, and profile links at the top of every page, or `None` when
+/// the site has no `name`. The name is the index's `h1`; a page has its own
+/// `h1`, so there the name is a paragraph.
+fn render_site_header(site: &SiteMeta, is_index: bool) -> Option<String> {
+    let name = site.name.as_ref()?;
+    let tag = if is_index { "h1" } else { "p" };
+    let mut s = String::from("<header class=\"site-header\">\n");
+    let _ = writeln!(s, "<{tag} class=\"site-header__name\"><a href=\"/\">{}</a></{tag}>", escape(name));
+    if let Some(bio) = &site.bio {
+        let _ = write!(s, "<div class=\"site-header__bio\">\n{}</div>\n", markdown(bio));
+    }
+    if !site.links.is_empty() {
+        s.push_str("<ul class=\"site-header__links\">\n");
+        for link in &site.links {
+            let _ = writeln!(s, "<li><a rel=\"me\" href=\"{}\">{}</a></li>", escape(&link.url), escape(&link.label));
+        }
+        s.push_str("</ul>\n");
+    }
+    s.push_str("</header>\n");
+    Some(s)
 }
 
 fn render_page(
@@ -423,7 +467,9 @@ fn render_page(
         labels: &labels,
         extra: head_extra,
     });
-    let _ = writeln!(s, "<body class=\"page\">\n<main class=\"article\">");
+    s.push_str("<body class=\"page\">\n");
+    s.push_str(&render_site_header(site, false).unwrap_or_default());
+    s.push_str("<main class=\"article\">\n");
     let _ = writeln!(
         s,
         "<nav class=\"article__nav\"><a href=\"/\"><span aria-hidden=\"true\">←</span> {}</a></nav>",
@@ -503,6 +549,9 @@ pub fn build(src: &Path, out: &Path) -> Result<Built, String> {
         return Err("index.md: put card text after a card's frontmatter, not after the site frontmatter".into());
     }
     let site: SiteMeta = parse_yaml(&first.yaml, "index.md site frontmatter")?;
+    if site.name.is_none() && (site.bio.is_some() || !site.links.is_empty()) {
+        return Err("index.md: `bio` and `links` go in the header, which needs `name`".into());
+    }
     let mut cards = Vec::new();
     for (i, seg) in rest.iter().enumerate() {
         let card: Card = parse_yaml(&seg.yaml, &format!("index.md card {}", i + 1))?;
@@ -898,6 +947,41 @@ mod tests {
         ] {
             assert!(page.contains(tag), "missing {tag} in {page}");
         }
+    }
+
+    #[test]
+    fn header_names_the_site_on_index_and_pages_with_profile_links() {
+        let root = tempdir("header_on_every_page");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: X\n---\nbody\n");
+        write(
+            &src.join("index.md"),
+            "---\ntitle: Site\nname: A B\nbio: Does *things*.\nlinks:\n  - label: GitHub\n    url: https://github.com/ab\n  - label: Mastodon\n    url: https://m.example/@ab\n---\n---\ntitle: Card\npage: talks/x.md\n---\nhi\n",
+        )
+        .unwrap();
+        build(&src, &out).unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(index.contains("<h1 class=\"site-header__name\"><a href=\"/\">A B</a></h1>"), "{index}");
+        assert!(!index.contains("visually-hidden"), "{index}");
+        assert!(index.contains("<p>Does <em>things</em>.</p>"), "{index}");
+        let github = index.find("<li><a rel=\"me\" href=\"https://github.com/ab\">GitHub</a></li>").unwrap();
+        let mastodon = index.find("<li><a rel=\"me\" href=\"https://m.example/@ab\">Mastodon</a></li>").unwrap();
+        assert!(github < mastodon, "links keep their order");
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        assert!(page.contains("<p class=\"site-header__name\"><a href=\"/\">A B</a></p>"), "{page}");
+        assert_eq!(page.matches("<h1").count(), 1, "a page keeps one h1: {page}");
+    }
+
+    #[test]
+    fn no_name_means_no_header_and_header_fields_need_a_name() {
+        let root = tempdir("header_needs_name");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: X\n---\nbody\n");
+        build(&src, &out).unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(!index.contains("site-header") && index.contains("visually-hidden"), "{index}");
+        write(&src.join("index.md"), "---\ntitle: Site\nlinks:\n  - label: G\n    url: https://g.example\n---\n").unwrap();
+        assert!(build(&src, &out).unwrap_err().contains("needs `name`"));
     }
 
     #[test]
