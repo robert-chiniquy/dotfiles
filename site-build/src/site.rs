@@ -488,7 +488,14 @@ fn write(path: &Path, contents: &str) -> Result<(), String> {
 
 /// Build everything; returns the files written. Nothing is written unless
 /// every source file parses and every reference resolves.
-pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
+/// What a build wrote, and the site `url` its pages use for themselves.
+#[derive(Debug)]
+pub struct Built {
+    pub written: Vec<PathBuf>,
+    pub url: Option<String>,
+}
+
+pub fn build(src: &Path, out: &Path) -> Result<Built, String> {
     let index_path = src.join("index.md");
     let segments = split_segments(&read(&index_path)?).map_err(|e| format!("{}: {e}", index_path.display()))?;
     let (first, rest) = segments.split_first().ok_or("index.md is empty")?;
@@ -580,7 +587,7 @@ pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
         write(&path, &html)?;
         written.push(path);
     }
-    Ok(written)
+    Ok(Built { written, url: site.url })
 }
 
 #[cfg(test)]
@@ -717,7 +724,7 @@ mod tests {
         write_site(&src, "---\ntitle: X\ndate: 2026-06-01\n---\nbody\n");
         write(&src.join("notes/hidden.md"), "---\ntitle: Hidden\n---\nonly by link\n").unwrap();
         write(&src.join("_partials/ignored.md"), "not a page").unwrap();
-        let written = build(&src, &out).unwrap();
+        let written = build(&src, &out).unwrap().written;
         assert_eq!(
             written,
             vec![out.join("index.html"), out.join("notes/hidden/index.html"), out.join("talks/x/index.html")]

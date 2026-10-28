@@ -101,6 +101,17 @@ width and height (read from the file) and alt text, as a
 its `venue` and `date` are the Venue and Date rows Slack shows under the
 description. Share images look best at 1200x630.
 
+## Dead links
+
+After writing, every `href` and `src` in the written pages is checked and
+each dead one is a warning on stderr; the exit status does not change. A site
+path, or a URL under the site `url`, must name a file under the output
+directory (a directory counts when it holds an `index.html`). Any other
+`http` or `https` URL is fetched once (HEAD, then GET if HEAD fails) and must
+answer below HTTP 400.
+
+## Errors
+
 Unknown fields are errors. Nothing is written unless every file parses, every
 `page:` names a page, every `deck` directory already has an `index.html`, and
 every `image` exists.
