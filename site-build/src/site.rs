@@ -60,6 +60,8 @@ pub struct SiteMeta {
     pub url: Option<String>,
     /// Site-relative path of the share image.
     pub image: Option<String>,
+    /// What the share image shows. Required with `image`.
+    pub image_alt: Option<String>,
     /// Twitter handle without `@`.
     pub twitter: Option<String>,
     #[serde(default = "default_lang")]
@@ -103,6 +105,8 @@ pub struct PageMeta {
     pub deck: Option<String>,
     /// Share image (`og:image`), relative to the page's own URL.
     pub image: Option<String>,
+    /// What the share image shows. Required with `image`.
+    pub image_alt: Option<String>,
     /// Put the page in `feed.xml`. Needs `date`.
     #[serde(default)]
     pub feed: bool,
@@ -233,17 +237,42 @@ pub fn find_pages(src: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(out)
 }
 
+/// A link-preview image, measured from its file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShareImage {
+    /// Site path, e.g. `/talks/x/deck/share.png`.
+    pub path: String,
+    pub alt: String,
+    pub width: usize,
+    pub height: usize,
+}
+
+/// Measure `file`, which is served at site path `path`.
+fn share_image(file: &Path, path: String, alt: &str) -> Result<ShareImage, String> {
+    if !file.is_file() {
+        return Err(format!("image {} does not exist", file.display()));
+    }
+    let size = imagesize::size(file).map_err(|e| format!("image {}: {e}", file.display()))?;
+    Ok(ShareImage { path, alt: alt.to_string(), width: size.width, height: size.height })
+}
+
 struct Head<'a> {
     site: &'a SiteMeta,
     title: &'a str,
     description: Option<&'a str>,
     path: &'a str,
-    /// Site path of the share image; the site's image when `None`.
-    image: Option<&'a str>,
+    image: Option<&'a ShareImage>,
     og_type: &'a str,
+    /// `YYYY-MM-DD`, for `article:published_time`.
+    published: Option<&'a str>,
+    /// Label and value pairs Slack shows under the description.
+    labels: &'a [(&'a str, String)],
     extra: &'a str,
 }
 
+/// Open Graph and Twitter Card tags, which Facebook, LinkedIn, X, Slack,
+/// Discord, iMessage, and Mastodon read for link previews. Image URLs must
+/// be absolute, so the image tags need the site `url`.
 fn render_head(h: &Head) -> String {
     let mut s = String::new();
     let _ = writeln!(s, "<!DOCTYPE html>\n<html lang=\"{}\">\n<head>", escape(&h.site.lang));
@@ -256,15 +285,33 @@ fn render_head(h: &Head) -> String {
     let _ = writeln!(s, "<meta property=\"og:site_name\" content=\"{}\">", escape(&h.site.title));
     let _ = writeln!(s, "<meta property=\"og:title\" content=\"{}\">", escape(h.title));
     let _ = writeln!(s, "<meta property=\"og:type\" content=\"{}\">", h.og_type);
+    if let Some(d) = h.published {
+        let _ = writeln!(s, "<meta property=\"article:published_time\" content=\"{}\">", escape(d));
+    }
+    let mut large = false;
     if let Some(base) = &h.site.url {
         let base = base.trim_end_matches('/');
+        let _ = writeln!(s, "<link rel=\"canonical\" href=\"{}{}\">", escape(base), escape(h.path));
         let _ = writeln!(s, "<meta property=\"og:url\" content=\"{}{}\">", escape(base), escape(h.path));
-        if let Some(img) = h.image.or(h.site.image.as_deref()) {
-            let _ = writeln!(s, "<meta property=\"og:image\" content=\"{}{}\">", escape(base), escape(img));
+        if let Some(img) = h.image {
+            let _ = writeln!(s, "<meta property=\"og:image\" content=\"{}{}\">", escape(base), escape(&img.path));
+            let _ = writeln!(s, "<meta property=\"og:image:width\" content=\"{}\">", img.width);
+            let _ = writeln!(s, "<meta property=\"og:image:height\" content=\"{}\">", img.height);
+            let _ = writeln!(s, "<meta property=\"og:image:alt\" content=\"{}\">", escape(&img.alt));
+            let _ = writeln!(s, "<meta name=\"twitter:image:alt\" content=\"{}\">", escape(&img.alt));
+            large = true;
         }
     }
+    let card = if large { "summary_large_image" } else { "summary" };
+    let _ = writeln!(s, "<meta name=\"twitter:card\" content=\"{card}\">");
     if let Some(t) = &h.site.twitter {
         let _ = writeln!(s, "<meta name=\"twitter:site\" content=\"@{}\">", escape(t));
+        let _ = writeln!(s, "<meta name=\"twitter:creator\" content=\"@{}\">", escape(t));
+    }
+    for (i, (label, data)) in h.labels.iter().enumerate() {
+        let n = i + 1;
+        let _ = writeln!(s, "<meta name=\"twitter:label{n}\" content=\"{}\">", escape(label));
+        let _ = writeln!(s, "<meta name=\"twitter:data{n}\" content=\"{}\">", escape(data));
     }
     s.push_str(h.extra);
     s.push_str("<link rel=\"stylesheet\" href=\"/css/site.css\">\n</head>\n");
@@ -321,14 +368,17 @@ fn render_index(
     cards: &[(Card, String)],
     pages: &BTreeMap<PathBuf, String>,
     head_extra: &str,
+    image: Option<&ShareImage>,
 ) -> Result<String, String> {
     let mut s = render_head(&Head {
         site,
         title: &site.title,
         description: site.description.as_deref(),
         path: "/",
-        image: None,
+        image,
         og_type: "website",
+        published: None,
+        labels: &[],
         extra: head_extra,
     });
     let _ = writeln!(s, "<body>\n<h1 class=\"visually-hidden\">{}</h1>\n<main>", escape(&site.title));
@@ -347,15 +397,24 @@ fn render_page(
     url: &str,
     head_extra: &str,
     deck_help: Option<&str>,
+    image: Option<&ShareImage>,
 ) -> Result<String, String> {
-    let image_url = meta.image.as_ref().map(|i| format!("{url}{i}"));
+    let mut labels = Vec::new();
+    if let Some(v) = &meta.venue {
+        labels.push(("Venue", v.clone()));
+    }
+    if let Some(d) = &meta.date {
+        labels.push(("Date", long_date(d)?));
+    }
     let mut s = render_head(&Head {
         site,
         title: &meta.title,
         description: meta.description.as_deref(),
         path: url,
-        image: image_url.as_deref(),
+        image,
         og_type: "article",
+        published: meta.date.as_deref(),
+        labels: &labels,
         extra: head_extra,
     });
     let _ = writeln!(s, "<body class=\"page\">\n<main class=\"article\">");
@@ -370,12 +429,13 @@ fn render_page(
         Some(deck) => {
             let help = deck_help.ok_or("`deck` is set but _partials/deck-help.md is missing")?;
             let image = meta.image.as_ref().ok_or("`deck` needs `image` for the picture that opens it")?;
+            let alt = meta.image_alt.as_deref().ok_or("`image` needs `image_alt`")?;
             let _ = writeln!(
                 s,
-                "<a class=\"deck__banner\" href=\"{}\"><img src=\"{}\" alt=\"Title slide of {}. Opens the slides.\"></a>",
+                "<a class=\"deck__banner\" href=\"{}\"><img src=\"{}\" alt=\"{}. Opens the slides.\"></a>",
                 escape(deck),
                 escape(image),
-                escape(&meta.title)
+                escape(alt.trim_end_matches('.'))
             );
             Some(help)
         }
@@ -478,7 +538,15 @@ pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
             escape(&site.title)
         );
     }
-    outputs.push((out.join("index.html"), render_index(&site, &cards, &urls, &head_extra)?));
+    let site_image = match &site.image {
+        Some(image) => {
+            let alt = site.image_alt.as_deref().ok_or("index.md: the site `image` needs `image_alt`")?;
+            let file = out.join(image.trim_start_matches('/'));
+            Some(share_image(&file, image.clone(), alt).map_err(|e| format!("index.md: {e}"))?)
+        }
+        None => None,
+    };
+    outputs.push((out.join("index.html"), render_index(&site, &cards, &urls, &head_extra, site_image.as_ref())?));
     for (rel, label, meta, body) in &pages {
         let dir = out.join(page_stem(rel));
         if let Some(deck) = &meta.deck {
@@ -487,13 +555,16 @@ pub fn build(src: &Path, out: &Path) -> Result<Vec<PathBuf>, String> {
                 return Err(format!("{label}: deck `{deck}` has no {}; export the deck first", deck_index.display()));
             }
         }
-        if let Some(image) = &meta.image {
-            let path = dir.join(image);
-            if !path.is_file() {
-                return Err(format!("{label}: image {} does not exist", path.display()));
+        let page_image = match &meta.image {
+            Some(image) => {
+                let alt = meta.image_alt.as_deref().ok_or_else(|| format!("{label}: `image` needs `image_alt`"))?;
+                let path = format!("{}{image}", urls[*rel]);
+                Some(share_image(&dir.join(image), path, alt).map_err(|e| format!("{label}: {e}"))?)
             }
-        }
-        let html = render_page(&site, meta, body, &urls[*rel], &head_extra, deck_help.as_deref())
+            None => None,
+        };
+        let image = page_image.as_ref().or(site_image.as_ref());
+        let html = render_page(&site, meta, body, &urls[*rel], &head_extra, deck_help.as_deref(), image)
             .map_err(|e| format!("{label}: {e}"))?;
         outputs.push((dir.join("index.html"), html));
     }
@@ -645,7 +716,7 @@ mod tests {
     fn deck_without_export_fails_and_writes_nothing() {
         let root = tempdir("deck_without_export_fails_and_writes_nothing");
         let (src, out) = (root.join("src"), root.join("out"));
-        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nbody\n");
+        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\nimage_alt: Title slide of X\n---\nbody\n");
         write(&src.join("_partials/deck-help.md"), "keys\n").unwrap();
         let err = build(&src, &out).unwrap_err();
         assert!(err.contains("export the deck first"), "{err}");
@@ -656,9 +727,9 @@ mod tests {
     fn deck_without_help_partial_fails() {
         let root = tempdir("deck_without_help_partial_fails");
         let (src, out) = (root.join("src"), root.join("out"));
-        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nbody\n");
+        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\nimage_alt: Title slide of X\n---\nbody\n");
         write(&out.join("talks/x/deck/index.html"), "").unwrap();
-        write(&out.join("talks/x/deck/thumbnail.png"), "png").unwrap();
+        put_png(&out.join("talks/x/deck/thumbnail.png"), 1200, 630);
         let err = build(&src, &out).unwrap_err();
         assert!(err.contains("deck-help.md"), "{err}");
     }
@@ -679,14 +750,16 @@ mod tests {
     fn deck_renders_banner_link_and_help() {
         let root = tempdir("deck_renders_banner_link_and_help");
         let (src, out) = (root.join("src"), root.join("out"));
-        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nbody\n");
+        write_site(&src, "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\nimage_alt: Title slide of X\n---\nbody\n");
         write(&src.join("_partials/deck-help.md"), "Press `?`.\n").unwrap();
         write(&out.join("talks/x/deck/index.html"), "").unwrap();
-        write(&out.join("talks/x/deck/thumbnail.png"), "png").unwrap();
+        put_png(&out.join("talks/x/deck/thumbnail.png"), 1200, 630);
         build(&src, &out).unwrap();
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(
-            page.contains("<a class=\"deck__banner\" href=\"deck/\"><img src=\"deck/thumbnail.png\""),
+            page.contains(
+                "<a class=\"deck__banner\" href=\"deck/\"><img src=\"deck/thumbnail.png\" alt=\"Title slide of X. Opens the slides.\">"
+            ),
             "{page}"
         );
         assert!(!page.contains("<iframe"), "the deck must not load on the page: {page}");
@@ -698,10 +771,10 @@ mod tests {
         let root = tempdir("deck_above_title");
         let (src, out) = (root.join("src"), root.join("out"));
         write(&src.join("index.md"), "---\ntitle: Site\nurl: https://example.org\n---\n").unwrap();
-        write(&src.join("talks/x.md"), "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\n---\nabstract\n").unwrap();
+        write(&src.join("talks/x.md"), "---\ntitle: X\ndeck: deck/\nimage: deck/thumbnail.png\nimage_alt: Title slide of X\n---\nabstract\n").unwrap();
         write(&src.join("_partials/deck-help.md"), "keys\n").unwrap();
         write(&out.join("talks/x/deck/index.html"), "").unwrap();
-        write(&out.join("talks/x/deck/thumbnail.png"), "png").unwrap();
+        put_png(&out.join("talks/x/deck/thumbnail.png"), 1200, 630);
         build(&src, &out).unwrap();
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         let (banner, title, help, text) = (
@@ -720,9 +793,125 @@ mod tests {
         let root = tempdir("missing_share_image");
         let (src, out) = (root.join("src"), root.join("out"));
         write(&src.join("index.md"), "---\ntitle: Site\n---\n").unwrap();
-        write(&src.join("talks/x.md"), "---\ntitle: X\nimage: nope.png\n---\n").unwrap();
+        write(&src.join("talks/x.md"), "---\ntitle: X\nimage: nope.png\nimage_alt: a picture\n---\n").unwrap();
         let err = build(&src, &out).unwrap_err();
         assert!(err.contains("nope.png"), "{err}");
+    }
+
+    /// The bytes of a PNG up to its IHDR chunk, which is all a size reader needs.
+    fn put_png(path: &Path, w: u32, h: u32) {
+        let mut b = vec![137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13];
+        b.extend_from_slice(b"IHDR");
+        b.extend_from_slice(&w.to_be_bytes());
+        b.extend_from_slice(&h.to_be_bytes());
+        b.extend_from_slice(&[8, 6, 0, 0, 0, 0, 0, 0, 0]);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, b).unwrap();
+    }
+
+    /// A site with a url, a twitter handle, a site image, and page `x`.
+    fn unfurl_site(root: &Path, page: &str) -> (PathBuf, PathBuf) {
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(
+            &src.join("index.md"),
+            "---\ntitle: Site\nurl: https://example.org/\nimage: /images/site.jpg\nimage_alt: A flower\ntwitter: someone\n---\n",
+        )
+        .unwrap();
+        write(&src.join("talks/x.md"), page).unwrap();
+        put_png(&out.join("images/site.jpg"), 800, 600);
+        (src, out)
+    }
+
+    #[test]
+    fn page_image_drives_a_large_card_with_size_and_alt() {
+        // Fails if a preview loses its size (Facebook and LinkedIn skip
+        // unsized images on first share) or X falls back to a small card.
+        let root = tempdir("page_image_unfurl");
+        let (src, out) = unfurl_site(&root, "---\ntitle: X\nimage: share.png\nimage_alt: Title slide of X\n---\n");
+        put_png(&out.join("talks/x/share.png"), 1200, 630);
+        build(&src, &out).unwrap();
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        for tag in [
+            "<link rel=\"canonical\" href=\"https://example.org/talks/x/\">",
+            "<meta property=\"og:image\" content=\"https://example.org/talks/x/share.png\">",
+            "<meta property=\"og:image:width\" content=\"1200\">",
+            "<meta property=\"og:image:height\" content=\"630\">",
+            "<meta property=\"og:image:alt\" content=\"Title slide of X\">",
+            "<meta name=\"twitter:image:alt\" content=\"Title slide of X\">",
+            "<meta name=\"twitter:card\" content=\"summary_large_image\">",
+            "<meta name=\"twitter:site\" content=\"@someone\">",
+            "<meta name=\"twitter:creator\" content=\"@someone\">",
+        ] {
+            assert!(page.contains(tag), "missing {tag} in {page}");
+        }
+    }
+
+    #[test]
+    fn page_without_image_shares_the_site_image() {
+        let root = tempdir("page_shares_site_image");
+        let (src, out) = unfurl_site(&root, "---\ntitle: X\n---\n");
+        build(&src, &out).unwrap();
+        for file in ["talks/x/index.html", "index.html"] {
+            let html = fs::read_to_string(out.join(file)).unwrap();
+            assert!(html.contains("og:image\" content=\"https://example.org/images/site.jpg\""), "{html}");
+            assert!(html.contains("og:image:width\" content=\"800\""), "{html}");
+            assert!(html.contains("og:image:alt\" content=\"A flower\""), "{html}");
+        }
+    }
+
+    #[test]
+    fn page_head_carries_date_and_venue_for_previews() {
+        // Fails if Slack loses the Venue and Date rows or the date tag drops.
+        let root = tempdir("page_labels");
+        let (src, out) = unfurl_site(&root, "---\ntitle: X\ndate: 2026-06-01\nvenue: Some Conf\n---\n");
+        build(&src, &out).unwrap();
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        for tag in [
+            "<meta property=\"article:published_time\" content=\"2026-06-01\">",
+            "<meta name=\"twitter:label1\" content=\"Venue\">",
+            "<meta name=\"twitter:data1\" content=\"Some Conf\">",
+            "<meta name=\"twitter:label2\" content=\"Date\">",
+            "<meta name=\"twitter:data2\" content=\"1 June 2026\">",
+        ] {
+            assert!(page.contains(tag), "missing {tag} in {page}");
+        }
+    }
+
+    #[test]
+    fn site_without_url_gets_a_small_card_and_no_image_tags() {
+        // Fails if a relative og:image is written; unfurlers need absolute URLs.
+        let root = tempdir("no_url_small_card");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(&src.join("index.md"), "---\ntitle: Site\nimage: /images/site.jpg\nimage_alt: A flower\n---\n").unwrap();
+        put_png(&out.join("images/site.jpg"), 800, 600);
+        build(&src, &out).unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(!index.contains("og:image"), "{index}");
+        assert!(index.contains("twitter:card\" content=\"summary\""), "{index}");
+    }
+
+    #[test]
+    fn image_without_alt_fails_for_site_and_page() {
+        let root = tempdir("site_image_needs_alt");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(&src.join("index.md"), "---\ntitle: Site\nimage: /images/site.jpg\n---\n").unwrap();
+        put_png(&out.join("images/site.jpg"), 800, 600);
+        assert!(build(&src, &out).unwrap_err().contains("image_alt"));
+
+        let root = tempdir("page_image_needs_alt");
+        let (src, out) = unfurl_site(&root, "---\ntitle: X\nimage: share.png\n---\n");
+        put_png(&out.join("talks/x/share.png"), 1200, 630);
+        assert!(build(&src, &out).unwrap_err().contains("image_alt"));
+    }
+
+    #[test]
+    fn unreadable_image_fails() {
+        let root = tempdir("unreadable_image");
+        let (src, out) = unfurl_site(&root, "---\ntitle: X\nimage: share.png\nimage_alt: a\n---\n");
+        write(&out.join("talks/x/share.png"), "not an image").unwrap();
+        let err = build(&src, &out).unwrap_err();
+        assert!(err.contains("share.png"), "{err}");
+        assert!(!out.join("index.html").exists(), "nothing is written when an image cannot be measured");
     }
 
     fn feed_site(root: &Path, site_extra: &str) -> (PathBuf, PathBuf) {

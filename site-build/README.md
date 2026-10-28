@@ -73,10 +73,11 @@ Abstract in markdown.
 
 ## Fields
 
-Site: `title` (required), `description`, `url` (absolute, for `og:url` and
-the feed), `image` (site path, for `og:image`), `twitter` (handle without
-`@`), `lang` (default `en`), `author` (feed author; required once a page sets
-`feed`).
+Site: `title` (required), `description`, `url` (absolute, for `og:url`, the
+canonical link, image URLs, and the feed), `image` (site path, the share
+image for the index and for any page without its own) with `image_alt`,
+`twitter` (handle without `@`), `lang` (default `en`), `author` (feed author;
+required once a page sets `feed`).
 
 Card: `title`, `image` with `image_alt` (empty string for decoration),
 `page` (source path of a page) or `link` (URL), `background` (CSS color),
@@ -84,11 +85,21 @@ Card: `title`, `image` with `image_alt` (empty string for decoration),
 `link` need a `title` to carry the link.
 
 Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
-`venue`, `topic`, `description`, `image` (share image for `og:image`,
-relative to the page), `deck` (directory of an exported slide deck, relative
+`venue`, `topic`, `description`, `image` (share image, relative to the
+page) with `image_alt`, `deck` (directory of an exported slide deck, relative
 to the page; needs `image`, which is then shown above the title as a link to
 the deck, with the `_partials/deck-help.md` text below the title), `feed` (put the page in
 `<out>/feed.xml`, an Atom feed, newest first; needs `date`).
+
+## Link previews
+
+Every page gets Open Graph and Twitter Card tags, which Facebook, LinkedIn,
+X, Slack, Discord, iMessage, and Mastodon read: title, description, type,
+canonical URL, and, when the site has a `url`, the share image with its
+width and height (read from the file) and alt text, as a
+`summary_large_image` card. A page's `date` is `article:published_time`, and
+its `venue` and `date` are the Venue and Date rows Slack shows under the
+description. Share images look best at 1200x630.
 
 Unknown fields are errors. Nothing is written unless every file parses, every
 `page:` names a page, every `deck` directory already has an `index.html`, and

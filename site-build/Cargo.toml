@@ -12,6 +12,7 @@ path = "src/main.rs"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 serde = { version = "1", features = ["derive"] }
 serde_yml = "0.0.12"
+imagesize = "0.13"
 
 [profile.release]
 opt-level = 3
