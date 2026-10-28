@@ -81,8 +81,15 @@ pub struct SiteMeta {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProfileLink {
+    /// Link text, or with `icon` the accessible name and tooltip.
     pub label: String,
     pub url: String,
+    /// Site path of an SVG drawn in place of the label. It is inlined so it
+    /// takes the text color.
+    pub icon: Option<String>,
+    /// The `icon` file's contents, read by [`build`].
+    #[serde(skip)]
+    pub svg: Option<String>,
 }
 
 fn default_lang() -> String {
@@ -432,7 +439,19 @@ fn render_site_header(site: &SiteMeta, is_index: bool) -> Option<String> {
     if !site.links.is_empty() {
         s.push_str("<ul class=\"site-header__links\">\n");
         for link in &site.links {
-            let _ = writeln!(s, "<li><a rel=\"me\" href=\"{}\">{}</a></li>", escape(&link.url), escape(&link.label));
+            let (url, label) = (escape(&link.url), escape(&link.label));
+            match &link.svg {
+                Some(svg) => {
+                    let _ = writeln!(
+                        s,
+                        "<li><a rel=\"me\" href=\"{url}\" aria-label=\"{label}\" title=\"{label}\"><span class=\"site-header__icon\" aria-hidden=\"true\">{}</span></a></li>",
+                        svg.trim()
+                    );
+                }
+                None => {
+                    let _ = writeln!(s, "<li><a rel=\"me\" href=\"{url}\">{label}</a></li>");
+                }
+            }
         }
         s.push_str("</ul>\n");
     }
@@ -548,9 +567,21 @@ pub fn build(src: &Path, out: &Path) -> Result<Built, String> {
     if !first.body.trim().is_empty() {
         return Err("index.md: put card text after a card's frontmatter, not after the site frontmatter".into());
     }
-    let site: SiteMeta = parse_yaml(&first.yaml, "index.md site frontmatter")?;
+    let mut site: SiteMeta = parse_yaml(&first.yaml, "index.md site frontmatter")?;
     if site.name.is_none() && (site.bio.is_some() || !site.links.is_empty()) {
         return Err("index.md: `bio` and `links` go in the header, which needs `name`".into());
+    }
+    for link in &mut site.links {
+        if let Some(icon) = &link.icon {
+            let svg = read(&out.join(icon.trim_start_matches('/')))
+                .map_err(|e| format!("index.md: icon for `{}`: {e}", link.label))?;
+            let is_svg = tl::parse(&svg, tl::ParserOptions::default())
+                .is_ok_and(|dom| dom.nodes().iter().filter_map(|n| n.as_tag()).any(|t| t.name() == "svg"));
+            if !is_svg {
+                return Err(format!("index.md: icon `{icon}` for `{}` has no <svg> element", link.label));
+            }
+            link.svg = Some(svg);
+        }
     }
     let mut cards = Vec::new();
     for (i, seg) in rest.iter().enumerate() {
@@ -970,6 +1001,37 @@ mod tests {
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(page.contains("<p class=\"site-header__name\"><a href=\"/\">A B</a></p>"), "{page}");
         assert_eq!(page.matches("<h1").count(), 1, "a page keeps one h1: {page}");
+    }
+
+    #[test]
+    fn icon_link_inlines_the_svg_and_keeps_the_label_for_screen_readers() {
+        let root = tempdir("header_icon");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: X\n---\nbody\n");
+        write(&out.join("icons/g.svg"), "<svg viewBox=\"0 0 24 24\"><path d=\"M0 0\"/></svg>\n").unwrap();
+        write(
+            &src.join("index.md"),
+            "---\ntitle: Site\nname: A\nlinks:\n  - label: GitHub\n    url: https://github.com/a\n    icon: /icons/g.svg\n---\n",
+        )
+        .unwrap();
+        build(&src, &out).unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(
+            index.contains("<a rel=\"me\" href=\"https://github.com/a\" aria-label=\"GitHub\" title=\"GitHub\"><span class=\"site-header__icon\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\"><path d=\"M0 0\"/></svg></span></a>"),
+            "{index}"
+        );
+    }
+
+    #[test]
+    fn icon_that_is_missing_or_not_svg_fails() {
+        let root = tempdir("header_icon_bad");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: X\n---\nbody\n");
+        let index = "---\ntitle: Site\nname: A\nlinks:\n  - label: G\n    url: https://g.example\n    icon: /g.svg\n---\n";
+        write(&src.join("index.md"), index).unwrap();
+        assert!(build(&src, &out).unwrap_err().contains("icon for `G`"));
+        write(&out.join("g.svg"), "<p>not an icon</p>").unwrap();
+        assert!(build(&src, &out).unwrap_err().contains("has no <svg> element"));
     }
 
     #[test]

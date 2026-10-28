@@ -80,7 +80,9 @@ image for the index and for any page without its own) with `image_alt`,
 required once a page sets `feed`), `name` (heading of a header drawn at the
 top of every page: the index's `h1`, a paragraph on pages), `bio` (markdown
 under the name), `links` (profiles elsewhere, each `label` and `url`, shown in
-order as one row with `rel="me"`). `bio` and `links` need `name`.
+order as one row with `rel="me"`; an optional `icon`, the site path of an SVG
+file, is inlined in place of the label so it takes the text color, and the
+label becomes its accessible name and tooltip). `bio` and `links` need `name`.
 
 Card: `title`, `image` with `image_alt` (empty string for decoration),
 `page` (source path of a page) or `link` (URL), `background` (CSS color),
