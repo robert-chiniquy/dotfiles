@@ -82,7 +82,8 @@ top of every page: the index's `h1`, a paragraph on pages), `links` (profiles
 elsewhere, each `label` and `url`, shown in order under the name with
 `rel="me"`; an optional `icon`, the site path of an SVG file, is inlined in
 place of the label so it takes the text color, and the label becomes its
-accessible name and tooltip), `bio` (markdown under the links). `bio` and
+accessible name and tooltip), `bio` (markdown under the links, on the index
+only). `bio` and
 `links` need `name`.
 
 Card: `title`, `image` with `image_alt` (empty string for decoration),

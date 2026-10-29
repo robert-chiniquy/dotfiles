@@ -518,7 +518,8 @@ fn render_site_header(site: &SiteMeta, is_index: bool, card: Option<&str>) -> Op
         }
         s.push_str("</ul>\n");
     }
-    if let Some(bio) = &site.bio {
+    // The bio is about the person, so it shows on the index only.
+    if let Some(bio) = site.bio.as_ref().filter(|_| is_index) {
         let _ = write!(s, "<div class=\"site-header__bio\">\n{}</div>\n", markdown(bio));
     }
     if let Some(card) = card {
@@ -1157,6 +1158,7 @@ mod tests {
         assert!(mastodon < bio, "the bio comes after the links: {index}");
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(page.contains("<p class=\"site-header__name\"><a href=\"/\">A B</a></p>"), "{page}");
+        assert!(!page.contains("site-header__bio"), "the bio is on the index only: {page}");
         assert_eq!(page.matches("<h1").count(), 1, "a page keeps one h1: {page}");
     }
 
