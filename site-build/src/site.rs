@@ -487,7 +487,7 @@ fn render_index(
     Ok(s)
 }
 
-/// The name, bio, and profile links at the top of every page, or `None` when
+/// The name, profile links, and bio at the top of every page, or `None` when
 /// the site has no `name`. The name is the index's `h1`; a page has its own
 /// `h1`, so there the name is a paragraph. With `card`, the name, bio, and
 /// links go in a column on the left and the card sits on the right.
@@ -499,9 +499,6 @@ fn render_site_header(site: &SiteMeta, is_index: bool, card: Option<&str>) -> Op
         None => "<header class=\"site-header\">\n",
     });
     let _ = writeln!(s, "<{tag} class=\"site-header__name\"><a href=\"/\">{}</a></{tag}>", escape(name));
-    if let Some(bio) = &site.bio {
-        let _ = write!(s, "<div class=\"site-header__bio\">\n{}</div>\n", markdown(bio));
-    }
     if !site.links.is_empty() {
         s.push_str("<ul class=\"site-header__links\">\n");
         for link in &site.links {
@@ -520,6 +517,9 @@ fn render_site_header(site: &SiteMeta, is_index: bool, card: Option<&str>) -> Op
             }
         }
         s.push_str("</ul>\n");
+    }
+    if let Some(bio) = &site.bio {
+        let _ = write!(s, "<div class=\"site-header__bio\">\n{}</div>\n", markdown(bio));
     }
     if let Some(card) = card {
         let _ = write!(s, "</div>\n<div class=\"site-header__card\">\n{card}</div>\n");
@@ -1153,6 +1153,8 @@ mod tests {
         let github = index.find("<li><a rel=\"me\" href=\"https://github.com/ab\">GitHub</a></li>").unwrap();
         let mastodon = index.find("<li><a rel=\"me\" href=\"https://m.example/@ab\">Mastodon</a></li>").unwrap();
         assert!(github < mastodon, "links keep their order");
+        let bio = index.find("<div class=\"site-header__bio\">").unwrap();
+        assert!(mastodon < bio, "the bio comes after the links: {index}");
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(page.contains("<p class=\"site-header__name\"><a href=\"/\">A B</a></p>"), "{page}");
         assert_eq!(page.matches("<h1").count(), 1, "a page keeps one h1: {page}");
