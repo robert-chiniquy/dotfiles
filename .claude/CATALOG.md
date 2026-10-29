@@ -70,6 +70,7 @@ skill bodies**, not only this index.
 | readiness-scorecard | Scorecard TUI only when explicitly requested |
 | neon-grit-image-style | Personal dark countercultural image aesthetic |
 | refine-illustrations-iteratively | Iterative image edit sessions |
+| concept-diagramming | Concept and relation diagrams; one master curve set reused across plates; SVG plate checker |
 | calendaring | Multi-month personal master schedule |
 | tactical-sitrep | Named milestone + hard deadline → readiness |
 | rfc-surface-clusters | RFC surfaces → workflow clusters, ranked by Slack+Linear UX damage |

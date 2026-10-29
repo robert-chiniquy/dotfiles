@@ -1,0 +1,60 @@
+#!/bin/zsh
+# Regression tests for check-plates. Fixtures are in testdata/. The glyph test needs Georgia,
+# which macOS ships, and assumes EB Garamond is not installed.
+emulate -L zsh
+here=${0:A:h}
+cd "$here/testdata" || exit 2
+check=$here/check-plates
+failed=0
+
+# expect NAME STATUS PATTERN [args...]: the run exits STATUS and its output matches PATTERN.
+expect() {
+  local name=$1 want=$2 pattern=$3; shift 3
+  local out rc
+  out=$("$check" "$@" 2>&1); rc=$?
+  if [[ $rc != $want || $out != *${~pattern}* ]]; then
+    print -r -- "FAIL $name (exit $rc, wanted $want)"; print -r -- "$out" | sed 's/^/  /'; (( failed++ ))
+  else
+    print -r -- "ok   $name"
+  fi
+}
+
+# refuse NAME PATTERN [args...]: the output must not match PATTERN.
+refuse() {
+  local name=$1 pattern=$2; shift 2
+  local out
+  out=$("$check" "$@" 2>&1)
+  if [[ $out == *${~pattern}* ]]; then
+    print -r -- "FAIL $name"; print -r -- "$out" | sed 's/^/  /'; (( failed++ ))
+  else
+    print -r -- "ok   $name"
+  fi
+}
+
+# Fails if a plate that follows every rule is reported.
+expect TestAcceptsCleanPlate 0 '' --curves master.svg clean.svg
+refuse TestCleanPlatePrintsNothing '(ERROR|NOTE)' --curves master.svg clean.svg
+# Fails if a curve that claims a master id may drift from the master geometry.
+expect TestRejectsChangedMasterCurve 1 'data-curve=a-to-b differs from the master curve' --curves master.svg changed-curve.svg
+# Fails if a data-curve id that the master file lacks is accepted.
+expect TestRejectsUnknownCurveId 1 'data-curve=c-to-a names no curve' --curves master.svg unknown-curve.svg
+# Fails if copied master geometry without an id, or a curve outside the set, goes unreported.
+expect TestNotesCopiedCurveWithoutId 0 'copies master curve b-to-c without data-curve' --curves master.svg copied-curve.svg
+expect TestNotesCurveOutsideMasterSet 0 'not in the master curve set: M 10,390' --curves master.svg copied-curve.svg
+# Fails if a straight typographic rule is treated as a curve.
+refuse TestIgnoresTypographicRule 'M 10 10 H 390' --curves master.svg copied-curve.svg
+# Fails if an arrowhead ending on a label is accepted.
+expect TestRejectsArrowheadOnLabel 1 'arrowhead lands on label "TERM"' arrow-on-label.svg
+# Fails if a line drawn through a label is accepted.
+expect TestRejectsPathThroughLabel 1 'path crosses label "between"' path-through-label.svg
+# Fails if group translate and scale are not applied before the overlap test.
+expect TestAppliesGroupTranslateAndScale 1 'arrowhead lands on label "TERM" near ?300,200?' scaled-group.svg
+# Fails if font-size and marker-end set by a CSS class are ignored.
+expect TestReadsClassStyles 1 'arrowhead lands on label "TERM"' class-styles.svg
+# Fails if a glyph missing from the first installed font is accepted (U+2216 is not in Georgia).
+expect TestRejectsMissingGlyph 1 'U+2216 * is not in Georgia' missing-glyph.svg
+# Fails if non-ASCII label text stops the overlap check (macOS awk failed on UTF-8 input).
+expect TestChecksNonAsciiLabel 1 'path crosses label "Δ⁻c?s,s′? ∖ Δ⁺c"' non-ascii-label.svg
+expect TestNotesUninstalledFont 1 'no font in "No Such Font" is installed' non-ascii-label.svg
+
+(( failed == 0 )) && print "all passed" || { print "$failed failed"; exit 1 }

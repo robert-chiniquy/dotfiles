@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+<style>
+  .path{stroke:#fff;fill:none}
+  .arrow{marker-end:url(#end)}
+  .node{font-family:Georgia,serif;font-size:40px;text-anchor:middle}
+</style>
+<path class="path arrow" d="M 200,20 L 200,170"/>
+<text class="node" x="200" y="200">TERM</text>
+</svg>

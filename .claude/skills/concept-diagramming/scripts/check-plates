@@ -1,0 +1,72 @@
+#!/bin/zsh
+# check-plates [--curves MASTER.svg] PLATE.svg...
+#
+# Checks SVG diagram plates for three defects:
+#   1. a path that claims a master curve (data-curve="ID") but has different geometry,
+#      and paths that copy or bypass the master set (NOTE only);
+#   2. a path or arrowhead drawn over a label (estimated label boxes);
+#   3. a character missing from the first installed font in the label's font-family list.
+# Exits 1 when any ERROR is printed. Needs xsltproc and fontconfig (fc-list).
+emulate -L zsh
+setopt pipefail no_unset extended_glob
+
+here=${0:A:h}
+master=/dev/null
+if [[ ${1:-} == --curves ]]; then
+  master=${2:?--curves needs a file}
+  shift 2
+fi
+(( $# )) || { print -u2 "usage: check-plates [--curves MASTER.svg] PLATE.svg..."; exit 2 }
+
+typeset -A installed covered
+errors=0
+
+# First family in a CSS font-family list that fontconfig knows. Generic names are skipped.
+first_installed() {
+  local fam
+  for fam in ${(s:,:)1}; do
+    fam=${${fam//[\"\']/}##[[:space:]]#}; fam=${fam%%[[:space:]]#}
+    [[ $fam == (serif|sans-serif|monospace|cursive|fantasy|system-ui) ]] && continue
+    if [[ -z ${installed[$fam]:-} ]]; then
+      if [[ -n $(fc-list ":family=$fam" family) ]]; then installed[$fam]=1; else installed[$fam]=0; fi
+    fi
+    [[ ${installed[$fam]} == 1 ]] && { print -r -- $fam; return }
+  done
+}
+
+check_glyphs() {
+  local plate=$1 fam=$2 text=$3 font hex ch
+  font=$(first_installed "$fam")
+  if [[ -z $font ]]; then
+    print -r -- "$plate: NOTE: no font in \"$fam\" is installed; \"$text\" not checked"
+    return
+  fi
+  for ch in ${(u)${(s::)text}}; do
+    [[ $ch == ' ' ]] && continue
+    hex=$(printf '%x' "'$ch")
+    if [[ -z ${covered[${font}:${hex}]:-} ]]; then
+      if [[ -n $(fc-list ":family=${font}:charset=${hex}" family) ]]; then covered[${font}:${hex}]=1; else covered[${font}:${hex}]=0; fi
+    fi
+    if [[ ${covered[${font}:${hex}]} == 0 ]]; then
+      print -r -- "$plate: ERROR: U+${(U)hex} \"$ch\" in \"$text\" is not in $font (first installed font of \"$fam\")"
+      (( errors++ ))
+    fi
+  done
+}
+
+master_rows=''
+if [[ $master != /dev/null ]]; then
+  master_rows=$(xsltproc "$here/svg-rows.xsl" "$master") || exit 2
+fi
+
+for plate in "$@"; do
+  rows=$(xsltproc "$here/svg-rows.xsl" "$plate") || { print -u2 "$plate: not parseable XML"; (( errors++ )); continue }
+  while IFS=$'\t' read -r kind a b; do
+    case $kind in
+      ERROR) print -r -- "$plate: ERROR: $a"; (( errors++ )) ;;
+      NOTE)  print -r -- "$plate: NOTE: $a" ;;
+      GLYPH) check_glyphs "$plate" "$a" "$b" ;;
+    esac
+  done < <(print -r -- "$rows" | LC_ALL=C awk -f "$here/plate-geometry.awk" <(print -r -- "$master_rows") -)
+done
+(( errors == 0 ))

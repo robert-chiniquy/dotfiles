@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+<path d="M 100,20 L 100,100" marker-end="url(#end)"/>
+<text x="100" y="116" font-family="Georgia" font-size="20" text-anchor="middle">TERM</text>
+</svg>
