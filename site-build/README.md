@@ -102,7 +102,8 @@ Card: `title`, `image` with `image_alt` (empty string for decoration),
 (show the card at the right of the index's header instead of in the grid;
 one card at most, and the site needs `name`). `page` and `link` need a
 `title` to carry the link. A `title` may hold markdown links, which keep
-their own targets while the rest of the title links to the card's target.
+their own targets, with `class="card__title-inline"`, while the rest of the
+title links to the card's target.
 
 Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
 `venue`, `topic`, `description`, `image` (share image, relative to the

@@ -248,7 +248,7 @@ fn title_html(title: &str, href: Option<&str>) -> String {
         match ev {
             Event::Start(Tag::Link { dest_url, .. }) => {
                 flush(&mut out, &mut run);
-                let _ = write!(out, "<a href=\"{}\">", escape(&dest_url));
+                let _ = write!(out, "<a class=\"card__title-inline\" href=\"{}\">", escape(&dest_url));
                 inner = true;
             }
             Event::End(TagEnd::Link) => {
@@ -1245,11 +1245,16 @@ mod tests {
 
     #[test]
     fn title_link_keeps_its_target_and_the_rest_links_to_the_card() {
-        // Fails if anchors nest, the inner link is lost, or the text around
-        // it stops linking to the card.
+        // Fails if anchors nest, the inner link is lost or loses the class
+        // that styles it apart from the title, or the text around it stops
+        // linking to the card.
         assert_eq!(
             title_html("Posts for the [C1](https://c1.ai) blog", Some("https://x.example/a")),
-            "<a href=\"https://x.example/a\">Posts for the </a><a href=\"https://c1.ai\">C1</a><a href=\"https://x.example/a\"> blog</a>"
+            "<a href=\"https://x.example/a\">Posts for the </a><a class=\"card__title-inline\" href=\"https://c1.ai\">C1</a><a href=\"https://x.example/a\"> blog</a>"
+        );
+        assert_eq!(
+            title_html("A [solution](https://s.example/)", None),
+            "A <a class=\"card__title-inline\" href=\"https://s.example/\">solution</a>"
         );
         assert_eq!(title_html("A & B", None), "A &amp; B");
         assert_eq!(title_text("Posts for the [C1](https://c1.ai) blog"), "Posts for the C1 blog");
