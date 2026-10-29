@@ -525,9 +525,13 @@ fn render_page(
         escape(&site.title)
     );
     // The page's one picture is the share image, above the title; with a
-    // deck it links to the deck, which opens as its own page.
+    // deck it links to the deck, which opens as its own page. The banner and
+    // title form a tier with the deck instructions: on wide screens the
+    // stylesheet sets the instructions beside the banner, and on narrow ones
+    // they follow the title.
     let help = match &meta.deck {
         Some(deck) => {
+            s.push_str("<div class=\"tier\">\n<div class=\"tier__main\">\n");
             let help = deck_help.ok_or("`deck` is set but _partials/deck-help.md is missing")?;
             let image = meta.image.as_ref().ok_or("`deck` needs `image` for the picture that opens it")?;
             let alt = meta.image_alt.as_deref().ok_or("`image` needs `image_alt`")?;
@@ -554,10 +558,8 @@ fn render_page(
         let _ = writeln!(s, "<p class=\"article__meta\">{}</p>", line.join(" · "));
     }
     s.push_str("</header>\n");
-    // Instructions for the deck viewer are a margin note: an aside the
-    // stylesheet floats into the right margin on wide screens.
     if let Some(help) = help {
-        let _ = write!(s, "<aside class=\"marginalia deck__help\">\n{}</aside>\n", markdown(help));
+        let _ = write!(s, "</div>\n<aside class=\"marginalia deck__help\">\n{}</aside>\n</div>\n", markdown(help));
     }
     if let Some(url) = &meta.youtube {
         // The no-cookie host sets no cookies until the viewer presses play.
@@ -928,6 +930,11 @@ mod tests {
             page.find("<p>abstract</p>").unwrap(),
         );
         assert!(banner < title && title < help && help < text, "{page}");
+        // Fails if the instructions leave the tier that holds the banner,
+        // which is what sets them beside it on wide screens.
+        let tier = page.find("<div class=\"tier\">\n<div class=\"tier__main\">\n<a class=\"deck__banner\"").unwrap();
+        let tier_end = page.find("</aside>\n</div>\n").unwrap();
+        assert!(tier < banner && help < tier_end && tier_end < text, "{page}");
         assert_eq!(page.matches("<img").count(), 1, "one picture per page: {page}");
         assert!(page.contains("og:image\" content=\"https://example.org/talks/x/deck/thumbnail.png\""), "{page}");
     }
