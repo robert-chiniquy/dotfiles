@@ -86,8 +86,10 @@ label becomes its accessible name and tooltip). `bio` and `links` need `name`.
 
 Card: `title`, `image` with `image_alt` (empty string for decoration),
 `page` (source path of a page) or `link` (URL), `background` (CSS color),
-`flush` (drop content padding for embeds that fill the card). `page` and
-`link` need a `title` to carry the link.
+`flush` (drop content padding for embeds that fill the card), `header`
+(show the card at the right of the index's header instead of in the grid;
+one card at most, and the site needs `name`). `page` and `link` need a
+`title` to carry the link.
 
 Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
 `venue`, `topic`, `description`, `image` (share image, relative to the

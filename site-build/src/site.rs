@@ -112,6 +112,10 @@ pub struct Card {
     /// Drop the content padding (embeds that fill the card).
     #[serde(default)]
     pub flush: bool,
+    /// Show this card at the right of the index's header instead of in the
+    /// grid. At most one card sets it.
+    #[serde(default)]
+    pub header: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -406,9 +410,9 @@ fn render_card(card: &Card, body: &str, pages: &BTreeMap<PathBuf, String>) -> Re
     // A card for a page links as a whole: the stylesheet stretches the title
     // link over the card.
     let mut s = String::from(if card.page.is_some() {
-        "<li class=\"cards__item\">\n<article class=\"card card--page\""
+        "<article class=\"card card--page\""
     } else {
-        "<li class=\"cards__item\">\n<article class=\"card\""
+        "<article class=\"card\""
     });
     if let Some(bg) = &card.background {
         let _ = write!(s, " style=\"background-color: {}\"", escape(bg));
@@ -435,7 +439,7 @@ fn render_card(card: &Card, body: &str, pages: &BTreeMap<PathBuf, String>) -> Re
     } else if href.is_some() {
         return Err(format!("card `{label}`: `page` or `link` needs a `title` to carry the link"));
     }
-    let _ = write!(s, "<div class=\"card__text\">\n{}</div>\n</div>\n</article>\n</li>\n", markdown(body));
+    let _ = write!(s, "<div class=\"card__text\">\n{}</div>\n</div>\n</article>\n", markdown(body));
     Ok(s)
 }
 
@@ -457,17 +461,27 @@ fn render_index(
         labels: &[],
         extra: head_extra,
     });
-    match render_site_header(site, true) {
+    let mut header_card = None;
+    for (card, body) in cards.iter().filter(|(c, _)| c.header) {
+        if header_card.is_some() {
+            return Err("index.md: only one card can set `header`".into());
+        }
+        header_card = Some(render_card(card, body, pages)?);
+    }
+    match render_site_header(site, true, header_card.as_deref()) {
         Some(header) => {
             let _ = write!(s, "<body>\n{header}<main>\n");
+        }
+        None if header_card.is_some() => {
+            return Err("index.md: a card sets `header` but the site has no `name`, so there is no header".into());
         }
         None => {
             let _ = writeln!(s, "<body>\n<h1 class=\"visually-hidden\">{}</h1>\n<main>", escape(&site.title));
         }
     }
     s.push_str("<ul class=\"cards\">\n");
-    for (card, body) in cards {
-        s.push_str(&render_card(card, body, pages)?);
+    for (card, body) in cards.iter().filter(|(c, _)| !c.header) {
+        let _ = write!(s, "<li class=\"cards__item\">\n{}</li>\n", render_card(card, body, pages)?);
     }
     s.push_str("</ul>\n</main>\n</body>\n</html>\n");
     Ok(s)
@@ -475,11 +489,15 @@ fn render_index(
 
 /// The name, bio, and profile links at the top of every page, or `None` when
 /// the site has no `name`. The name is the index's `h1`; a page has its own
-/// `h1`, so there the name is a paragraph.
-fn render_site_header(site: &SiteMeta, is_index: bool) -> Option<String> {
+/// `h1`, so there the name is a paragraph. With `card`, the name, bio, and
+/// links go in a column on the left and the card sits on the right.
+fn render_site_header(site: &SiteMeta, is_index: bool, card: Option<&str>) -> Option<String> {
     let name = site.name.as_ref()?;
     let tag = if is_index { "h1" } else { "p" };
-    let mut s = String::from("<header class=\"site-header\">\n");
+    let mut s = String::from(match card {
+        Some(_) => "<header class=\"site-header site-header--card\">\n<div class=\"site-header__main\">\n",
+        None => "<header class=\"site-header\">\n",
+    });
     let _ = writeln!(s, "<{tag} class=\"site-header__name\"><a href=\"/\">{}</a></{tag}>", escape(name));
     if let Some(bio) = &site.bio {
         let _ = write!(s, "<div class=\"site-header__bio\">\n{}</div>\n", markdown(bio));
@@ -502,6 +520,9 @@ fn render_site_header(site: &SiteMeta, is_index: bool) -> Option<String> {
             }
         }
         s.push_str("</ul>\n");
+    }
+    if let Some(card) = card {
+        let _ = write!(s, "</div>\n<div class=\"site-header__card\">\n{card}</div>\n");
     }
     s.push_str("</header>\n");
     Some(s)
@@ -535,7 +556,7 @@ fn render_page(
         extra: head_extra,
     });
     s.push_str("<body class=\"page\">\n");
-    s.push_str(&render_site_header(site, false).unwrap_or_default());
+    s.push_str(&render_site_header(site, false, None).unwrap_or_default());
     s.push_str("<main class=\"article\">\n");
     let _ = writeln!(
         s,
@@ -1135,6 +1156,43 @@ mod tests {
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(page.contains("<p class=\"site-header__name\"><a href=\"/\">A B</a></p>"), "{page}");
         assert_eq!(page.matches("<h1").count(), 1, "a page keeps one h1: {page}");
+    }
+
+    #[test]
+    fn header_card_leaves_the_grid_for_the_index_header_only() {
+        // Fails if the card shows twice on the index, stays out of the
+        // header, or appears in a talk page's header.
+        let root = tempdir("header_card");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: X\n---\nbody\n");
+        write(
+            &src.join("index.md"),
+            "---\ntitle: Site\nname: A\n---\n---\ntitle: Quote\nheader: true\n---\nhi\n---\ntitle: Other\n---\nthere\n",
+        )
+        .unwrap();
+        build(&src, &out).unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert_eq!(index.matches("<h2 class=\"card__title\">Quote</h2>").count(), 1, "{index}");
+        let (card, header_end, grid) = (
+            index.find("<div class=\"site-header__card\">\n<article class=\"card\">").unwrap(),
+            index.find("</header>").unwrap(),
+            index.find("<ul class=\"cards\">").unwrap(),
+        );
+        assert!(card < header_end && header_end < grid, "{index}");
+        assert!(index.contains("<li class=\"cards__item\">\n<article class=\"card\">\n<div class=\"card__content\">\n<h2 class=\"card__title\">Other</h2>"), "{index}");
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        assert!(!page.contains("Quote") && !page.contains("site-header--card"), "{page}");
+    }
+
+    #[test]
+    fn two_header_cards_or_a_header_card_without_a_name_fail() {
+        let root = tempdir("header_card_bad");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write_site(&src, "---\ntitle: X\n---\nbody\n");
+        write(&src.join("index.md"), "---\ntitle: Site\nname: A\n---\n---\nheader: true\n---\na\n---\nheader: true\n---\nb\n").unwrap();
+        assert!(build(&src, &out).unwrap_err().contains("only one card can set `header`"));
+        write(&src.join("index.md"), "---\ntitle: Site\n---\n---\nheader: true\n---\na\n").unwrap();
+        assert!(build(&src, &out).unwrap_err().contains("site has no `name`"));
     }
 
     #[test]
