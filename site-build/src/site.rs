@@ -202,6 +202,192 @@ pub fn render_feed(site: &SiteMeta, base: &str, author: &str, items: &[FeedEntry
     s
 }
 
+/// The links in `src` that sit in list items, as `(text, url)`: a card's
+/// list of links, without the incidental links in its prose.
+fn listed_links(src: &str) -> Vec<(String, String)> {
+    let mut found = Vec::new();
+    let mut items = 0usize;
+    let mut link: Option<(String, String)> = None;
+    for ev in Parser::new(src) {
+        match ev {
+            Event::Start(Tag::Item) => items += 1,
+            Event::End(TagEnd::Item) => items = items.saturating_sub(1),
+            Event::Start(Tag::Link { dest_url, .. }) if items > 0 => link = Some((String::new(), dest_url.to_string())),
+            Event::Text(t) | Event::Code(t) => {
+                if let Some((text, _)) = &mut link {
+                    text.push_str(&t);
+                }
+            }
+            Event::End(TagEnd::Link) => found.extend(link.take()),
+            _ => {}
+        }
+    }
+    found
+}
+
+/// A card title as HTML. The title may hold markdown links, which keep their
+/// own targets; the rest of the title links to `href`, in one anchor per run
+/// of text, since anchors cannot nest.
+fn title_html(title: &str, href: Option<&str>) -> String {
+    let mut out = String::new();
+    let mut run = String::new();
+    let flush = |out: &mut String, run: &mut String| {
+        if run.is_empty() {
+            return;
+        }
+        match href {
+            Some(h) => {
+                let _ = write!(out, "<a href=\"{}\">{run}</a>", escape(h));
+            }
+            None => out.push_str(run),
+        }
+        run.clear();
+    };
+    let mut inner = false;
+    for ev in Parser::new(title) {
+        match ev {
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                flush(&mut out, &mut run);
+                let _ = write!(out, "<a href=\"{}\">", escape(&dest_url));
+                inner = true;
+            }
+            Event::End(TagEnd::Link) => {
+                out.push_str("</a>");
+                inner = false;
+            }
+            Event::Text(t) | Event::Code(t) => {
+                if inner {
+                    out.push_str(&escape(&t));
+                } else {
+                    run.push_str(&escape(&t));
+                }
+            }
+            Event::SoftBreak | Event::HardBreak => run.push(' '),
+            _ => {}
+        }
+    }
+    flush(&mut out, &mut run);
+    out
+}
+
+/// A card title's text without its markdown.
+fn title_text(title: &str) -> String {
+    Parser::new(title)
+        .filter_map(|ev| match ev {
+            Event::Text(t) | Event::Code(t) => Some(t.to_string()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// `url` made absolute against `base` when it is a site path.
+fn absolute(base: &str, url: &str) -> String {
+    if url.starts_with('/') { format!("{base}{url}") } else { url.to_string() }
+}
+
+/// A page as markdown for agents (the llms.txt convention, Jeremy Howard,
+/// "The /llms.txt file", 2024, https://llmstxt.org/): the frontmatter facts
+/// as a list, then the page's own markdown.
+fn render_page_md(meta: &PageMeta, body: &str, base: &str, url: &str) -> Result<String, String> {
+    let mut s = format!("# {}\n\n", meta.title);
+    if let Some(d) = &meta.description {
+        let _ = writeln!(s, "> {d}\n");
+    }
+    if let Some(d) = &meta.date {
+        let _ = writeln!(s, "- Date: {}", long_date(d)?);
+    }
+    for (label, v) in [("Venue", &meta.venue), ("Topic", &meta.topic)] {
+        if let Some(v) = v {
+            let _ = writeln!(s, "- {label}: {v}");
+        }
+    }
+    if let Some(deck) = &meta.deck {
+        let _ = writeln!(s, "- Slides: {base}{url}{deck} (an interactive deck that runs in a web browser)");
+    }
+    if let Some(v) = &meta.youtube {
+        let _ = writeln!(s, "- Video: {v}");
+    }
+    let _ = writeln!(s, "- Web page: {base}{url}");
+    let body = body.trim();
+    if !body.is_empty() {
+        let _ = write!(s, "\n{body}\n");
+    }
+    Ok(s)
+}
+
+/// `/llms.txt` (https://llmstxt.org/): the site's name, description, and
+/// bio, then links to the markdown of each page (newest first), the index's
+/// cards, the profile links, and the feed.
+fn render_llms(site: &SiteMeta, cards: &[(Card, String)], pages: &[(String, &PageMeta)], base: &str, feed: bool) -> String {
+    let mut s = format!("# {}\n\n", site.name.as_deref().unwrap_or(&site.title));
+    if let Some(d) = &site.description {
+        let _ = writeln!(s, "> {d}\n");
+    }
+    if let Some(bio) = &site.bio {
+        let _ = writeln!(s, "{}\n", bio.trim());
+    }
+    let mut sorted: Vec<&(String, &PageMeta)> = pages.iter().collect();
+    sorted.sort_by(|(_, a), (_, b)| b.date.cmp(&a.date).then_with(|| a.title.cmp(&b.title)));
+    if !sorted.is_empty() {
+        s.push_str("## Pages\n\n");
+        for (url, meta) in sorted {
+            let mut notes = Vec::new();
+            notes.extend(meta.venue.clone());
+            if let Some(d) = meta.date.as_deref().and_then(|d| long_date(d).ok()) {
+                notes.push(d);
+            }
+            let mut line = format!("- [{}]({base}{url}index.md)", meta.title);
+            if !notes.is_empty() || meta.description.is_some() {
+                let mut note = notes.join(", ");
+                if let Some(d) = &meta.description {
+                    if !note.is_empty() {
+                        note.push_str(". ");
+                    }
+                    note.push_str(d);
+                }
+                let _ = write!(line, ": {note}");
+            }
+            let _ = writeln!(s, "{line}");
+        }
+        s.push('\n');
+    }
+    let mut index = String::new();
+    for (card, body) in cards.iter().filter(|(c, _)| c.page.is_none()) {
+        if let Some(title) = &card.title {
+            let target = card.link.as_deref().map_or_else(|| format!("{base}/"), |l| absolute(base, l));
+            let _ = write!(index, "- [{}]({target})", title_text(title));
+            match first_paragraph(body) {
+                Some(p) => {
+                    let _ = writeln!(index, ": {p}");
+                }
+                None => index.push('\n'),
+            }
+        }
+        // A card's own list of links nests under the card.
+        let indent = if card.title.is_some() { "  " } else { "" };
+        for (text, url) in listed_links(body) {
+            let _ = writeln!(index, "{indent}- [{text}]({})", absolute(base, &url));
+        }
+    }
+    if !index.is_empty() {
+        let _ = writeln!(s, "## On the index page\n\n{index}");
+    }
+    // Profiles on other sites; a header link to this site's own path (the
+    // feed) is listed under Optional instead.
+    let elsewhere: Vec<&ProfileLink> = site.links.iter().filter(|l| !l.url.starts_with('/')).collect();
+    if !elsewhere.is_empty() {
+        s.push_str("## Elsewhere\n\n");
+        for link in elsewhere {
+            let _ = writeln!(s, "- [{}]({})", link.label, link.url);
+        }
+        s.push('\n');
+    }
+    if feed {
+        let _ = writeln!(s, "## Optional\n\n- [Atom feed]({base}/feed.xml): the dated pages, newest first");
+    }
+    s.trim_end().to_string() + "\n"
+}
+
 fn parse_yaml<T: for<'de> Deserialize<'de>>(yaml: &str, what: &str) -> Result<T, String> {
     serde_yml::from_str(yaml).map_err(|e| format!("{what}: {e}"))
 }
@@ -228,15 +414,17 @@ pub fn markdown(src: &str) -> String {
     out
 }
 
-/// The text of the first paragraph of `src`, without markup: the page
-/// description when frontmatter sets none.
+/// The text of the first paragraph of `src` that has text, without markup:
+/// the page description when frontmatter sets none. A paragraph holding only
+/// inline HTML, such as an embed, is passed over.
 fn first_paragraph(src: &str) -> Option<String> {
     let mut text = String::new();
     let mut inside = false;
     for ev in Parser::new(src) {
         match ev {
             Event::Start(Tag::Paragraph) => inside = true,
-            Event::End(TagEnd::Paragraph) if inside => break,
+            Event::End(TagEnd::Paragraph) if inside && !text.trim().is_empty() => break,
+            Event::End(TagEnd::Paragraph) => inside = false,
             Event::Text(t) | Event::Code(t) if inside => text.push_str(&t),
             Event::SoftBreak | Event::HardBreak if inside => text.push(' '),
             _ => {}
@@ -428,14 +616,7 @@ fn render_card(card: &Card, body: &str, pages: &BTreeMap<PathBuf, String>) -> Re
     let class = if card.flush { "card__content card__content--flush" } else { "card__content" };
     let _ = writeln!(s, "<div class=\"{class}\">");
     if let Some(title) = &card.title {
-        match &href {
-            Some(h) => {
-                let _ = writeln!(s, "<h2 class=\"card__title\"><a href=\"{}\">{}</a></h2>", escape(h), escape(title));
-            }
-            None => {
-                let _ = writeln!(s, "<h2 class=\"card__title\">{}</h2>", escape(title));
-            }
-        }
+        let _ = writeln!(s, "<h2 class=\"card__title\">{}</h2>", title_html(title, href.as_deref()));
     } else if href.is_some() {
         return Err(format!("card `{label}`: `page` or `link` needs a `title` to carry the link"));
     }
@@ -719,6 +900,19 @@ pub fn build(src: &Path, out: &Path) -> Result<Built, String> {
             escape(&site.title)
         );
     }
+    // Agents find the llms.txt from any page, and each page's markdown from
+    // the page.
+    let base = site.url.as_deref().unwrap_or("").trim_end_matches('/').to_string();
+    head_extra.push_str("<link rel=\"describedby\" href=\"/llms.txt\" type=\"text/markdown\">\n");
+    // Only pages the site already lists (a card on the index, or the feed);
+    // a page reached only by link stays that way.
+    let carded: Vec<&Path> = cards.iter().filter_map(|(c, _)| c.page.as_deref().map(Path::new)).collect();
+    let listed: Vec<(String, &PageMeta)> = pages
+        .iter()
+        .filter(|(rel, _, meta, _)| meta.feed || carded.contains(&rel.as_path()))
+        .map(|(rel, _, meta, _)| (urls[*rel].clone(), meta))
+        .collect();
+    outputs.push((out.join("llms.txt"), render_llms(&site, &cards, &listed, &base, !feed.is_empty())));
     let site_image = match &site.image {
         Some(image) => {
             let alt = site.image_alt.as_deref().ok_or("index.md: the site `image` needs `image_alt`")?;
@@ -745,9 +939,12 @@ pub fn build(src: &Path, out: &Path) -> Result<Built, String> {
             None => None,
         };
         let image = page_image.as_ref().or(site_image.as_ref());
-        let html = render_page(&site, meta, body, &urls[*rel], &head_extra, deck_help.as_deref(), image)
+        let page_extra = format!("{head_extra}<link rel=\"alternate\" type=\"text/markdown\" href=\"index.md\">\n");
+        let html = render_page(&site, meta, body, &urls[*rel], &page_extra, deck_help.as_deref(), image)
             .map_err(|e| format!("{label}: {e}"))?;
         outputs.push((dir.join("index.html"), html));
+        let md = render_page_md(meta, body, &base, &urls[*rel]).map_err(|e| format!("{label}: {e}"))?;
+        outputs.push((dir.join("index.md"), md));
     }
 
     let mut written = Vec::new();
@@ -895,8 +1092,18 @@ mod tests {
         let written = build(&src, &out).unwrap().written;
         assert_eq!(
             written,
-            vec![out.join("index.html"), out.join("notes/hidden/index.html"), out.join("talks/x/index.html")]
+            vec![
+                out.join("llms.txt"),
+                out.join("index.html"),
+                out.join("notes/hidden/index.html"),
+                out.join("notes/hidden/index.md"),
+                out.join("talks/x/index.html"),
+                out.join("talks/x/index.md"),
+            ]
         );
+        // Fails if llms.txt lists a page that is reachable only by link.
+        let llms = fs::read_to_string(out.join("llms.txt")).unwrap();
+        assert!(llms.contains("/talks/x/index.md") && !llms.contains("hidden"), "{llms}");
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(page.contains("<time datetime=\"2026-06-01\">1 June 2026</time>"), "{page}");
         let index = fs::read_to_string(out.join("index.html")).unwrap();
@@ -1028,6 +1235,51 @@ mod tests {
         let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
         assert!(page.contains("<meta property=\"og:description\" content=\"A fun talk, with code.\">"), "{page}");
         assert!(!page.contains("content=\"A fun talk, with code. Second"), "{page}");
+    }
+
+    #[test]
+    fn first_paragraph_passes_over_an_embed_only_paragraph() {
+        // Fails if a card that opens with an embed gets no description.
+        assert_eq!(first_paragraph("<video src=\"v.mp4\"></video>\n\nWords here.\n").as_deref(), Some("Words here."));
+    }
+
+    #[test]
+    fn title_link_keeps_its_target_and_the_rest_links_to_the_card() {
+        // Fails if anchors nest, the inner link is lost, or the text around
+        // it stops linking to the card.
+        assert_eq!(
+            title_html("Posts for the [C1](https://c1.ai) blog", Some("https://x.example/a")),
+            "<a href=\"https://x.example/a\">Posts for the </a><a href=\"https://c1.ai\">C1</a><a href=\"https://x.example/a\"> blog</a>"
+        );
+        assert_eq!(title_html("A & B", None), "A &amp; B");
+        assert_eq!(title_text("Posts for the [C1](https://c1.ai) blog"), "Posts for the C1 blog");
+    }
+
+    #[test]
+    fn llms_txt_lists_page_markdown_cards_and_profiles() {
+        // Fails if llms.txt loses its H1 and summary, links a page's HTML in
+        // place of its markdown, drops a card's link list, or lists the
+        // site's own feed as a profile elsewhere.
+        let root = tempdir("llms_txt");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(
+            &src.join("index.md"),
+            "---\ntitle: Site\nurl: https://example.org/\ndescription: odd stuff\nname: A\nbio: a line\nauthor: A\nlinks:\n  - label: GitHub\n    url: https://github.com/a\n  - label: Feed\n    url: /feed.xml\n---\n---\ntitle: Posts at [C1](https://c1.ai)\nlink: https://c1.example/a\n---\n- [One](https://c1.example/1)\n- [Two](https://c1.example/2)\n",
+        )
+        .unwrap();
+        write(&src.join("talks/x.md"), "---\ntitle: X\ndate: 2026-10-01\nvenue: V\nfeed: true\n---\nA talk.\n").unwrap();
+        build(&src, &out).unwrap();
+        let llms = fs::read_to_string(out.join("llms.txt")).unwrap();
+        assert!(llms.starts_with("# A\n\n> odd stuff\n\na line\n"), "{llms}");
+        assert!(llms.contains("- [X](https://example.org/talks/x/index.md): V, 1 October 2026. A talk.\n"), "{llms}");
+        assert!(llms.contains("- [Posts at C1](https://c1.example/a)\n  - [One](https://c1.example/1)\n  - [Two](https://c1.example/2)\n"), "{llms}");
+        assert!(llms.contains("## Elsewhere\n\n- [GitHub](https://github.com/a)\n\n"), "{llms}");
+        assert!(llms.ends_with("## Optional\n\n- [Atom feed](https://example.org/feed.xml): the dated pages, newest first\n"), "{llms}");
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        assert!(page.contains("<link rel=\"alternate\" type=\"text/markdown\" href=\"index.md\">"), "{page}");
+        assert!(page.contains("<link rel=\"describedby\" href=\"/llms.txt\" type=\"text/markdown\">"), "{page}");
+        let md = fs::read_to_string(out.join("talks/x/index.md")).unwrap();
+        assert_eq!(md, "# X\n\n> A talk.\n\n- Date: 1 October 2026\n- Venue: V\n- Web page: https://example.org/talks/x/\n\nA talk.\n");
     }
 
     #[test]

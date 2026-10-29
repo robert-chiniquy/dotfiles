@@ -24,6 +24,16 @@ Files and directories whose names start with `_` or `.` are skipped. A page
 appears on the index only when a card names it with `page:`. Any other page is
 reachable by direct link only.
 
+For agents, following the llms.txt convention (https://llmstxt.org/), each
+page is also written as markdown next to its HTML (`<out>/talks/some-talk/index.md`:
+the frontmatter facts as a list, then the page's markdown), and
+`<out>/llms.txt` lists the site's name, description, and bio, the markdown of
+pages that have a card or are in the feed, the other cards with their lists
+of links, the profile links, and the feed. Every page's `<head>` links
+`/llms.txt` (`rel="describedby"`), and a page links its markdown
+(`rel="alternate" type="text/markdown"`). On GitHub Pages, put an empty
+`.nojekyll` at the site root so the `.md` files are served as they are.
+
 ## Segments
 
 A file is a run of segments. A segment opens with a line that is exactly
@@ -91,7 +101,8 @@ Card: `title`, `image` with `image_alt` (empty string for decoration),
 `flush` (drop content padding for embeds that fill the card), `header`
 (show the card at the right of the index's header instead of in the grid;
 one card at most, and the site needs `name`). `page` and `link` need a
-`title` to carry the link.
+`title` to carry the link. A `title` may hold markdown links, which keep
+their own targets while the rest of the title links to the card's target.
 
 Page: `title` (required), `date` (`YYYY-MM-DD`, shown as `1 October 2026`),
 `venue`, `topic`, `description`, `image` (share image, relative to the
