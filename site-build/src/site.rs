@@ -11,7 +11,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{html, Event, Options, Parser, Tag, TagEnd};
 use serde::Deserialize;
 
 #[derive(Debug, PartialEq)]
@@ -222,6 +222,24 @@ pub fn markdown(src: &str) -> String {
     let mut out = String::new();
     html::push_html(&mut out, Parser::new_ext(src, opts));
     out
+}
+
+/// The text of the first paragraph of `src`, without markup: the page
+/// description when frontmatter sets none.
+fn first_paragraph(src: &str) -> Option<String> {
+    let mut text = String::new();
+    let mut inside = false;
+    for ev in Parser::new(src) {
+        match ev {
+            Event::Start(Tag::Paragraph) => inside = true,
+            Event::End(TagEnd::Paragraph) if inside => break,
+            Event::Text(t) | Event::Code(t) if inside => text.push_str(&t),
+            Event::SoftBreak | Event::HardBreak if inside => text.push(' '),
+            _ => {}
+        }
+    }
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_string())
 }
 
 const MONTHS: [&str; 12] = [
@@ -647,7 +665,12 @@ pub fn build(src: &Path, out: &Path) -> Result<Built, String> {
         let [seg] = segs.as_slice() else {
             return Err(format!("{label}: a page has exactly one frontmatter block; use `***` for a thematic break"));
         };
-        let meta: PageMeta = parse_yaml(&seg.yaml, &label)?;
+        let mut meta: PageMeta = parse_yaml(&seg.yaml, &label)?;
+        // Link previews and the feed show a description; without one in
+        // frontmatter the page's first paragraph serves.
+        if meta.description.is_none() {
+            meta.description = first_paragraph(&seg.body);
+        }
         if meta.feed {
             let date = meta.date.clone().ok_or_else(|| format!("{label}: `feed` needs `date`"))?;
             long_date(&date).map_err(|e| format!("{label}: {e}"))?;
@@ -974,6 +997,28 @@ mod tests {
     }
 
     #[test]
+    fn first_paragraph_describes_a_page_without_a_description() {
+        // Fails if a link preview shows no text when frontmatter has no
+        // `description`, or if markup leaks into the text.
+        let root = tempdir("first_paragraph_describes");
+        let (src, out) = unfurl_site(&root, "---\ntitle: X\n---\nA *fun* talk,\nwith `code`.\n\nSecond paragraph.\n");
+        build(&src, &out).unwrap();
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        assert!(page.contains("<meta property=\"og:description\" content=\"A fun talk, with code.\">"), "{page}");
+        assert!(!page.contains("content=\"A fun talk, with code. Second"), "{page}");
+    }
+
+    #[test]
+    fn frontmatter_description_wins_over_first_paragraph() {
+        // Fails if the body overrides a description the author wrote.
+        let root = tempdir("frontmatter_description_wins");
+        let (src, out) = unfurl_site(&root, "---\ntitle: X\ndescription: Chosen.\n---\nBody text.\n");
+        build(&src, &out).unwrap();
+        let page = fs::read_to_string(out.join("talks/x/index.html")).unwrap();
+        assert!(page.contains("<meta property=\"og:description\" content=\"Chosen.\">"), "{page}");
+    }
+
+    #[test]
     fn page_image_drives_a_large_card_with_size_and_alt() {
         // Fails if a preview loses its size (Facebook and LinkedIn skip
         // unsized images on first share) or X falls back to a small card.
@@ -1064,7 +1109,7 @@ mod tests {
         let player = page
             .find("<iframe src=\"https://www.youtube-nocookie.com/embed/uKf0AR-aV6g\" title=\"Video: T\"")
             .unwrap_or_else(|| panic!("{page}"));
-        assert!(player < page.find("After the video.").unwrap(), "{page}");
+        assert!(player < page.find("<p>After the video.</p>").unwrap(), "{page}");
         write_site(&src, "---\ntitle: T\nyoutube: https://example.com/v\n---\n");
         assert!(build(&src, &out).unwrap_err().contains("not a YouTube video URL"));
     }
