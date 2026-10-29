@@ -554,8 +554,10 @@ fn render_page(
         let _ = writeln!(s, "<p class=\"article__meta\">{}</p>", line.join(" · "));
     }
     s.push_str("</header>\n");
+    // Instructions for the deck viewer are a margin note: an aside the
+    // stylesheet floats into the right margin on wide screens.
     if let Some(help) = help {
-        let _ = write!(s, "<div class=\"deck__help\">\n{}</div>\n", markdown(help));
+        let _ = write!(s, "<aside class=\"marginalia deck__help\">\n{}</aside>\n", markdown(help));
     }
     if let Some(url) = &meta.youtube {
         // The no-cookie host sets no cookies until the viewer presses play.
@@ -922,7 +924,7 @@ mod tests {
         let (banner, title, help, text) = (
             page.find("class=\"deck__banner\"").unwrap(),
             page.find("<h1>X</h1>").unwrap(),
-            page.find("class=\"deck__help\"").unwrap(),
+            page.find("<aside class=\"marginalia deck__help\">").unwrap(),
             page.find("<p>abstract</p>").unwrap(),
         );
         assert!(banner < title && title < help && help < text, "{page}");
