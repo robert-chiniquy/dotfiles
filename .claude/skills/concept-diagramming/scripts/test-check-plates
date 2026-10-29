@@ -1,6 +1,6 @@
 #!/bin/zsh
-# Regression tests for check-plates. Fixtures are in testdata/. The glyph test needs Georgia,
-# which macOS ships, and assumes EB Garamond is not installed.
+# Regression tests for check-plates. Fixtures are in testdata/. The glyph tests need Georgia
+# and STIX Two Math, which macOS ships: Georgia lacks U+2216 and STIX Two Math has it.
 emulate -L zsh
 here=${0:A:h}
 cd "$here/testdata" || exit 2
@@ -51,8 +51,11 @@ expect TestRejectsPathThroughLabel 1 'path crosses label "between"' path-through
 expect TestAppliesGroupTranslateAndScale 1 'arrowhead lands on label "TERM" near ?300,200?' scaled-group.svg
 # Fails if font-size and marker-end set by a CSS class are ignored.
 expect TestReadsClassStyles 1 'arrowhead lands on label "TERM"' class-styles.svg
-# Fails if a glyph missing from the first installed font is accepted (U+2216 is not in Georgia).
-expect TestRejectsMissingGlyph 1 'U+2216 * is not in Georgia' missing-glyph.svg
+# Fails if a glyph that no listed font has is accepted (U+2216 is in neither Georgia nor Times New Roman).
+expect TestRejectsMissingGlyph 1 'U+2216 * is in no installed font of' missing-glyph.svg
+# Fails if a glyph is rejected when a later font in the list has it, since renderers fall back per glyph.
+expect TestAcceptsGlyphFromLaterFont 0 '' glyph-in-second-font.svg
+refuse TestLaterFontGlyphPrintsNothing 'ERROR' glyph-in-second-font.svg
 # Fails if non-ASCII label text stops the overlap check (macOS awk failed on UTF-8 input).
 expect TestChecksNonAsciiLabel 1 'path crosses label "Δ⁻c?s,s′? ∖ Δ⁺c"' non-ascii-label.svg
 expect TestNotesUninstalledFont 1 'no font in "No Such Font" is installed' non-ascii-label.svg

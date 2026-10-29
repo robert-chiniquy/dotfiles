@@ -5,7 +5,7 @@
 #   1. a path that claims a master curve (data-curve="ID") but has different geometry,
 #      and paths that copy or bypass the master set (NOTE only);
 #   2. a path or arrowhead drawn over a label (estimated label boxes);
-#   3. a character missing from the first installed font in the label's font-family list.
+#   3. a character that no installed font in the label's font-family list has.
 # Exits 1 when any ERROR is printed. Needs xsltproc and fontconfig (fc-list).
 emulate -L zsh
 setopt pipefail no_unset extended_glob
@@ -21,34 +21,41 @@ fi
 typeset -A installed covered
 errors=0
 
-# First family in a CSS font-family list that fontconfig knows. Generic names are skipped.
-first_installed() {
+# Sets reply to the families in a CSS font-family list that fontconfig knows. Generic names are skipped.
+installed_fonts() {
   local fam
+  reply=()
   for fam in ${(s:,:)1}; do
     fam=${${fam//[\"\']/}##[[:space:]]#}; fam=${fam%%[[:space:]]#}
     [[ $fam == (serif|sans-serif|monospace|cursive|fantasy|system-ui) ]] && continue
     if [[ -z ${installed[$fam]:-} ]]; then
-      if [[ -n $(fc-list ":family=$fam" family) ]]; then installed[$fam]=1; else installed[$fam]=0; fi
+      if [[ -n $(fc-list ":family=${fam}" family) ]]; then installed[$fam]=1; else installed[$fam]=0; fi
     fi
-    [[ ${installed[$fam]} == 1 ]] && { print -r -- $fam; return }
+    [[ ${installed[$fam]} == 1 ]] && reply+=($fam)
   done
 }
 
+# A character passes when any installed family in the list has it, since renderers fall back
+# through the list one glyph at a time.
 check_glyphs() {
-  local plate=$1 fam=$2 text=$3 font hex ch
-  font=$(first_installed "$fam")
-  if [[ -z $font ]]; then
+  local plate=$1 fam=$2 text=$3 font hex ch found
+  installed_fonts "$fam"
+  if (( ! $#reply )); then
     print -r -- "$plate: NOTE: no font in \"$fam\" is installed; \"$text\" not checked"
     return
   fi
   for ch in ${(u)${(s::)text}}; do
     [[ $ch == ' ' ]] && continue
     hex=$(printf '%x' "'$ch")
-    if [[ -z ${covered[${font}:${hex}]:-} ]]; then
-      if [[ -n $(fc-list ":family=${font}:charset=${hex}" family) ]]; then covered[${font}:${hex}]=1; else covered[${font}:${hex}]=0; fi
-    fi
-    if [[ ${covered[${font}:${hex}]} == 0 ]]; then
-      print -r -- "$plate: ERROR: U+${(U)hex} \"$ch\" in \"$text\" is not in $font (first installed font of \"$fam\")"
+    found=0
+    for font in $reply; do
+      if [[ -z ${covered[${font}:${hex}]:-} ]]; then
+        if [[ -n $(fc-list ":family=${font}:charset=${hex}" family) ]]; then covered[${font}:${hex}]=1; else covered[${font}:${hex}]=0; fi
+      fi
+      [[ ${covered[${font}:${hex}]} == 1 ]] && { found=1; break }
+    done
+    if (( ! found )); then
+      print -r -- "$plate: ERROR: U+${(U)hex} \"$ch\" in \"$text\" is in no installed font of \"$fam\" (${(j:, :)reply})"
       (( errors++ ))
     fi
   done
