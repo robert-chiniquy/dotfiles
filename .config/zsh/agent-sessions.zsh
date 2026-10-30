@@ -37,7 +37,7 @@ _agent_sessions_cd() {
   else
     json="$(command agent-sessions list --repo "$PWD" --source claude,codex,grok \
       --no-links --json 2>/dev/null)" || return
-    mkdir -p $dir && print -r -- $json >| $file.$$ && mv -f $file.$$ $file
+    command mkdir -p $dir && print -r -- $json >| $file.$$ && command mv -f $file.$$ $file
   fi
   # One line per session: action, ref, status, label, cwd (tab separated).
   rows="$(print -r -- $json | jq -r '.sessions[]
