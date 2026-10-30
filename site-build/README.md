@@ -92,9 +92,17 @@ top of every page: the index's `h1`, a paragraph on pages), `links` (profiles
 elsewhere, each `label` and `url`, shown in order under the name with
 `rel="me"`; an optional `icon`, the site path of an SVG file, is inlined in
 place of the label so it takes the text color, and the label becomes its
-accessible name and tooltip), `bio` (markdown under the links, on the index
-only). `bio` and
-`links` need `name`.
+accessible name and tooltip; `retired: true` marks an account no longer
+used, which stays listed with `class="site-header__retired"` on its `li`,
+"(no longer used)" after its label, `<s>` around a text link, and "no longer
+used" after it in llms.txt), `bio` (markdown under the links, on the index
+only). `bio` and `links` need `name`. With `name`, the index's `og:type` is
+`profile`, with `profile:first_name` set to the name's first word and
+`profile:last_name` to the rest.
+
+Markdown headings, in pages and cards, get an `id` made from their text
+(`-2`, `-3`, ... on repeats) and end with an empty
+`<a class="section-link" href="#id">` for the stylesheet to draw.
 
 Card: `title`, `image` with `image_alt` (empty string for decoration),
 `page` (source path of a page) or `link` (URL), `background` (CSS color),

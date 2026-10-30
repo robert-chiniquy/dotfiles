@@ -87,6 +87,9 @@ pub struct ProfileLink {
     /// Site path of an SVG drawn in place of the label. It is inlined so it
     /// takes the text color.
     pub icon: Option<String>,
+    /// An account no longer used: still listed, struck through.
+    #[serde(default)]
+    pub retired: bool,
     /// The `icon` file's contents, read by [`build`].
     #[serde(skip)]
     pub svg: Option<String>,
@@ -378,7 +381,8 @@ fn render_llms(site: &SiteMeta, cards: &[(Card, String)], pages: &[(String, &Pag
     if !elsewhere.is_empty() {
         s.push_str("## Elsewhere\n\n");
         for link in elsewhere {
-            let _ = writeln!(s, "- [{}]({})", link.label, link.url);
+            let note = if link.retired { ": no longer used" } else { "" };
+            let _ = writeln!(s, "- [{}]({}){note}", link.label, link.url);
         }
         s.push('\n');
     }
@@ -407,11 +411,63 @@ pub fn escape(s: &str) -> String {
     out
 }
 
+/// Markdown to HTML. Each heading gets an `id` made from its text and ends
+/// with an empty `<a class="section-link" href="#id">` the stylesheet draws
+/// as a `#` link to the heading.
 pub fn markdown(src: &str) -> String {
     let opts = Options::ENABLE_TABLES | Options::ENABLE_FOOTNOTES | Options::ENABLE_STRIKETHROUGH;
+    let mut events: Vec<Event> = Parser::new_ext(src, opts).collect();
+    let mut used: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < events.len() {
+        if !matches!(events[i], Event::Start(Tag::Heading { .. })) {
+            i += 1;
+            continue;
+        }
+        let end = i + events[i..].iter().position(|e| matches!(e, Event::End(TagEnd::Heading(_)))).unwrap_or(0);
+        let text: String = events[i..end]
+            .iter()
+            .filter_map(|e| match e {
+                Event::Text(t) | Event::Code(t) => Some(t.as_ref()),
+                _ => None,
+            })
+            .collect();
+        let id = unique_id(slug(&text), &mut used);
+        if let Event::Start(Tag::Heading { id: heading_id, .. }) = &mut events[i] {
+            *heading_id = Some(id.clone().into());
+        }
+        events.insert(end, Event::InlineHtml(format!("<a class=\"section-link\" href=\"#{}\"></a>", escape(&id)).into()));
+        i = end + 2;
+    }
     let mut out = String::new();
-    html::push_html(&mut out, Parser::new_ext(src, opts));
+    html::push_html(&mut out, events.into_iter());
     out
+}
+
+/// Lowercase letters and digits of `text`, each other run joined by one `-`.
+fn slug(text: &str) -> String {
+    let mut s = String::new();
+    for c in text.chars().flat_map(char::to_lowercase) {
+        if c.is_alphanumeric() {
+            s.push(c);
+        } else if !s.is_empty() && !s.ends_with('-') {
+            s.push('-');
+        }
+    }
+    let s = s.trim_end_matches('-');
+    if s.is_empty() { "section".to_string() } else { s.to_string() }
+}
+
+/// `id`, or `id-2`, `id-3`, ... when an earlier heading took it.
+fn unique_id(id: String, used: &mut Vec<String>) -> String {
+    let mut candidate = id.clone();
+    let mut n = 2;
+    while used.contains(&candidate) {
+        candidate = format!("{id}-{n}");
+        n += 1;
+    }
+    used.push(candidate.clone());
+    candidate
 }
 
 /// The text of the first paragraph of `src` that has text, without markup:
@@ -631,16 +687,24 @@ fn render_index(
     head_extra: &str,
     image: Option<&ShareImage>,
 ) -> Result<String, String> {
+    // With a `name` the index is a person's page: an Open Graph profile, the
+    // first name being the name's first word and the last name the rest.
+    let mut extra = String::new();
+    if let Some((first, last)) = site.name.as_deref().and_then(|n| n.trim().split_once(char::is_whitespace)) {
+        let _ = writeln!(extra, "<meta property=\"profile:first_name\" content=\"{}\">", escape(first));
+        let _ = writeln!(extra, "<meta property=\"profile:last_name\" content=\"{}\">", escape(last.trim()));
+    }
+    extra.push_str(head_extra);
     let mut s = render_head(&Head {
         site,
         title: &site.title,
         description: site.description.as_deref(),
         path: "/",
         image,
-        og_type: "website",
+        og_type: if site.name.is_some() { "profile" } else { "website" },
         published: None,
         labels: &[],
-        extra: head_extra,
+        extra: &extra,
     });
     let mut header_card = None;
     for (card, body) in cards.iter().filter(|(c, _)| c.header) {
@@ -683,17 +747,25 @@ fn render_site_header(site: &SiteMeta, is_index: bool, card: Option<&str>) -> Op
     if !site.links.is_empty() {
         s.push_str("<ul class=\"site-header__links\">\n");
         for link in &site.links {
-            let (url, label) = (escape(&link.url), escape(&link.label));
+            let url = escape(&link.url);
+            let (li, label) = if link.retired {
+                ("<li class=\"site-header__retired\">", escape(&format!("{} (no longer used)", link.label)))
+            } else {
+                ("<li>", escape(&link.label))
+            };
             match &link.svg {
                 Some(svg) => {
                     let _ = writeln!(
                         s,
-                        "<li><a rel=\"me\" href=\"{url}\" aria-label=\"{label}\" title=\"{label}\"><span class=\"site-header__icon\" aria-hidden=\"true\">{}</span></a></li>",
+                        "{li}<a rel=\"me\" href=\"{url}\" aria-label=\"{label}\" title=\"{label}\"><span class=\"site-header__icon\" aria-hidden=\"true\">{}</span></a></li>",
                         svg.trim()
                     );
                 }
+                None if link.retired => {
+                    let _ = writeln!(s, "{li}<s><a rel=\"me\" href=\"{url}\">{}</a></s></li>", escape(&link.label));
+                }
                 None => {
-                    let _ = writeln!(s, "<li><a rel=\"me\" href=\"{url}\">{label}</a></li>");
+                    let _ = writeln!(s, "{li}<a rel=\"me\" href=\"{url}\">{label}</a></li>");
                 }
             }
         }
@@ -1285,6 +1357,49 @@ mod tests {
         assert!(page.contains("<link rel=\"describedby\" href=\"/llms.txt\" type=\"text/markdown\">"), "{page}");
         let md = fs::read_to_string(out.join("talks/x/index.md")).unwrap();
         assert_eq!(md, "# X\n\n> A talk.\n\n- Date: 1 October 2026\n- Venue: V\n- Web page: https://example.org/talks/x/\n\nA talk.\n");
+    }
+
+    #[test]
+    fn retired_link_stays_listed_struck_through() {
+        // Fails if a retired account drops out of the header or llms.txt,
+        // loses its class or <s>, or the note leaks onto a current account.
+        let root = tempdir("retired_link");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(
+            &src.join("index.md"),
+            "---\ntitle: Site\nurl: https://example.org/\nname: A B\nlinks:\n  - label: Old\n    url: https://old.example/a\n    retired: true\n  - label: New\n    url: https://new.example/a\n---\n",
+        )
+        .unwrap();
+        build(&src, &out).unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(index.contains("<li class=\"site-header__retired\"><s><a rel=\"me\" href=\"https://old.example/a\">Old</a></s></li>"), "{index}");
+        assert!(index.contains("<li><a rel=\"me\" href=\"https://new.example/a\">New</a></li>"), "{index}");
+        let llms = fs::read_to_string(out.join("llms.txt")).unwrap();
+        assert!(llms.contains("- [Old](https://old.example/a): no longer used\n- [New](https://new.example/a)\n"), "{llms}");
+    }
+
+    #[test]
+    fn headings_get_unique_ids_and_section_links() {
+        // Fails if a heading has no id, two headings with one text share an
+        // id, or the # link does not point at its own heading.
+        let html = markdown("## About me\n\ntext\n\n## About `me`\n\n### ?!\n");
+        assert!(html.contains("<h2 id=\"about-me\">About me<a class=\"section-link\" href=\"#about-me\"></a></h2>"), "{html}");
+        assert!(html.contains("<h2 id=\"about-me-2\">About <code>me</code><a class=\"section-link\" href=\"#about-me-2\"></a></h2>"), "{html}");
+        assert!(html.contains("<h3 id=\"section\">?!<a class=\"section-link\" href=\"#section\"></a></h3>"), "{html}");
+    }
+
+    #[test]
+    fn index_with_a_name_is_a_profile() {
+        // Fails if the index stays og:type website when the site names a
+        // person, or the name splits anywhere but its first space.
+        let root = tempdir("index_profile");
+        let (src, out) = (root.join("src"), root.join("out"));
+        write(&src.join("index.md"), "---\ntitle: Site\nname: Ana de la Cruz\n---\n").unwrap();
+        build(&src, &out).unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(index.contains("<meta property=\"og:type\" content=\"profile\">"), "{index}");
+        assert!(index.contains("<meta property=\"profile:first_name\" content=\"Ana\">"), "{index}");
+        assert!(index.contains("<meta property=\"profile:last_name\" content=\"de la Cruz\">"), "{index}");
     }
 
     #[test]
